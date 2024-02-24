@@ -1,0 +1,21 @@
+features:
+- run cd request
+- modman:
+  - module list installed
+  - module list all (mark installed in the list)
+  - module info
+    - license
+    - version
+    - statistics
+    - install date
+    - number of users
+    - publisher
+  - module configure
+  - module statistics
+  - module instal
+    - progress bar
+  - module uninstall
+
+publish cd module:
+
+
