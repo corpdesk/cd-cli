@@ -10,9 +10,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"plugin"
 
 	"github.com/fsnotify/fsnotify"
+	"github.com/tcp-x/cd-core/sys/base"
 
 	"github.com/spf13/cobra"
 )
@@ -99,102 +99,102 @@ func removeQt(s string) string {
 	return s[1 : len(s)-1]
 }
 
-func Run(req string) string {
+// func Run(req string) string {
 
-	// watchPlugins()
+// 	// watchPlugins()
 
-	fmt.Println("b::Run()/Processing JSON...")
+// 	fmt.Println("b::Run()/Processing JSON...")
 
-	r := json.Unmarshal([]byte(req), &jsonMap)
-	if r == nil {
-		fmt.Println("Successfull JSON encoding")
-		fmt.Println(jsonMap)
+// 	r := json.Unmarshal([]byte(req), &jsonMap)
+// 	if r == nil {
+// 		fmt.Println("Successfull JSON encoding")
+// 		fmt.Println(jsonMap)
 
-		jReq.ctx = removeQt(jToStr("ctx"))
-		jReq.m = removeQt(jToStr("m"))
-		jReq.c = removeQt(jToStr("c"))
-		jReq.a = removeQt(jToStr("a"))
-		jReq.dat = removeQt(jToStr("dat"))
+// 		jReq.ctx = removeQt(jToStr("ctx"))
+// 		jReq.m = removeQt(jToStr("m"))
+// 		jReq.c = removeQt(jToStr("c"))
+// 		jReq.a = removeQt(jToStr("a"))
+// 		jReq.dat = removeQt(jToStr("dat"))
 
-	} else {
-		fmt.Println("Error:", r)
-	}
+// 	} else {
+// 		fmt.Println("Error:", r)
+// 	}
 
-	/////////////////////////////////////
-	// Name of the plugin to load
-	fmt.Println("Controller:", jReq.c)
-	pluginName := "plugins/" + jReq.m + "/" + jReq.c + ".so" // Replace with the name of your plugin file
-	fmt.Println("pluginName:", pluginName)
+// 	/////////////////////////////////////
+// 	// Name of the plugin to load
+// 	fmt.Println("Controller:", jReq.c)
+// 	pluginName := "plugins/" + jReq.m + "/" + jReq.c + ".so" // Replace with the name of your plugin file
+// 	fmt.Println("pluginName:", pluginName)
 
-	///////////////////////////////////////
+// 	///////////////////////////////////////
 
-	/////////////////////////////////
-	// plg, err := plugin.Open(pluginName)
-	// if err != nil {
-	// 	log.Fatalf("Failed to open plugin: %s", err)
-	// }
+// 	/////////////////////////////////
+// 	// plg, err := plugin.Open(pluginName)
+// 	// if err != nil {
+// 	// 	log.Fatalf("Failed to open plugin: %s", err)
+// 	// }
 
-	// // loookup the function
-	// symbol, err := plg.Lookup("User")
-	// if err != nil {
-	// 	log.Fatalf("Failed to find plugin symbol 'Plugin': %s", err)
-	// }
+// 	// // loookup the function
+// 	// symbol, err := plg.Lookup("User")
+// 	// if err != nil {
+// 	// 	log.Fatalf("Failed to find plugin symbol 'Plugin': %s", err)
+// 	// }
 
-	// pluginInstance, ok := symbol.(Plugin)
-	// if !ok {
-	// 	log.Fatal("Symbol 'Plugin' does not implement the Plugin interface")
-	// }
+// 	// pluginInstance, ok := symbol.(Plugin)
+// 	// if !ok {
+// 	// 	log.Fatal("Symbol 'Plugin' does not implement the Plugin interface")
+// 	// }
 
-	// pluginInstance[Req.a](jReq.a)
+// 	// pluginInstance[Req.a](jReq.a)
 
-	// ////////////////////////////
+// 	// ////////////////////////////
 
-	// Load the plugin
-	// Glob – Gets the plugin to be loaded
-	// plugins, err := filepath.Glob(pluginName)
-	// plugins, err := plugin.Open(pluginName)
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// Open – Loads the plugin
-	fmt.Printf("Loading plugin %s", pluginName)
-	p, err := plugin.Open(pluginName)
-	if err != nil {
-		panic(err)
-	}
-	// // Lookup – Searches for a symbol name in the plugin
-	// symbol, err := p.Lookup("Add")
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// // symbol – Checks the function signature
-	// addFunc, ok := symbol.(func(int, int) int)
-	// if !ok {
-	// 	panic("Plugin has no 'Add(int)int' function")
-	// }
-	// // Uses the function to return results
-	// addition := addFunc(3, 4)
-	// fmt.Printf("\nAddition is:%d\n", addition)
+// 	// Load the plugin
+// 	// Glob – Gets the plugin to be loaded
+// 	// plugins, err := filepath.Glob(pluginName)
+// 	// plugins, err := plugin.Open(pluginName)
+// 	// if err != nil {
+// 	// 	panic(err)
+// 	// }
+// 	// Open – Loads the plugin
+// 	fmt.Printf("Loading plugin %s", pluginName)
+// 	p, err := plugin.Open(pluginName)
+// 	if err != nil {
+// 		panic(err)
+// 	}
+// 	// // Lookup – Searches for a symbol name in the plugin
+// 	// symbol, err := p.Lookup("Add")
+// 	// if err != nil {
+// 	// 	panic(err)
+// 	// }
+// 	// // symbol – Checks the function signature
+// 	// addFunc, ok := symbol.(func(int, int) int)
+// 	// if !ok {
+// 	// 	panic("Plugin has no 'Add(int)int' function")
+// 	// }
+// 	// // Uses the function to return results
+// 	// addition := addFunc(3, 4)
+// 	// fmt.Printf("\nAddition is:%d\n", addition)
 
-	////////////////////////////////////
-	// Lookup – Searches for Action symbol name in the plugin
-	symbolAx, errAuth := p.Lookup(jReq.a)
-	if errAuth != nil {
-		panic(errAuth)
-	}
+// 	////////////////////////////////////
+// 	// Lookup – Searches for Action symbol name in the plugin
+// 	symbolAx, errAuth := p.Lookup(jReq.a)
+// 	if errAuth != nil {
+// 		panic(errAuth)
+// 	}
 
-	// symbol – Checks the function signature
-	f, ok := symbolAx.(func(string) string)
-	if !ok {
-		panic("Plugin has no 'f(string)string' function")
-	}
+// 	// symbol – Checks the function signature
+// 	f, ok := symbolAx.(func(string) string)
+// 	if !ok {
+// 		panic("Plugin has no 'f(string)string' function")
+// 	}
 
-	// Uses f() function to return results
-	resp := f(jReq.dat)
-	fmt.Printf("\nf() return is:%s\n", resp)
+// 	// Uses f() function to return results
+// 	resp := f(jReq.dat)
+// 	fmt.Printf("\nf() return is:%s\n", resp)
 
-	return resp
-}
+// 	return resp
+// }
 
 // reqCmd represents the req command
 var reqCmd = &cobra.Command{
@@ -212,7 +212,8 @@ var reqCmd = &cobra.Command{
 				// Authenticat user and get a valid cdToken
 				// base.Auth("userName", "pswd")
 				fmt.Println("session is valid")
-				var resp string = Run(args[0])
+				// var resp string = Run(args[0])
+				var resp string = base.ExecPlug(args[0])
 				fmt.Println("resp:", resp)
 			}
 
