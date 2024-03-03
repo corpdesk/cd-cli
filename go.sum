@@ -5,16 +5,6 @@ github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSs
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/fsnotify/fsnotify v1.7.0 h1:8JEhPFa5W2WU7YfeZzPNqzMP6Lwt7L2715Ggo0nosvA=
 github.com/fsnotify/fsnotify v1.7.0/go.mod h1:40Bi/Hjc2AVfZrqy+aj+yEI+/bRxZnMJyTJwOpGvigM=
-github.com/georemo/cd-core/sys/base v0.0.0-20240223171653-9fabc7dc68ab h1:h59k6hqbN4aM0l0zrr595mrJCTKQorIz/Rz9wz8aGj8=
-github.com/georemo/cd-core/sys/base v0.0.0-20240223171653-9fabc7dc68ab/go.mod h1:XENMNnUzqdI1b/Ayqy/iZXNuuCqvaku/qr5qlTfH7+w=
-github.com/georemo/cd-core/sys/base v0.0.0-20240224072231-112d7dbf26a1 h1:lUZTZSR3ynaE0E9prvIPyb2l/vZCfyeLnMu6w7hnemw=
-github.com/georemo/cd-core/sys/base v0.0.0-20240224072231-112d7dbf26a1/go.mod h1:XENMNnUzqdI1b/Ayqy/iZXNuuCqvaku/qr5qlTfH7+w=
-github.com/georemo/cd-core/sys/base v0.0.0-20240224083859-99d5a3beca01 h1:tNs4/8QTYSEvrqMLjoETRWj/T/Gq/BEAF+z2pqiFxIY=
-github.com/georemo/cd-core/sys/base v0.0.0-20240224083859-99d5a3beca01/go.mod h1:XENMNnUzqdI1b/Ayqy/iZXNuuCqvaku/qr5qlTfH7+w=
-github.com/georemo/cd-core/sys/base v0.0.0-20240224120754-03c880a76a03 h1:XBg8mrlFhN1UWbHc3NrF132vmHWLUfOpejkZQJ6fizE=
-github.com/georemo/cd-core/sys/base v0.0.0-20240224120754-03c880a76a03/go.mod h1:XENMNnUzqdI1b/Ayqy/iZXNuuCqvaku/qr5qlTfH7+w=
-github.com/georemo/cd-core/sys/base v0.0.0-20240224122926-2271b5c05a39 h1:vrwfMT1oj+kvnwV7FtBrmHFoYp2fMutq85x1R4rHW/A=
-github.com/georemo/cd-core/sys/base v0.0.0-20240224122926-2271b5c05a39/go.mod h1:XENMNnUzqdI1b/Ayqy/iZXNuuCqvaku/qr5qlTfH7+w=
 github.com/hashicorp/hcl v1.0.0 h1:0Anlzjpi4vEasTeNFn2mLJgTSwt0+6sfsiTG8qcWGx4=
 github.com/hashicorp/hcl v1.0.0/go.mod h1:E5yfLk+7swimpb2L/Alb/PJmXilQ/rhwaUYs4T20WEQ=
 github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2s0bqwp9tc8=
