@@ -4,11 +4,26 @@ Copyright © 2024 NAME HERE <EMAIL ADDRESS>
 package cmd
 
 import (
-	"fmt"
+	"log"
+	"path/filepath"
 
-	"github.com/georemo/cd-core/sys/base"
+	"encoding/json"
+	"fmt"
+	"os"
+	"plugin"
+
+	"github.com/fsnotify/fsnotify"
+
 	"github.com/spf13/cobra"
 )
+
+type CdPlugin interface {
+	Auth(string) string
+	Create(string) string
+	Read(string) string
+	Update(string) string
+	Delete(string) string
+}
 
 type ICdRequest struct {
 	ctx  string
@@ -22,81 +37,164 @@ type ICdRequest struct {
 var jsonMap map[string]interface{}
 var jReq ICdRequest
 
-// func jToStr(field string) string {
-// 	f := jsonMap[field]
-// 	// fmt.Println("ctx:", ctx)
-// 	biteF, err := json.Marshal(f)
-// 	if err != nil {
-// 		fmt.Fprintln(os.Stderr, err)
-// 		return ""
-// 	} else {
-// 		// fmt.Println("biteF:", biteF)
-// 		return string(biteF[:])
-// 	}
+func watchPlugins() {
+	// Specify the directory to monitor
+	directory := "./plugins/"
 
-// }
+	// Create a new watcher
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		log.Fatal("Error creating watcher:", err)
+	}
+	defer watcher.Close()
 
-// func removeQt(s string) string {
-// 	return s[1 : len(s)-1]
-// }
+	// Add the directory to the watcher
+	err = filepath.Walk(directory, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			log.Printf("Error accessing path %s: %v", path, err)
+			return nil
+		}
+		if info.IsDir() {
+			return watcher.Add(path)
+		}
+		return nil
+	})
+	if err != nil {
+		log.Fatal("Error walking directory:", err)
+	}
 
-// func Run(req string) string {
+	// Start watching for events
+	for {
+		select {
+		case event, ok := <-watcher.Events:
+			if !ok {
+				return
+			}
+			log.Printf("Event: %s, Path: %s", event.Op, event.Name)
 
-// 	fmt.Println("b::Run()/Processing JSON...")
+		case err, ok := <-watcher.Errors:
+			if !ok {
+				return
+			}
+			log.Println("Error:", err)
+		}
+	}
+}
 
-// 	r := json.Unmarshal([]byte(req), &jsonMap)
-// 	if r == nil {
-// 		fmt.Println("Successfull JSON encoding")
-// 		fmt.Println(jsonMap)
+func jToStr(field string) string {
+	f := jsonMap[field]
+	// fmt.Println("ctx:", ctx)
+	biteF, err := json.Marshal(f)
+	if err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		return ""
+	} else {
+		// fmt.Println("biteF:", biteF)
+		return string(biteF[:])
+	}
 
-// 		jReq.ctx = removeQt(jToStr("ctx"))
-// 		jReq.m = removeQt(jToStr("m"))
-// 		jReq.c = removeQt(jToStr("c"))
-// 		jReq.a = removeQt(jToStr("a"))
-// 		jReq.dat = removeQt(jToStr("dat"))
+}
 
-// 	} else {
-// 		fmt.Println("Error:", r)
-// 	}
+func removeQt(s string) string {
+	return s[1 : len(s)-1]
+}
 
-// 	/////////////////////////////////////
-// 	// Name of the plugin to load
-// 	fmt.Println("Controller:", jReq.c)
-// 	pluginName := jReq.c + ".so" // Replace with the name of your plugin file
-// 	fmt.Println("pluginName:", pluginName)
+func Run(req string) string {
 
-// 	// Load the plugin
-// 	p, err := plugin.Open(pluginName)
-// 	if err != nil {
-// 		fmt.Println("Error opening plugin:", err)
-// 		return "{}"
-// 	}
+	// watchPlugins()
 
-// 	// Look up the symbol (function) in the plugin
-// 	runSymbol, err := p.Lookup(jReq.a)
-// 	if err != nil {
-// 		fmt.Println("Error finding symbol in plugin:", err)
-// 		return "{}"
-// 	}
+	fmt.Println("b::Run()/Processing JSON...")
 
-// 	// Assert that the symbol implements the PluginInterface
-// 	var pluginFunc func(string) (string, error)
-// 	pluginFunc, ok := runSymbol.(func(string) (string, error))
-// 	if !ok {
-// 		fmt.Println("Error: Symbol does not implement expected interface.")
-// 		return "{}"
-// 	}
+	r := json.Unmarshal([]byte(req), &jsonMap)
+	if r == nil {
+		fmt.Println("Successfull JSON encoding")
+		fmt.Println(jsonMap)
 
-// 	// Call the function in the plugin with input parameters
-// 	resp, err := pluginFunc(jReq.dat)
-// 	if err != nil {
-// 		fmt.Println("Error calling plugin function:", err)
-// 		return "{}"
-// 	}
+		jReq.ctx = removeQt(jToStr("ctx"))
+		jReq.m = removeQt(jToStr("m"))
+		jReq.c = removeQt(jToStr("c"))
+		jReq.a = removeQt(jToStr("a"))
+		jReq.dat = removeQt(jToStr("dat"))
 
-// 	fmt.Println("Plugin function returned:", resp)
-// 	return resp
-// }
+	} else {
+		fmt.Println("Error:", r)
+	}
+
+	/////////////////////////////////////
+	// Name of the plugin to load
+	fmt.Println("Controller:", jReq.c)
+	pluginName := "plugins/" + jReq.m + "/" + jReq.c + ".so" // Replace with the name of your plugin file
+	fmt.Println("pluginName:", pluginName)
+
+	///////////////////////////////////////
+
+	/////////////////////////////////
+	// plg, err := plugin.Open(pluginName)
+	// if err != nil {
+	// 	log.Fatalf("Failed to open plugin: %s", err)
+	// }
+
+	// // loookup the function
+	// symbol, err := plg.Lookup("User")
+	// if err != nil {
+	// 	log.Fatalf("Failed to find plugin symbol 'Plugin': %s", err)
+	// }
+
+	// pluginInstance, ok := symbol.(Plugin)
+	// if !ok {
+	// 	log.Fatal("Symbol 'Plugin' does not implement the Plugin interface")
+	// }
+
+	// pluginInstance[Req.a](jReq.a)
+
+	// ////////////////////////////
+
+	// Load the plugin
+	// Glob – Gets the plugin to be loaded
+	// plugins, err := filepath.Glob(pluginName)
+	// plugins, err := plugin.Open(pluginName)
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// Open – Loads the plugin
+	fmt.Printf("Loading plugin %s", pluginName)
+	p, err := plugin.Open(pluginName)
+	if err != nil {
+		panic(err)
+	}
+	// // Lookup – Searches for a symbol name in the plugin
+	// symbol, err := p.Lookup("Add")
+	// if err != nil {
+	// 	panic(err)
+	// }
+	// // symbol – Checks the function signature
+	// addFunc, ok := symbol.(func(int, int) int)
+	// if !ok {
+	// 	panic("Plugin has no 'Add(int)int' function")
+	// }
+	// // Uses the function to return results
+	// addition := addFunc(3, 4)
+	// fmt.Printf("\nAddition is:%d\n", addition)
+
+	////////////////////////////////////
+	// Lookup – Searches for Action symbol name in the plugin
+	symbolAx, errAuth := p.Lookup(jReq.a)
+	if errAuth != nil {
+		panic(errAuth)
+	}
+
+	// symbol – Checks the function signature
+	f, ok := symbolAx.(func(string) string)
+	if !ok {
+		panic("Plugin has no 'f(string)string' function")
+	}
+
+	// Uses f() function to return results
+	resp := f(jReq.dat)
+	fmt.Printf("\nf() return is:%s\n", resp)
+
+	return resp
+}
 
 // reqCmd represents the req command
 var reqCmd = &cobra.Command{
@@ -110,8 +208,14 @@ var reqCmd = &cobra.Command{
 			fmt.Println("Args are more than 1")
 			return
 		} else {
-			var resp string = base.Run(args[0])
-			fmt.Println("resp:", resp)
+			if SessIsValid() {
+				// Authenticat user and get a valid cdToken
+				// base.Auth("userName", "pswd")
+				fmt.Println("session is valid")
+				var resp string = Run(args[0])
+				fmt.Println("resp:", resp)
+			}
+
 		}
 
 	},

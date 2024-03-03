@@ -1,3 +1,5 @@
+github.com/bradfitz/gomemcache v0.0.0-20230905024940-24af94b03874 h1:N7oVaKyGp8bttX0bfZGmcGkjz7DLQXhAn3DNd3T0ous=
+github.com/bradfitz/gomemcache v0.0.0-20230905024940-24af94b03874/go.mod h1:r5xuitiExdLAJ09PR7vBVENGvp4ZuTBeWTGtxuX3K+c=
 github.com/cpuguy83/go-md2man/v2 v2.0.3/go.mod h1:tgQtvFlXSQOSOSIRvRPT7W67SCa46tRHOmNcaadrF8o=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
@@ -11,6 +13,8 @@ github.com/georemo/cd-core/sys/base v0.0.0-20240224083859-99d5a3beca01 h1:tNs4/8
 github.com/georemo/cd-core/sys/base v0.0.0-20240224083859-99d5a3beca01/go.mod h1:XENMNnUzqdI1b/Ayqy/iZXNuuCqvaku/qr5qlTfH7+w=
 github.com/georemo/cd-core/sys/base v0.0.0-20240224120754-03c880a76a03 h1:XBg8mrlFhN1UWbHc3NrF132vmHWLUfOpejkZQJ6fizE=
 github.com/georemo/cd-core/sys/base v0.0.0-20240224120754-03c880a76a03/go.mod h1:XENMNnUzqdI1b/Ayqy/iZXNuuCqvaku/qr5qlTfH7+w=
+github.com/georemo/cd-core/sys/base v0.0.0-20240224122926-2271b5c05a39 h1:vrwfMT1oj+kvnwV7FtBrmHFoYp2fMutq85x1R4rHW/A=
+github.com/georemo/cd-core/sys/base v0.0.0-20240224122926-2271b5c05a39/go.mod h1:XENMNnUzqdI1b/Ayqy/iZXNuuCqvaku/qr5qlTfH7+w=
 github.com/hashicorp/hcl v1.0.0 h1:0Anlzjpi4vEasTeNFn2mLJgTSwt0+6sfsiTG8qcWGx4=
 github.com/hashicorp/hcl v1.0.0/go.mod h1:E5yfLk+7swimpb2L/Alb/PJmXilQ/rhwaUYs4T20WEQ=
 github.com/inconshreveable/mousetrap v1.1.0 h1:wN+x4NVGpMsO7ErUn/mUI3vEoE6Jt13X2s0bqwp9tc8=

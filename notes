@@ -1,21 +1,45 @@
 features:
-- run cd request
-- modman:
-  - module list installed
-  - module list all (mark installed in the list)
-  - module info
-    - license
-    - version
-    - statistics
-    - install date
-    - number of users
-    - publisher
-  - module configure
-  - module statistics
-  - module instal
-    - progress bar
-  - module uninstall
+  execute json request:
+  - run standard cd request against a given plugin and receive standard cd response
 
-publish cd module:
+    cmd samples:
+    - {
+      "ctx":"Sys",
+      "m":"User",
+      "c":"User",
+      "a":"Login",
+      "dat":{
+          "f_vals":[
+            {
+                "data":{
+                  "userName":"karl",
+                  "password":"secret",
+                  "consumerGuid":"B0B3DA99-1859-A499-90F6-1E3F69575DCD"
+                }
+            }
+          ],
+          "token":null
+      },
+      "args":null
+    }
+
+  req:
+  - send json request
+
+  mod:
+  - list installed
+  - list all...mark installed
+
+  user:
+  - register (varifiable email address)
+  - auth via public-key signed by corpdesk ca
+
+  session management:
+    - using memcached
+    - ToDo: 
+    - mamcached authenatication
+    - Ref: https://www.digitalocean.com/community/tutorials/how-to-install-and-secure-memcached-on-ubuntu-22-04
+
+
 
 

@@ -7,11 +7,13 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/bradfitz/gomemcache/memcache"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
 var cfgFile string
+var mc = memcache.New("localhost:11211")
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{

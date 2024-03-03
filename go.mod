@@ -2,7 +2,10 @@ module cd-cli
 
 go 1.21.5
 
+require github.com/georemo/cd-core/sys/base v0.0.0-20240224122926-2271b5c05a39
+
 require (
+	github.com/bradfitz/gomemcache v0.0.0-20230905024940-24af94b03874 // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
