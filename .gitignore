@@ -1,0 +1,12 @@
+node_modules
+dist
+types
+.idea
+.DS_Store
+src/templates
+# Ignore everything in app except the .gitkeep
+src/CdCli/app/*
+!src/CdCli/app/.gitkeep
+# .env for automated uploads
+src/devops-scripts/cd-api/env_*
+.env
