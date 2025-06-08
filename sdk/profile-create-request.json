@@ -1,0 +1,71 @@
+{
+  "ctx": "Sys",
+  "m": "CdCli",
+  "c": "CdCliProfile",
+  "a": "Create",
+  "dat": {
+    "f_vals": [
+      {
+        "data": {
+          "cdCliProfileName": "open-ai",
+          "cdCliProfileDescription": "open-ai access credetials",
+          "cdCliProfileData": {
+            "type": "open-ai",
+            "typeId": 11,
+            "owner": { "userId": 1010, "groupId": 0 },
+            "permissions": {
+              "userPermissions": [
+                {
+                  "userId": 1000,
+                  "field": "openAiKey",
+                  "hidden": true,
+                  "read": true,
+                  "write": true,
+                  "execute": false
+                }
+              ],
+              "groupPermissions": [
+                {
+                  "groupId": 0,
+                  "field": "openAiKey",
+                  "hidden": false,
+                  "read": true,
+                  "write": false,
+                  "execute": false
+                }
+              ]
+            },
+            "details": {
+              "profileName": "open-ai",
+              "description": "open-ai access credetials",
+              "apiKey": {
+                "name": "apiKey",
+                "description": "Encrypted data",
+                "value": null,
+                "encryptedValue": "df8d7c0782fcabd69b0425fe6b3d1dc54a2d9764c74db29a99a094fa8b2a051b37fceb141bd6d6ab2257b8483b044c005b91a0037fadf1c4bd976f6a09ca92d6d8ba4c195a844d0f7afd4e1f8693d5dc83cc843685a633fcc96930e2751d2eb87d725461c31dae8562b1a5e758e753e005988cbc8241fa28f51ade24446d3c43e879371f046944b9ab7a35aaca39250034059c959aa7f36f2025285bd2ddcd5cdedbbff4ecb55b396f40e9f443158f80",
+                "isEncrypted": true,
+                "encryptionMeta": {
+                  "name": "default",
+                  "algorithm": "aes-256-cbc",
+                  "encoding": "hex",
+                  "ivLength": 16,
+                  "iv": "d183054de1ded1dea33d576a8a88fda3",
+                  "encryptedAt": "2025-05-20T18:58:00.637Z"
+                }
+              },
+              "organizationId": "EmpServices",
+              "openAiProjectName": "CorpdeskAI",
+              "cryptFields": ["apiKey"],
+              "encrypted": true
+            }
+          },
+          "cdCliProfileEnabled": true,
+          "cdCliProfileTypeId": 11,
+          "userId": 1010
+        }
+      }
+    ],
+    "token": "#cdVault['cd_token']"
+  },
+  "args": {}
+}

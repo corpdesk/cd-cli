@@ -1,0 +1,31 @@
+{
+  "type": "open-ai",
+  "typeId": 11,
+  "owner": {
+    "userId": 1010,
+    "groupId": 0
+  },
+  "permissions": {
+    "userPermissions": [
+      {
+        "userId": 1000,
+        "field": "openAiKey",
+        "hidden": true,
+        "read": true,
+        "write": true,
+        "execute": false
+      }
+    ],
+    "groupPermissions": [
+      {
+        "groupId": 0,
+        "field": "openAiKey",
+        "hidden": false,
+        "read": true,
+        "write": false,
+        "execute": false
+      }
+    ]
+  },
+  "details": {}
+}

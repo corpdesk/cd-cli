@@ -1,0 +1,105 @@
+{
+  "name": "Setup Development Environment",
+  "stages": [
+    {
+      "name": "User Setup",
+      "tasks": [
+        {
+          "name": "Create devops user",
+          "type": "script-inline",
+          "executor": "bash",
+          "script": "if ! id \"devops\" &>/dev/null; then sudo useradd -m -s /bin/bash devops; echo \"devops:yU0B14NC1PdE\" | sudo chpasswd; fi",
+          "status": "pending"
+        },
+        {
+          "name": "Set up home directory",
+          "type": "script-inline",
+          "executor": "bash",
+          "script": "sudo cp -r /etc/skel/. /home/devops/ && sudo chown -R devops:devops /home/devops/",
+          "status": "pending"
+        },
+        {
+          "name": "Grant sudo access",
+          "type": "script-file",
+          "executor": "bash",
+          "scriptFile": "/src/devops-scripts/cd-api/grant_sudo_access.sh",
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "name": "System Dependencies",
+      "tasks": [
+        {
+          "name": "Update system",
+          "type": "script-inline",
+          "executor": "bash",
+          "script": "sudo apt update && sudo apt upgrade -y",
+          "status": "pending"
+        },
+        {
+          "name": "Install required packages",
+          "type": "script-inline",
+          "executor": "bash",
+          "script": "sudo apt install -y net-tools nodejs npm redis-server",
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "name": "Node.js & TypeScript",
+      "tasks": [
+        {
+          "name": "Install TypeScript globally",
+          "type": "method",
+          "executor": "cd-cli",
+          "className": "CdCliUtils",
+          "methodName": "exec",
+          "input": {
+            "cmds": ["npm install -g typescript"],
+            "options": { "mode": "sync" }
+          },
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "name": "Clone & Setup cd-api",
+      "tasks": [
+        {
+          "name": "Clone cd-api repository",
+          "type": "script-inline",
+          "executor": "bash",
+          "script": "git clone https://github.com/corpdesk/cd-api.git /home/devops/cd-api",
+          "status": "pending"
+        },
+        {
+          "name": "Install cd-api dependencies",
+          "type": "script-inline",
+          "executor": "bash",
+          "script": "cd /home/devops/cd-api && npm install",
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "name": "Start Services",
+      "tasks": [
+        {
+          "name": "Start Redis Server",
+          "type": "script-inline",
+          "executor": "bash",
+          "script": "sudo systemctl start redis-server",
+          "status": "pending"
+        },
+        {
+          "name": "Start cd-api",
+          "type": "script-inline",
+          "executor": "bash",
+          "script": "cd /home/devops/cd-api && npm run dev",
+          "status": "pending"
+        }
+      ]
+    }
+  ]
+}

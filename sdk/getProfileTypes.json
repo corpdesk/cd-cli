@@ -1,0 +1,15 @@
+{
+  "ctx": "Sys",
+  "m": "CdCli",
+  "c": "CdCliProfile",
+  "a": "GetTypeCount",
+  "dat": {
+    "f_vals": [
+      {
+        "query": { "where": {} }
+      }
+    ],
+    "token": "d33bb2d3-f4d5-42b4-8e31-44fed3e29826"
+  },
+  "args": null
+}

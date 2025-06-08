@@ -1,0 +1,230 @@
+{
+  "items": [
+    {
+      "cdCliProfileId": 1,
+      "cdCliProfileGuid": "a9246764-f6b7-4b63-93c1-12fb24f88c8f",
+      "cdCliProfileName": "devServer-ssh-profile",
+      "cdCliProfileDescription": "A profile for ssh connection to local dev server",
+      "cdCliProfileData": {
+        "owner": {
+          "userId": 1010,
+          "groupId": 0
+        },
+        "details": {
+          "sshKey": null,
+          "cdApiDir": "~/cd-api",
+          "devServer": "192.168.1.70",
+          "remoteUser": "devops"
+        },
+        "permissions": {
+          "userPermissions": [
+            {
+              "read": true,
+              "field": "sshKey",
+              "write": true,
+              "hidden": false,
+              "userId": 1000,
+              "execute": false
+            }
+          ],
+          "groupPermissions": [
+            {
+              "read": true,
+              "field": "sshKey",
+              "write": false,
+              "hidden": false,
+              "execute": false,
+              "groupId": 0
+            }
+          ]
+        }
+      },
+      "cdCliProfileEnabled": 1,
+      "cdCliProfileTypeId": 2,
+      "cdCliProfileTypeGuid": "5948e678-8a7a-4305-a87d-4ccd078fdd83",
+      "userId": 1010
+    },
+    {
+      "cdCliProfileId": 2,
+      "cdCliProfileGuid": "3ff7f765-0bbf-4c6f-920c-14bcfa63da1d",
+      "cdCliProfileName": "cd-git-config",
+      "cdCliProfileDescription": "Github config for corpdesk projects",
+      "cdCliProfileData": {
+        "owner": {
+          "userId": 1010,
+          "groupId": 0
+        },
+        "details": {
+          "gitRepos": [
+            {
+              "repoHost": "corpdesk",
+              "projName": "coop"
+            },
+            {
+              "repoHost": "corpdesk",
+              "projName": "coop"
+            }
+          ],
+          "gitAccess": {
+            "gitHubToken": "#cdVault['gitHubToken']",
+            "gitHubUser": "georemo",
+            "baseRepoUrl": "https://github.com",
+            "apiRepoUrl": "https://api.github.com"
+          }
+        },
+        "cdVault": [
+          {
+            "name": "gitHubToken",
+            "description": "github access token",
+            "isEncrypted": true,
+            "value": null,
+            "encryptedValue": "<encrypted-token>",
+            "encryptionMeta": {
+              "iv": "1a94d8c6b7e8...901f",
+              "encoding": "hex",
+              "algorithm": "aes-256-cbc",
+              "encryptedToken": "3a94d8c6b7...e04a"
+            }
+          }
+        ],
+        "permissions": {
+          "userPermissions": [
+            {
+              "read": true,
+              "field": "sshKey",
+              "write": true,
+              "hidden": false,
+              "userId": 1000,
+              "execute": false
+            }
+          ],
+          "groupPermissions": [
+            {
+              "read": true,
+              "field": "sshKey",
+              "write": false,
+              "hidden": false,
+              "execute": false,
+              "groupId": 0
+            }
+          ]
+        }
+      },
+      "cdCliProfileEnabled": 1,
+      "cdCliProfileTypeId": 3,
+      "cdCliProfileTypeGuid": "af99473c-ed8b-4579-b945-97c77b36efb9",
+      "userId": 1010
+    },
+    {
+      "cdCliProfileId": 3,
+      "cdCliProfileGuid": "1baab097-4d34-4e12-a9c2-d5f8d1c73583",
+      "cdCliProfileName": "frontend-aws-prod",
+      "cdCliProfileDescription": "Profile for the development server",
+      "cdCliProfileData": {
+        "owner": {
+          "userId": 1010,
+          "groupId": 0
+        },
+        "details": {
+          "sshKey": "~/.ssh/aws_frontend.pem",
+          "cdApiDir": "~/",
+          "devServer": "asdap.net",
+          "remoteUser": "ubuntu"
+        },
+        "permissions": {
+          "userPermissions": [
+            {
+              "read": true,
+              "field": "sshKey",
+              "write": true,
+              "hidden": false,
+              "userId": 1000,
+              "execute": false
+            }
+          ],
+          "groupPermissions": [
+            {
+              "read": true,
+              "field": "sshKey",
+              "write": false,
+              "hidden": false,
+              "execute": false,
+              "groupId": 0
+            }
+          ]
+        }
+      },
+      "cdCliProfileEnabled": 1,
+      "cdCliProfileTypeId": 3,
+      "cdCliProfileTypeGuid": "af99473c-ed8b-4579-b945-97c77b36efb9",
+      "userId": 1010
+    },
+    {
+      "cdCliProfileId": 4,
+      "cdCliProfileGuid": "7e972f45-528e-4cac-ad02-6bdb100f901f",
+      "cdCliProfileName": "cd-api-local",
+      "cdCliProfileDescription": "Profile for the development server",
+      "cdCliProfileData": {
+        "owner": {
+          "userId": 1010,
+          "groupId": 0
+        },
+        "cdVault": [
+          {
+            "name": "cd_token",
+            "value": "d33bb2d3-f4d5-42b4-8e31-44fed3e29826",
+            "description": "cd-api token",
+            "isEncrypted": false,
+            "encryptedValue": null,
+            "encryptionMeta": null
+          },
+          {
+            "name": "consumerToken",
+            "value": "B0B3DA99-1859-A499-90F6-1E3F69575DCD",
+            "description": "cd-api consumerToken",
+            "isEncrypted": false,
+            "encryptedValue": null,
+            "encryptionMeta": null
+          }
+        ],
+        "details": {
+          "session": {
+            "cd_token": "#cdVault['cd_token']",
+            "userId": 1010,
+            "jwt": null,
+            "ttl": 600
+          },
+          "cdEndpoint": "https://localhost:3001/api",
+          "permissions": {
+            "userPermissions": [
+              {
+                "read": true,
+                "field": "cdCliProfileData",
+                "write": true,
+                "hidden": false,
+                "userId": 1000,
+                "execute": false
+              }
+            ],
+            "groupPermissions": [
+              {
+                "read": true,
+                "field": "cdCliProfileData",
+                "write": false,
+                "hidden": false,
+                "execute": false,
+                "groupId": 0
+              }
+            ]
+          },
+          "consumerToken": "#cdVault['consumerToken']"
+        }
+      },
+      "cdCliProfileEnabled": 1,
+      "cdCliProfileTypeId": 10,
+      "cdCliProfileTypeGuid": "a20f81fb-4be1-4161-800c-3def9223eb32",
+      "userId": 1010
+    }
+  ],
+  "count": 4
+}

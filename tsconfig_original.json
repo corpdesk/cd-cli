@@ -1,0 +1,28 @@
+{
+  "compilerOptions": {
+    "target": "es2022",
+    "module": "commonjs",
+    "outDir": "./dist",                       
+    "rootDir": "./src",                       
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "experimentalDecorators": true,
+    "emitDecoratorMetadata": true,
+    "forceConsistentCasingInFileNames": true,
+    "baseUrl": "./src",                       
+    "paths": {
+      "~/*": ["./*"],                       
+      "@CdCli/*": ["./CdCli/*"],
+      "@sys/*": ["./CdCli/sys/*"],
+      "@app/*": ["./CdCli/app/*"]
+    }
+  },
+  "include": [
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "**/*.spec.ts"
+  ]
+}

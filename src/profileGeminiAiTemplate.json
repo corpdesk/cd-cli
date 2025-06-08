@@ -1,0 +1,31 @@
+{
+  "type": "gemini-ai",
+  "typeId": 12,
+  "owner": {
+    "userId": 1010,
+    "groupId": 0
+  },
+  "permissions": {
+    "userPermissions": [
+      {
+        "userId": 1000,
+        "field": "geminiAiKey",
+        "hidden": true,
+        "read": true,
+        "write": true,
+        "execute": false
+      }
+    ],
+    "groupPermissions": [
+      {
+        "groupId": 0,
+        "field": "geminiAiKey",
+        "hidden": false,
+        "read": true,
+        "write": false,
+        "execute": false
+      }
+    ]
+  },
+  "details": {}
+}

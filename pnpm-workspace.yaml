@@ -1,0 +1,8 @@
+ignoredBuiltDependencies:
+  - '@nestjs/core'
+  - '@swc/core'
+  - bcrypt
+  - cpu-features
+  - puppeteer
+  - sqlite3
+  - ssh2

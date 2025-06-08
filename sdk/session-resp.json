@@ -1,0 +1,57 @@
+{
+  "p": {
+    "ctx": "Sys",
+    "m": "CdCli",
+    "c": "CdCliProfile",
+    "a": "Create",
+    "dat": {
+      "f_vals": [
+        {
+          "data": {
+            "cdCliProfileName": "open-ai",
+            "cdCliProfileDescription": "Profile for the development server",
+            "cdCliProfileData": {
+              "type": "open-ai",
+              "typeId": 11,
+              "owner": { "userId": 1010, "groupId": 0 },
+              "permissions": {
+                "userPermissions": [
+                  {
+                    "userId": 1000,
+                    "field": "openAiKey",
+                    "hidden": true,
+                    "read": true,
+                    "write": true,
+                    "execute": false
+                  }
+                ],
+                "groupPermissions": [
+                  {
+                    "groupId": 0,
+                    "field": "openAiKey",
+                    "hidden": false,
+                    "read": true,
+                    "write": false,
+                    "execute": false
+                  }
+                ]
+              },
+              "details": {
+                "profileName": "open-ai",
+                "description": "Profile for the development server",
+                "apiKey": "sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+                "organizationId": "EmpServices",
+                "openAiProjectName": "CorpdeskAI"
+              }
+            },
+            "cdCliProfileEnabled": true,
+            "cdCliProfileTypeId": 11,
+            "userId": 1010
+          }
+        }
+      ],
+      "token": "#cdVault['cd_token']"
+    },
+    "args": {}
+  }
+}

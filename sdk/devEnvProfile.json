@@ -1,0 +1,91 @@
+{
+  "owner": {
+    "userId": 1010,
+    "groupId": 0
+  },
+  "details": {
+    "workstation": {
+      "name": "unknown",
+      "workstationAccess": {
+        "accessScope": "local",
+        "physicalAccess": "direct",
+        "transport": {
+          "protocol": "unknown",
+          "credentials": {
+            "sshCredentials": {
+              "username": "unknown",
+              "host": "127.0.0.1",
+              "port": -1
+            }
+          }
+        },
+        "interactionType": "cli"
+      },
+      "machineType": {
+        "name": "unknown",
+        "hostMachine": {
+          "containerId": "unknown",
+          "image": "unknown",
+          "allocatedResources": {
+            "cpuCores": 0,
+            "memory": { "units": "GB", "value": 0 },
+            "storage": { "units": "GB", "value": 0 }
+          }
+        }
+      },
+      "os": {
+        "name": "Unknown",
+        "version": "0.0",
+        "architecture": "unknown",
+        "timezone": "unknown"
+      },
+      "enabled": true,
+      "requiredSoftware": [
+        {
+          "name": "unknown",
+          "category": "unknown",
+          "type": "unknown",
+          "source": "unknown",
+          "scope": "unknown"
+        }
+      ]
+    }
+  },
+  "cdVault": [
+    {
+      "name": "gitHubToken",
+      "description": "github access token",
+      "isEncrypted": true,
+      "value": null,
+      "encryptedValue": "<encrypted-token>",
+      "encryptionMeta": {
+        "iv": "1a94d8c6b7e8...901f",
+        "encoding": "hex",
+        "algorithm": "aes-256-cbc",
+        "encryptedToken": "3a94d8c6b7...e04a"
+      }
+    }
+  ],
+  "permissions": {
+    "userPermissions": [
+      {
+        "read": true,
+        "field": "sshKey",
+        "write": true,
+        "hidden": false,
+        "userId": 1000,
+        "execute": false
+      }
+    ],
+    "groupPermissions": [
+      {
+        "read": true,
+        "field": "sshKey",
+        "write": false,
+        "hidden": false,
+        "execute": false,
+        "groupId": 0
+      }
+    ]
+  }
+}

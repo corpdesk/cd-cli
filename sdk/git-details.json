@@ -1,0 +1,28 @@
+{
+  "gitAccess": {
+    "baseRepoUrl": "https:/github.com",
+    "username": "georemo",
+    "cd-vault": {
+      "name": "gitHubToken",
+      "description": "github access token",
+      "encryptedValue": "<encrypted-token>",
+      "isEncrypted:": true,
+      "EncryptionMeta": {
+        "encryptedToken": "3a94d8c6b7...e04a",
+        "algorithm": "aes-256-cbc",
+        "encoding": "hex",
+        "iv": "1a94d8c6b7e8...901f"
+      }
+    }
+  },
+  "gitRepos": [
+    {
+      "projName": "coop",
+      "repoHost": "corpdesk"
+    },
+    {
+      "projName": "coop",
+      "repoHost": "corpdesk"
+    }
+  ]
+}

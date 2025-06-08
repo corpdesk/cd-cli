@@ -1,0 +1,49 @@
+# FRONTEND
+# destroy (and backup config files) a droplet
+bash src/devops-scripts/do_destroy_asdap.sh
+# launch and setup a new droplet
+bash src/devops-scripts/do_init_asdap.sh
+# install dependencies for running frontend applications
+bash src/devops-scripts/do_scp_exec.sh cd_frontend_dependencies.sh
+# set up dns for module federation modules domain and subdomains
+bash src/devops-scripts/setup_asdap_dns.sh
+# set up main domain in apache
+bash src/devops-scripts/do_scp_exec.sh setup_asdap_domain.sh
+
+# setup subdomains
+bash src/devops-scripts/cd-frontend/scp_and_exec.sh setup_subdomain.sh -- cd-user
+bash src/devops-scripts/cd-frontend/scp_and_exec.sh setup_subdomain.sh -- cd-moduleman
+bash src/devops-scripts/cd-frontend/scp_and_exec.sh setup_subdomain.sh -- cd-comm
+bash src/devops-scripts/cd-frontend/scp_and_exec.sh setup_subdomain.sh -- coops
+
+# upload scripts for updating domain and subdomain source codes.
+bash src/devops-scripts/cd-frontend/scp_and_exec.sh --dest-dir /home/devops --user devops --upload-only updateRemoteApp.sh
+
+sh deliverRemoteApp.sh asdap.africa cd-user ng-15
+sh deliverRemoteApp.sh asdap.africa cd-moduleman ng-15
+sh deliverRemoteApp.sh asdap.africa cd-comm ng-15
+sh deliverRemoteApp.sh asdap.africa coops ng-15
+
+
+# BACKEND
+# install dependencies for cd-api and cd-sio
+bash src/devops-scripts/cd-api/scp_and_exec.sh install_cdapi_deps.sh
+# upload config files for cd-api and cd-sio
+bash src/devops-scripts/cd-api/scp_and_exec.sh --dest-dir /home/devops --user devops --upload-only env_api.txt env_sio.txt config.ts install_apps.sh
+# deploy cd-api and cd-sio
+bash src/devops-scripts/cd-api/scp_and_exec.sh --dest-dir /home/devops --user devops deploy_cdapi.sh
+
+Backend Issues to resolve:
+- automate the process of starting up cd-api and cd-sio using systemctl
+    - make sure it is nvm that is managing the npm
+    - on the file /home/emp-12/cd-projects/cd-api/sdk/cd-daemon-config/start_cd_api.sh, change the node version
+    - when starting, node, the version directory should be selected based on dynamically determining the right one.
+    - this correction shoule be implemented from ~/cd-api/sdk/cd-daemon-config/start_cd_api.sh and the corresponding file.
+- git pull in a way that overrides the local changes
+- config.ts should rely on .env fully and removed from .gitignore
+- revisit .env to harmonize how to auto update
+- analyze usage of scp_exect.sh to be versatile
+	- upload file
+	- upload and execute
+	- upload and execute as a given user
+	- upload to specific directory

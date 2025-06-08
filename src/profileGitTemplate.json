@@ -1,0 +1,31 @@
+{
+  "type": "GitHub",
+  "typeId": 3,
+  "owner": {
+    "userId": 1010,
+    "groupId": 0
+  },
+  "permissions": {
+    "userPermissions": [
+      {
+        "userId": 1000,
+        "field": "sshKey",
+        "hidden": false,
+        "read": true,
+        "write": true,
+        "execute": false
+      }
+    ],
+    "groupPermissions": [
+      {
+        "groupId": 0,
+        "field": "sshKey",
+        "hidden": false,
+        "read": true,
+        "write": false,
+        "execute": false
+      }
+    ]
+  },
+  "details": {}
+}

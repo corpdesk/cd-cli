@@ -1,0 +1,38 @@
+{
+  "ctx": "Sys",
+  "m": "CdCli",
+  "c": "CdCliProfile",
+  "a": "UpdateCdCliProfile",
+  "dat": {
+    "f_vals": [
+      {
+        "query": {
+          "update": null,
+          "where": {
+            "userId": 1010,
+            "cdCliProfileId": 2
+          }
+        },
+        "jsonUpdate": [
+          {
+            "modelField": "cdCliProfileData",
+            "path": ["cdVault", "encryptedValue"],
+            "value": "123456abcdefg"
+          },
+          {
+            "modelField": "cdCliProfileData",
+            "path": ["cdVault", "EncryptionMeta"],
+            "value": {
+              "iv": "1a94d8c6b7e8...sample..901f",
+              "encoding": "hex--",
+              "algorithm": "aes-256-cbc",
+              "encryptedToken": "3a94d8c6b7...e04a"
+            }
+          }
+        ]
+      }
+    ],
+    "token": "08f45393-c10e-4edd-af2c-bae1746247a1"
+  },
+  "args": {}
+}
