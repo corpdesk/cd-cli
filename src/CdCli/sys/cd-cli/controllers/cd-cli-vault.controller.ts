@@ -7,7 +7,7 @@
 /* eslint-disable node/prefer-global/process */
 
 import type { ProfileModel } from '../models/cd-cli-profile.model.js';
-import type { CdVault, EncryptionMeta } from '../models/cd-cli-vault.model.js';
+import type { CdVaultItem, EncryptionMeta } from '../models/cd-cli-vault.model.js';
 import crypto from 'node:crypto';
 import fs, { existsSync, mkdirSync } from 'node:fs';
 import path, { join } from 'node:path';
@@ -160,7 +160,7 @@ class CdCliVaultController {
   static async encrypt(
     text: string,
     metaName: string,
-  ): Promise<CdVault | null> {
+  ): Promise<CdVaultItem | null> {
     CdLog.debug('starting CdCliVaultController::encrypt()');
     try {
       const meta = this.getEncryptionMetaByName(metaName);
@@ -220,9 +220,9 @@ class CdCliVaultController {
    * @returns
    */
   static async encryptValue(
-    vault: CdVault,
+    vault: CdVaultItem,
     metaName = 'default',
-  ): Promise<CdVault | null> {
+  ): Promise<CdVaultItem | null> {
     CdLog.debug('starting CdCliVaultController::encryptValue()');
     CdLog.debug('CdCliVaultController::encryptValue()/vault:', vault);
     CdLog.debug('CdCliVaultController::encryptValue()/metaName:', {
@@ -300,7 +300,7 @@ class CdCliVaultController {
     }
   }
 
-  static async decryptValue(secret: CdVault): Promise<string | null> {
+  static async decryptValue(secret: CdVaultItem): Promise<string | null> {
     try {
       if (!secret.encryptionMeta) {
         console.error(`Missing encryption metadata for ${secret.name}`);
@@ -356,7 +356,7 @@ class CdCliVaultController {
    * @param vault
    * @returns
    */
-  static async getSensitiveData(vault: CdVault): Promise<string | null> {
+  static async getSensitiveData(vault: CdVaultItem): Promise<string | null> {
     if (!vault.isEncrypted) {
       if (vault.value) return vault.value;
       throw new Error(`Vault entry '${vault.name}' is not encrypted.`);
@@ -513,7 +513,7 @@ class CdCliVaultController {
 
   static async resolveCdVaultReferences(
     cmds: string[],
-    cdVault?: CdVault[],
+    cdVault?: CdVaultItem[],
   ): Promise<string[]> {
     if (!cdVault) return cmds;
 
@@ -551,7 +551,7 @@ class CdCliVaultController {
 
   static async resolveVaultReferencesInObject<T>(
     input: T,
-    cdVault: CdVault[] = [],
+    cdVault: CdVaultItem[] = [],
   ): Promise<T> {
     const isVaultRef = (val: unknown): val is string =>
       typeof val === 'string' && /#cdVault\['(.+?)'\]/.test(val);

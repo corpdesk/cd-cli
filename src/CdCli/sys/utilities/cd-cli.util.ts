@@ -1,10 +1,10 @@
 import * as readline from 'readline';
 import { exec } from 'child_process';
-import { CdVault } from '../cd-cli/models/cd-cli-vault.model.js';
+import { CdVaultItem } from '../cd-cli/models/cd-cli-vault.model.js';
 import CdCliVaultController from '../cd-cli/controllers/cd-cli-vault.controller.js';
 
 export class CdCliUtils {
-  async exec(cmds: string[], cdVault?: CdVault[]): Promise<void> {
+  async exec(cmds: string[], cdVault?: CdVaultItem[]): Promise<void> {
     if (cdVault) {
       await this.handleEncryption(cdVault); // Handle password encryption if needed
     }
@@ -26,7 +26,7 @@ export class CdCliUtils {
     }
   }
 
-  private async handleEncryption(cdVault: CdVault[]): Promise<void> {
+  private async handleEncryption(cdVault: CdVaultItem[]): Promise<void> {
     for (const secret of cdVault) {
       if (secret.isEncrypted && !secret.encryptedValue) {
         const password = await this.promptForPassword(secret.name);
@@ -60,7 +60,7 @@ export class CdCliUtils {
 
   private async resolveCdVaultReferences(
     cmds: string[],
-    cdVault?: CdVault[],
+    cdVault?: CdVaultItem[],
   ): Promise<string[]> {
     if (!cdVault) return cmds;
 

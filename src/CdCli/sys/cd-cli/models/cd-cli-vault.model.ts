@@ -4,7 +4,7 @@ import { join } from 'node:path';
 export const VAULT_DIRECTORY = join(process.env.HOME || '~/', '.cd-cli');
 
 // Interfaces
-export interface CdVault {
+export interface CdVaultItem {
   name: string; // Unique identifier for the vault entry
   description?: string; // Description of the vault entry
   value: string | null; // Value if not encrypted

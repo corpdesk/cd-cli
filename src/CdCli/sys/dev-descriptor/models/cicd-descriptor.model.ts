@@ -8,7 +8,7 @@ import type { MigrationDescriptor } from './migration-descriptor.model.js';
 import type { TestingFrameworkDescriptor } from './testing-framework.model.js';
 import CdLog from '../../cd-comm/controllers/cd-logger.controller.js';
 import { EnvironmentService } from '../services/environment.service.js';
-import { CdVault } from '../../cd-cli/models/cd-cli-vault.model.js';
+import { CdVaultItem } from '../../cd-cli/models/cd-cli-vault.model.js';
 
 // Main CiCdDescriptor Interface
 export interface CiCdDescriptor extends BaseDescriptor {
@@ -65,7 +65,37 @@ export interface CICdTask<T = any> extends BaseDescriptor {
   methodName?: string; // The method to be executed
   input?: T; // Optional input for the method
   status: 'pending' | 'running' | 'completed' | 'failed'; // Task execution status
-  cdVault?: CdVault[];
+  cdVault?: CdVaultItem[];
+  onResult?: TransitionRule[]; // Optional: Define next steps based on the result of the task
+  onError?: TransitionRule[]; // Optional: Define next steps on error
+  onSuccess?: TransitionRule[]; // Optional: Define next steps on success
+  onStart?: TransitionRule[]; // Optional: Define next steps on start
+  onEnd?: TransitionRule[]; // Optional: Define next steps on end
+  onCancel?: TransitionRule[]; // Optional: Define next steps on cancel
+  onTimeout?: TransitionRule[]; // Optional: Define next steps on timeout
+  onRetry?: TransitionRule[]; // Optional: Define next steps on retry
+  retryCount?: number; // Number of retries allowed for the task
+  retryDelay?: number; // Delay in milliseconds before retrying the task
+  timeout?: number; // Timeout in milliseconds for the task
+}
+
+// export interface ConditionalNext {
+//   condition: 'always' | 'never' | 'success' | 'failure';
+//   next: WFNext;
+// }
+
+export type WFNextRef = string | WFNext;
+
+export interface TransitionRule {
+  condition: 'always' | 'never' | 'success' | 'failure'; // if you expand this later
+  next: WFNextRef;
+}
+
+
+export interface WFNext {
+  pipelineName?: string;
+  stageName?: string;
+  taskName: string;
 }
 
 export type ExecutionEnvironmentType = 'bash' | 'cd-cli' | 'runner';

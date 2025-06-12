@@ -31,12 +31,13 @@ import { CdObjTypeModel } from '../../moduleman/models/cd-obj-type.model.js';
 import { CdCliStoreService } from '../../cd-cli/services/cd-cli-store.service.js';
 import { CdObjService } from '../../moduleman/services/cd-obj.service.js';
 import { CdObjModel } from '../../moduleman/index.js';
+import { fileURLToPath } from 'node:url';
 
 // let chalk: any;
 
 // Fix for __dirname in ES modules
-// const __filename = fileURLToPath(import.meta.url);
-// const __dirname = dirname(__filename);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 export class DevDescriptorController {
   svServer = new HttpService();

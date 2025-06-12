@@ -1,10 +1,10 @@
-import type { CdVault } from './cd-cli-vault.model.js';
+import type { CdVaultItem } from './cd-cli-vault.model.js';
 /* eslint-disable style/brace-style */
 // import { fileURLToPath } from 'node:url';
 import CdLog from '../../cd-comm/controllers/cd-logger.controller.js';
 import { CdCliProfileController } from '../controllers/cd-cli-profile.cointroller.js';
 
-// // const __filename = fileURLToPath(import.meta.url);
+// const __filename = fileURLToPath(import.meta.url);
 
 // const __dirname = path.dirname(__filename);
 
@@ -32,7 +32,7 @@ export interface ProfileData {
   typeId: number; // based on database records Type ID (e.g., 2 for SSH)
   owner: ProfileOwner; // Profile owner details (userId, groupId)
   details: IProfileDetails; // Can be varied. For example SSH connection details
-  cdVault: CdVault[]; // for managing encrypted fields
+  cdVault: CdVaultItem[]; // for managing encrypted fields
   permissions: ProfilePermissions; // Permissions associated with this profile
 }
 

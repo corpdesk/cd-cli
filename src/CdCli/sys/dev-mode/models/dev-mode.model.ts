@@ -1,35 +1,35 @@
-// /* eslint-disable style/operator-linebreak */
-// /* eslint-disable no-case-declarations */
+/* eslint-disable style/operator-linebreak */
+/* eslint-disable no-case-declarations */
 
-// /**
-//  * dev-mode.model.ts main role is to manage the interactive commands that are applicable after executes the command
-//  * > cd-cli dev
-//  * Simiar to sql inteructive session, you have the following commands:
-//  * > show <recource>
-//  * > use <recource-name>
-//  *
-//  */
+/**
+ * dev-mode.model.ts main role is to manage the interactive commands that are applicable after executes the command
+ * > cd-cli dev
+ * Simiar to sql inteructive session, you have the following commands:
+ * > show <recource>
+ * > use <recource-name>
+ *
+ */
 
-// /* eslint-disable style/brace-style */
-// /* eslint-disable node/prefer-global/process */
-// /* eslint-disable unused-imports/no-unused-vars */
+/* eslint-disable style/brace-style */
+/* eslint-disable node/prefer-global/process */
+/* eslint-disable unused-imports/no-unused-vars */
 
-// import repl from 'node:repl';
-// import chalk from 'chalk';
-// import minimist from 'minimist';
-// import { CdCli } from '../../cd-cli/models/cd-cli.model.js';
-// import CdLog from '../../cd-comm/controllers/cd-logger.controller.js';
-// import { DevDescriptorController } from '../../dev-descriptor/controllers/dev-descriptor.controller.js';
-// import { DevModeController } from '../controllers/dev-mode.controller.js';
-// import { CiCdDescriptor } from '../../dev-descriptor/models/cicd-descriptor.model.js';
+import repl from 'node:repl';
+import chalk from 'chalk';
+import minimist from 'minimist';
+import { CdCli } from '../../cd-cli/models/cd-cli.model.js';
+import CdLog from '../../cd-comm/controllers/cd-logger.controller.js';
+import { DevDescriptorController } from '../../dev-descriptor/controllers/dev-descriptor.controller.js';
+import { DevModeController } from '../controllers/dev-mode.controller.js';
+import { CiCdDescriptor } from '../../dev-descriptor/models/cicd-descriptor.model.js';
 
-// // let chalk: any;
+// let chalk: any;
 
-// export interface DevModeModel {
-//   method: 'wizard' | 'manual' | 'ai' | 'json' | 'context';
-//   process: 'create' | 'read' | 'update' | 'delete';
-//   workflow: CiCdDescriptor;
-// }
+export interface DevModeModel {
+  method: 'wizard' | 'manual' | 'ai' | 'json' | 'context';
+  process: 'create' | 'read' | 'update' | 'delete';
+  workflow: CiCdDescriptor;
+}
 
 // // Branding utility for reusable prompt designs
 // export const Branding = {

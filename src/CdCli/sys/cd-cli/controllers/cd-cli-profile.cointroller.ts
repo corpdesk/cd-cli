@@ -24,7 +24,7 @@ import { CdCliProfileService } from '../services/cd-cli-profile.service.js';
 
 // const fsAccess = promisify(fs.access);
 
-import { ENCRYPTION_CONFIGS, type CdVault } from '../models/cd-cli-vault.model.js';
+import { ENCRYPTION_CONFIGS, type CdVaultItem } from '../models/cd-cli-vault.model.js';
 import fs, { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import path from 'node:path';
@@ -34,9 +34,10 @@ import { HttpService } from '../../base/http.service.js';
 import CdLog from '../../cd-comm/controllers/cd-logger.controller.js';
 import { SessonController } from '../../user/controllers/session.controller.js';
 import CdCliVaultController from './cd-cli-vault.controller.js';
+import { fileURLToPath } from 'node:url';
 
-// const __filename = fileURLToPath(import.meta.url);
-// const __dirname = path.dirname(__filename);
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 const homeDirectory =
   process.env.HOME || process.env.USERPROFILE || '/home/username'; // Fallback if HOME is undefined
 const PROFILE_DIRECTORY = join(homeDirectory, '.cd-cli');
@@ -939,7 +940,7 @@ export class CdCliProfileController {
     }
 
     const vaultItem = profile.cdCliProfileData.cdVault.find(
-      (item: CdVault) => item.name === key,
+      (item: CdVaultItem) => item.name === key,
     );
 
     if (!vaultItem) {
