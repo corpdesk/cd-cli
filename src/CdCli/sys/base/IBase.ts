@@ -4,35 +4,35 @@ import {
   FindOptionsWhere,
   ObjectLiteral,
   UpdateResult,
-} from 'typeorm';
-import { CompanyModel } from '../moduleman/models/company.model.js';
-import { ConsumerModel } from '../moduleman/models/consumer.model.js';
-import { SessionModel } from '../user/models/session.model.js';
-import { IUserProfile, UserModel } from '../user/models/user.model.js';
-import { MenuViewModel } from '../moduleman/models/menu-view.model.js';
-import { AclModuleViewModel } from '../moduleman/models/acl-module-view.model.js';
-import { Observable } from 'rxjs';
+} from "typeorm";
+import { CompanyModel } from "../moduleman/models/company.model.js";
+import { ConsumerModel } from "../moduleman/models/consumer.model.js";
+import { SessionModel } from "../user/models/session.model.js";
+import { IUserProfile, UserModel } from "../user/models/user.model.js";
+import { MenuViewModel } from "../moduleman/models/menu-view.model.js";
+import { AclModuleViewModel } from "../moduleman/models/acl-module-view.model.js";
+import { Observable } from "rxjs";
 
 export interface BaseServiceInterface<T> {
   create: (
     req: Request | null,
     res: Response | null,
-    serviceInput: IServiceInput<T>,
+    serviceInput: IServiceInput<T>
   ) => Promise<CdFxReturn<T> | T | ICdResponse>;
   read: (
     req: Request | null,
     res: Response | null,
-    serviceInput: IServiceInput<T>,
+    serviceInput: IServiceInput<T>
   ) => Promise<CdFxReturn<T[]> | T[] | ICdResponse>;
   update: (
     req: Request | null,
     res: Response | null,
-    serviceInput: IServiceInput<T>,
+    serviceInput: IServiceInput<T>
   ) => Promise<CdFxReturn<UpdateResult> | UpdateResult | ICdResponse>;
   delete: (
     req: Request | null,
     res: Response | null,
-    serviceInput: IServiceInput<T>,
+    serviceInput: IServiceInput<T>
   ) => Promise<CdFxReturn<DeleteResult> | DeleteResult | ICdResponse>;
 }
 
@@ -42,22 +42,22 @@ export abstract class AbstractBaseService<T>
   abstract create(
     req: Request | null,
     res: Response | null,
-    serviceInput: IServiceInput<T>,
+    serviceInput: IServiceInput<T>
   ): Promise<CdFxReturn<T> | T | ICdResponse>;
   abstract read(
     req: Request | null,
     res: Response | null,
-    serviceInput: IServiceInput<T>,
+    serviceInput: IServiceInput<T>
   ): Promise<CdFxReturn<T[]> | T[] | ICdResponse>;
   abstract update(
     req: Request | null,
     res: Response | null,
-    serviceInput: IServiceInput<T>,
+    serviceInput: IServiceInput<T>
   ): Promise<CdFxReturn<UpdateResult> | UpdateResult | ICdResponse>;
   abstract delete(
     req: Request | null,
     res: Response | null,
-    serviceInput: IServiceInput<T>,
+    serviceInput: IServiceInput<T>
   ): Promise<CdFxReturn<DeleteResult> | DeleteResult | ICdResponse>;
 }
 
@@ -77,16 +77,46 @@ export abstract class AbstractBaseService<T>
  */
 export interface CdFxReturn<T> {
   data?: T | null;
-  state: boolean;
-  message?: string | null; // Optional error/success message
+  state: boolean | CdFxStateLevel; // Interpreted through semantic map
+  message?: string | null;
 }
 
 // default return on failure
 export const CD_FX_FAIL = {
   data: null,
   state: false,
-  message: 'Failed!',
+  message: "Failed!",
 };
+
+export enum CdFxStateLevel {
+  Error = 0,
+  Success = 1,
+  PartialSuccess = 2,
+  LogicalFailure = 3,
+  Warning = 4,
+  Recoverable = 5,
+  Info = 6,
+  Pending = 7,
+  Cancelled = 8,
+  NotFound = 9,
+  NotImplemented = 10,
+  SystemError = 11,
+  Fatal = 12,
+  Unknown = 13,
+}
+
+export interface FxStateMeta {
+  key: string;
+  label: string;
+  color?: string;
+  icon?: string;
+  severity?: 'low' | 'medium' | 'high' | 'critical';
+  category?: 'error' | 'success' | 'warning' | 'info';
+}
+
+export interface FxStateSemantics {
+  mapping: Record<keyof typeof CdFxStateLevel, FxStateMeta>;
+}
 
 // cd request format
 export interface ICdRequest {
@@ -178,7 +208,7 @@ export interface EnvConfig {
   firebaseConfig?: any;
 }
 
-export const SYS_CTX = 'Sys';
+export const SYS_CTX = "Sys";
 export const DEFAULT_DAT: EnvelopDat = {
   f_vals: [
     {
@@ -193,54 +223,54 @@ export const DEFAULT_ARGS = {};
 
 export const DEFAULT_ENVELOPE_CREATE: ICdRequest = {
   ctx: SYS_CTX,
-  m: '',
-  c: '',
-  a: 'Create',
+  m: "",
+  c: "",
+  a: "Create",
   dat: DEFAULT_DAT,
   args: DEFAULT_ARGS,
 };
 
 export const DEFAULT_ENVELOPE_GET: ICdRequest = {
   ctx: SYS_CTX,
-  m: '',
-  c: '',
-  a: 'Get',
+  m: "",
+  c: "",
+  a: "Get",
   dat: DEFAULT_DAT,
   args: DEFAULT_ARGS,
 };
 
 export const DEFAULT_ENVELOPE_GET_PAGED: ICdRequest = {
   ctx: SYS_CTX,
-  m: '',
-  c: '',
-  a: 'GetCount',
+  m: "",
+  c: "",
+  a: "GetCount",
   dat: DEFAULT_DAT,
   args: DEFAULT_ARGS,
 };
 
 export const DEFAULT_ENVELOPE_GET_TYPE: ICdRequest = {
   ctx: SYS_CTX,
-  m: '',
-  c: '',
-  a: 'GetCount',
+  m: "",
+  c: "",
+  a: "GetCount",
   dat: DEFAULT_DAT,
   args: DEFAULT_ARGS,
 };
 
 export const DEFAULT_ENVELOPE_UPDATE: ICdRequest = {
   ctx: SYS_CTX,
-  m: '',
-  c: '',
-  a: 'Update',
+  m: "",
+  c: "",
+  a: "Update",
   dat: DEFAULT_DAT,
   args: DEFAULT_ARGS,
 };
 
 export const DEFAULT_ENVELOPE_DELETE: ICdRequest = {
   ctx: SYS_CTX,
-  m: '',
-  c: '',
-  a: 'Delete',
+  m: "",
+  c: "",
+  a: "Delete",
   dat: DEFAULT_DAT,
   args: DEFAULT_ARGS,
 };
@@ -257,11 +287,11 @@ export const DEFAULT_CD_RESPONSE: ICdResponse = {
     success: false,
     info: {
       messages: [],
-      code: '',
-      app_msg: '',
+      code: "",
+      app_msg: "",
     },
     sess: {
-      cd_token: '',
+      cd_token: "",
       jwt: null,
       ttl: 600,
     },
@@ -271,10 +301,10 @@ export const DEFAULT_CD_RESPONSE: ICdResponse = {
 };
 
 export const DEFAULT_CD_REQUEST: ICdRequest = {
-  ctx: 'Sys',
-  m: '',
-  c: '',
-  a: '',
+  ctx: "Sys",
+  m: "",
+  c: "",
+  a: "",
   dat: DEFAULT_DAT,
   args: DEFAULT_ARGS,
 };
@@ -403,9 +433,9 @@ export interface IFetchInput {
     method?: string;
     body?: string;
     headers?: {
-      'Content-Type'?: string;
-      'X-Parse-Application-Id'?: string;
-      'X-Parse-REST-API-Key'?: string;
+      "Content-Type"?: string;
+      "X-Parse-Application-Id"?: string;
+      "X-Parse-REST-API-Key"?: string;
     };
   };
 }
@@ -517,9 +547,9 @@ export interface IFetchInput {
     method?: string;
     body?: string;
     headers?: {
-      'Content-Type'?: string;
-      'X-Parse-Application-Id'?: string;
-      'X-Parse-REST-API-Key'?: string;
+      "Content-Type"?: string;
+      "X-Parse-Application-Id"?: string;
+      "X-Parse-REST-API-Key"?: string;
     };
   };
 }
@@ -703,8 +733,8 @@ export const INIT_CD_RESP = {
     success: false,
     info: {
       messages: [],
-      code: '',
-      app_msg: '',
+      code: "",
+      app_msg: "",
     },
     sess: {
       cd_token: null,
@@ -796,7 +826,7 @@ export type SearchTerm = { term: string } | string;
 export interface ExecOptions {
   cwd?: string; // Optional working directory
   env?: NodeJS.ProcessEnv; // Optional environment variables
-  mode?: 'sync' | 'async'; // Execution mode
+  mode?: "sync" | "async"; // Execution mode
 }
 
 export interface ISessionDataExt {
