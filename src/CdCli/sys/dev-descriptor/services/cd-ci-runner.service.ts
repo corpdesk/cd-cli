@@ -1,4 +1,4 @@
-import path from "path";
+import path, { join } from "path";
 import { fileURLToPath, pathToFileURL } from "url";
 import { dirname } from "path";
 import { CdAiModel } from "../../../app/mod-craft/workshop/cd-api/model/cd-ai-module.model.js";
@@ -27,15 +27,75 @@ import {
   WFNext,
   WFNextRef,
 } from "../../cd-scheduler/models/cd-scheduler.model.js";
+// import { MOD_CRAFT_WORKSHOP_DIR } from "../../../app/mod-craft/index.js";
+import { DEV_DESCRIPTORS_SERVICE_DIR } from "../models/dev-descriptor.model.js";
+import { CdModuleDescriptorService } from "./cd-module-descriptor.service.js";
+import { MOD_CRAFT_WORKSHOP_DIR } from "../../../app/mod-craft/index.js";
 
 /** Runner responsible for executing CICdTask logic */
 export class CICdRunnerService {
   currentPipelineName = "";
   currentStageName = "";
+  // async loadModuleDescriptorAndWorkflow(
+  //   moduleName: string,
+  //   moduleType: string,
+  //   token: string
+  // ): Promise<{
+  //   moduleDescriptor: CdModuleDescriptor;
+  //   workflowModel: CiCdDescriptor;
+  // }> {
+  //   CdLog.debug(
+  //     "Starting CICdRunnerService::loadModuleDescriptorAndWorkflow()"
+  //   );
+
+  //   const dashedName = moduleName.toLowerCase();
+  //   const pascalName = dashedName
+  //     .split("-")
+  //     .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+  //     .join("");
+
+  //   // Convert __dirname equivalent in ESM
+  //   const __filename = fileURLToPath(import.meta.url);
+  //   const __dirname = dirname(__filename);
+
+  //   // Build real absolute paths
+  //   // Go up to /dist
+  //   const projectRoot = path.resolve(__dirname, "../../../..");
+  //   const modelFile = path.resolve(
+  //     projectRoot,
+  //     `CdCli/app/mod-craft/workshop/${moduleType}/model/${dashedName}-module.model.js`
+  //   );
+  //   const workflowFile = path.resolve(
+  //     projectRoot,
+  //     `CdCli/app/mod-craft/workshop/${moduleType}/workflow/${dashedName}.create.workflow.js`
+  //   );
+
+  //   CdLog.debug(`Model Path: ${modelFile}`);
+  //   CdLog.debug(`Workflow Path: ${workflowFile}`);
+
+  //   // Import dynamically using pathToFileURL
+  //   const modelModule = await import(pathToFileURL(modelFile).href);
+  //   const ModelClass = modelModule[`${pascalName}Model`];
+  //   const moduleInstance = new ModelClass();
+  //   const moduleDescriptor: CdModuleDescriptor =
+  //     moduleInstance.getModuleModel();
+
+  //   const workflowModule = await import(pathToFileURL(workflowFile).href);
+  //   const WorkflowClass = workflowModule[`${pascalName}WorkFlow`];
+  //   const workflowInstance = new WorkflowClass();
+  //   const workflowModel: CiCdDescriptor = workflowInstance.createWorkFlow(
+  //     moduleDescriptor,
+  //     moduleType,
+  //     token
+  //   );
+
+  //   return { moduleDescriptor, workflowModel };
+  // }
+
   async loadModuleDescriptorAndWorkflow(
     moduleName: string,
     moduleType: string,
-    token: string
+    cdToken: string
   ): Promise<{
     moduleDescriptor: CdModuleDescriptor;
     workflowModel: CiCdDescriptor;
@@ -50,42 +110,69 @@ export class CICdRunnerService {
       .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
       .join("");
 
-    // Convert __dirname equivalent in ESM
-    const __filename = fileURLToPath(import.meta.url);
-    const __dirname = dirname(__filename);
-
-    // Build real absolute paths
-    // Go up to /dist
-    const projectRoot = path.resolve(__dirname, "../../../..");
-    const modelFile = path.resolve(
-      projectRoot,
-      `CdCli/app/mod-craft/workshop/${moduleType}/model/${dashedName}-module.model.js`
+    // Construct absolute file paths using MOD_CRAFT_WORKSHOP_DIR
+    // /home/emp-12/cd-cli/src/CdCli/sys/dev-descriptor/services/cd-module-descriptor.service.ts
+    const modelFile = join(
+      DEV_DESCRIPTORS_SERVICE_DIR,
+      moduleType,
+      "model",
+      `${dashedName}-module.model.js`
     );
-    const workflowFile = path.resolve(
-      projectRoot,
-      `CdCli/app/mod-craft/workshop/${moduleType}/workflow/${dashedName}.create.workflow.js`
+
+    const workflowFile = join(
+      MOD_CRAFT_WORKSHOP_DIR,
+      moduleType,
+      "workflow",
+      `${dashedName}.create.workflow.js`
     );
 
     CdLog.debug(`Model Path: ${modelFile}`);
     CdLog.debug(`Workflow Path: ${workflowFile}`);
 
-    // Import dynamically using pathToFileURL
-    const modelModule = await import(pathToFileURL(modelFile).href);
-    const ModelClass = modelModule[`${pascalName}Model`];
-    const moduleInstance = new ModelClass();
-    const moduleDescriptor: CdModuleDescriptor =
-      moduleInstance.getModuleModel();
+    // Dynamically import model module and instantiate
+    // const modelModule = await import(pathToFileURL(modelFile).href);
+    // const ModelClass = modelModule[`${pascalName}Model`];
+    // const moduleInstance = new ModelClass();
+    // const moduleDescriptor: CdModuleDescriptor =
+    //   moduleInstance.cdApiModuleData(moduleName, moduleType, cdToken);
+    const svCdModuleDescriptor = new CdModuleDescriptorService();
+    const result = await svCdModuleDescriptor.cdApiModuleData(moduleName, moduleType, cdToken);
+    CdLog.debug(
+      `CICdRunnerService::loadModuleDescriptorAndWorkflow()/moduleDescriptor:${inspect(
+        result,
+        { depth: 2 }
+      )}`
+    );
+    if (!result || !result.state) {
+      CdLog.debug(
+        `CICdRunnerService::loadModuleDescriptorAndWorkflow()/Failed to load module descriptor: ${result.message}`
+      );
+      throw new Error(`Failed to load module descriptor: ${result.message}`);
+    }
 
+    if(!result.data) {
+      CdLog.debug(
+        `CICdRunnerService::loadModuleDescriptorAndWorkflow()/No module descriptor data returned.`
+      );
+      throw new Error(`No module descriptor data returned.`);
+    }
+
+    const moduleDescriptor: CdModuleDescriptor = result.data;
+
+    // Dynamically import workflow module and instantiate
     const workflowModule = await import(pathToFileURL(workflowFile).href);
     const WorkflowClass = workflowModule[`${pascalName}WorkFlow`];
     const workflowInstance = new WorkflowClass();
     const workflowModel: CiCdDescriptor = workflowInstance.createWorkFlow(
       moduleDescriptor,
       moduleType,
-      token
+      cdToken
     );
 
-    return { moduleDescriptor, workflowModel };
+    return {
+      moduleDescriptor,
+      workflowModel,
+    };
   }
 
   async run(
@@ -244,7 +331,6 @@ export class CICdRunnerService {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  
   private resolveNextTask(
     task: CICdTask,
     success: CdFxStateLevel

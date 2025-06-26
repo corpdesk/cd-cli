@@ -99,73 +99,104 @@
 
 // src/CdCli/sys/dev-mode/dev-mode-commands/subcommands/create.command.ts
 
-import chalk from 'chalk';
-import CdLog from '../../../../sys/cd-comm/controllers/cd-logger.controller.js';
-import { DevModeModel } from '../../models/dev-mode.model.js';
-import { CdModuleController } from '../../../../app/mod-craft/controllers/cd-module.controller.js';
-import { CICdRunnerService } from '../../../../sys/dev-descriptor/services/cd-ci-runner.service.js';
-import { SessionService } from '../../../../sys/user/services/session.service.js';
-import { CdAiModel } from '../../../../app/mod-craft/workshop/cd-api/model/cd-ai-module.model.js';
+import chalk from "chalk";
+import CdLog from "../../../../sys/cd-comm/controllers/cd-logger.controller.js";
+import { DevModeModel } from "../../models/dev-mode.model.js";
+import { CdModuleController } from "../../../../app/mod-craft/controllers/cd-module.controller.js";
+import { CICdRunnerService } from "../../../../sys/dev-descriptor/services/cd-ci-runner.service.js";
+import { SessionService } from "../../../../sys/user/services/session.service.js";
+import { CdAiModel } from "../../../../app/mod-craft/workshop/cd-api/model/cd-ai-module.model.js";
 
 // Optional future extensions (Controller/Model)
 // import { CdControllerController } from '../../../../app/mod-craft/controllers/cd-controller.controller.js';
 // import { CdModelController } from '../../../../app/mod-craft/controllers/cd-model.controller.js';
 
 export const createCommand = {
-  name: 'create',
-  description: 'Setup environments, modules, controllers, or models dynamically.',
+  name: "create",
+  description:
+    "Setup environments, modules, controllers, or models dynamically.",
   options: [
-    { flags: 'module', description: 'Create a module' },
-    { flags: 'controller', description: 'Create a controller' },
-    { flags: 'model', description: 'Create a model' },
-    { flags: 'name', description: 'Name of the item to create' },
-    { flags: 'type', description: 'Type of the module (e.g. cd-api, cd-ui)' },
-    { flags: 'method', description: 'Creation method (json, context, wizard, ai)' },
-    { flags: 'json-file', description: 'Path to JSON module descriptor file' },
-    { flags: 'model-file', description: 'Path to JSON workflow model file' },
-    { flags: 'workstation', description: 'Target workstation' },
+    { flags: "module", description: "Create a module" },
+    { flags: "controller", description: "Create a controller" },
+    { flags: "model", description: "Create a model" },
+    { flags: "name", description: "Name of the item to create" },
+    { flags: "type", description: "Type of the module (e.g. cd-api, cd-ui)" },
+    {
+      flags: "method",
+      description: "Creation method (json, context, wizard, ai)",
+    },
+    { flags: "json-file", description: "Path to JSON module descriptor file" },
+    { flags: "model-file", description: "Path to JSON workflow model file" },
+    { flags: "workstation", description: "Target workstation" },
   ],
 
   action: {
     execute: async (options: any) => {
-      const { name, type, module: isModule, controller: isController, model: isModel } = options;
+      const {
+        name,
+        type,
+        module: isModule,
+        controller: isController,
+        model: isModel,
+      } = options;
 
       if (!name) {
-        console.log(chalk.red('❌ You must specify the name.'));
+        console.log(chalk.red("❌ You must specify the name."));
         return;
       }
 
       if (!isModule && !isController && !isModel) {
-        console.log(chalk.red('❌ Specify one of --module, --controller, or --model.'));
+        console.log(
+          chalk.red("❌ Specify one of --module, --controller, or --model.")
+        );
         return;
       }
 
       try {
-        CdLog.debug('createCommand::execute() → initializing session and model...');
+        CdLog.debug(
+          "createCommand::execute() → initializing session and model..."
+        );
         const sessionService = new SessionService();
         const cdToken = await sessionService.sessData.cdToken;
 
-        const cdAiModel = new CdAiModel();
-        const devModel: DevModeModel = cdAiModel.getDefaultModuleModel();
+        // moduleCtx: CdCtx,
+        //     moduleName: string,
+        //     moduleType: CdModuleTypeDescriptor,
+
+        // const customModuleData = fs.existsSync('./custom-module.json')
+        // const cdAiModel = new CdAiModel();
+        // const devModel: DevModeModel = cdAiModel.mergedModule(customModuleData);
 
         const runner = new CICdRunnerService();
 
         if (isModule) {
           if (!type) {
-            console.log(chalk.red('❌ You must specify the type for module creation.'));
+            console.log(
+              chalk.red("❌ You must specify the type for module creation.")
+            );
             return;
           }
 
-          CdLog.debug(`createCommand::execute() → loading descriptor and workflow for module: ${name}, type: ${type}`);
-          const { moduleDescriptor, workflowModel } = await runner.loadModuleDescriptorAndWorkflow(name, type, cdToken);
-
-          devModel.workflow = workflowModel;
+          CdLog.debug(
+            `createCommand::execute() → loading descriptor and workflow for module: ${name}, type: ${type}`
+          );
+          const { moduleDescriptor, workflowModel } =
+            await runner.loadModuleDescriptorAndWorkflow(name, type, cdToken);
+          const devModel: DevModeModel = {
+            method: "json",
+            process: "create",
+            workflow: workflowModel,
+          };
 
           const moduleController = new CdModuleController();
-          CdLog.debug('createCommand::execute() → creating module...');
+          CdLog.debug("createCommand::execute() → creating module...");
           await moduleController.create(moduleDescriptor, devModel);
 
-          console.log(chalk.green(`✔ Module "${moduleDescriptor.name}" created successfully.`));
+          console.log(
+            chalk.green(
+              `✔ Module "${moduleDescriptor.name}" created successfully.`
+            )
+          );
         }
 
         if (isController) {
@@ -183,10 +214,11 @@ export const createCommand = {
           // await modelController.create(modelDescriptor, devModel);
           // console.log(chalk.green(`✔ Model "${name}" created successfully.`));
         }
-
       } catch (err: any) {
-        CdLog.error('createCommand::execute() → Error occurred:', err);
-        console.log(chalk.red(`❌ Failed to execute create command: ${err.message}`));
+        CdLog.error("createCommand::execute() → Error occurred:", err);
+        console.log(
+          chalk.red(`❌ Failed to execute create command: ${err.message}`)
+        );
       }
     },
   },

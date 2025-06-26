@@ -99,7 +99,7 @@ export class GroupMemberService extends GenericService<GroupMemberModel> {
    */
   async afterCreate(
     pl: GroupMemberModel,
-  ): Promise<CdFxReturn<GroupMemberModel | ObjectLiteral>> {
+  ): Promise<CdFxReturn<GroupMemberModel | ObjectLiteral | null >> {
     const query = {
       where: { groupMemberGuid: pl.groupMemberGuid },
     };

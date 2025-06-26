@@ -83,7 +83,7 @@ export class UserService extends GenericService<UserModel> {
    */
   async afterCreate(
     pl: UserModel,
-  ): Promise<CdFxReturn<UserModel | ObjectLiteral>> {
+  ): Promise<CdFxReturn<UserModel | ObjectLiteral | null >> {
     const query = {
       where: { userGuid: pl.userGuid },
     };

@@ -229,6 +229,36 @@ interface WFNext {
 }
 ```
 
+Transition Rules Interface:
+```ts
+export interface TransitionRule {
+  toTask: WFNextRef;                          // 🆕 Supports string or WFNext object
+  ifState?: CdFxStateLevel | CdFxStateLevel[];
+  ifExpr?: string;
+  delayMs?: number;
+  window?: ExecutionWindow;
+  fallback?: boolean;
+}
+```
+
+This change allows the TransitionRule.toTask to support:
+
+    "taskOnly" (same stage, same pipeline)
+
+    "stageName/taskName" (within same pipeline)
+
+    Full WFNext object:
+
+```ts
+
+{
+  pipelineName: 'pipe2',
+  stageName: 'build',
+  taskName: 'runBuild'
+}
+
+```
+
 This design allows developers to specify as much context as needed:
 
 * **Just `taskName`** → interpreted as task within the same stage.

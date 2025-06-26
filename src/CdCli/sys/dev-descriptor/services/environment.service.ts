@@ -556,7 +556,7 @@ export class EnvironmentService extends GenericService<CdObjModel> {
     }
   }
 
-  async read(q?: IQuery): Promise<CdFxReturn<CdDescriptor[]>> {
+  async read(q?: IQuery): Promise<CdFxReturn<CdDescriptor[] | null >> {
     try {
       /**
        * The q is allowed to be null
@@ -621,7 +621,11 @@ export class EnvironmentService extends GenericService<CdObjModel> {
   // Get all applications
   async getAllApps(): Promise<CdFxReturn<CdDescriptor[]>> {
     try {
-      return await this.read(); // Fetch all applications
+      const result = await this.read(); // Fetch all applications
+      return {
+        ...result,
+        data: result.data ?? [],
+      };
     } catch (error) {
       return {
         data: null,
@@ -632,7 +636,7 @@ export class EnvironmentService extends GenericService<CdObjModel> {
   }
 
   // Get a single app by name
-  async getAppByName(name: string): Promise<CdFxReturn<CdDescriptor[]>> {
+  async getAppByName(name: string): Promise<CdFxReturn<CdDescriptor[] | null >> {
     try {
       // Validate input
       if (!name.trim()) {
@@ -671,7 +675,7 @@ export class EnvironmentService extends GenericService<CdObjModel> {
   async buildEnvironmentData(
     name: string,
     workstation: string,
-  ): Promise<CdFxReturn<EnvironmentDescriptor>> {
+  ): Promise<CdFxReturn<EnvironmentDescriptor | null >> {
     CdLog.debug(`EnvironmentService::buildEnvironmentData()/name:${name}`);
     CdLog.debug(
       `EnvironmentService::buildEnvironmentData()/workstation:${workstation}`,

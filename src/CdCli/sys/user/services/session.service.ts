@@ -113,7 +113,7 @@ export class SessionService extends GenericService<SessionModel> {
    */
   async afterCreate(
     pl: SessionModel,
-  ): Promise<CdFxReturn<SessionModel | ObjectLiteral>> {
+  ): Promise<CdFxReturn<SessionModel | ObjectLiteral | null >> {
     const query = {
       where: { cdToken: pl.cdToken },
     };

@@ -3,7 +3,7 @@ import { map, mergeMap } from 'rxjs';
 import { BaseService } from '../../base/base.service.js';
 import { SessionService } from '../../user/services/session.service.js';
 import { UserService } from '../../user/services/user.service.js';
-import { CalendarService } from '../../scheduler/services/calendar.services.js';
+// import { CalendarService } from '../../scheduler/services/calendar.services.js';
 import { ConsumerService } from './consumer.service.js';
 import {
   CdFxReturn,
@@ -49,7 +49,7 @@ export class ModuleService extends GenericService<ModuleModel> {
   svMemo!: MemoService;
   svMenu!: MenuService;
   svNotif!: NotificationService;
-  svCalnd: CalendarService = new CalendarService();
+  // svCalnd: CalendarService = new CalendarService();
   svConsumer: ConsumerService = new ConsumerService();
   svAcl!: AclService;
   consumerGuid!: string;
@@ -862,7 +862,7 @@ export class ModuleService extends GenericService<ModuleModel> {
     this.svUser = new UserService();
     this.svMemo = new MemoService();
     this.svNotif = new NotificationService();
-    this.svCalnd = new CalendarService();
+    // this.svCalnd = new CalendarService();
     this.svGroup = new GroupService();
     this.svGroupMember = new GroupMemberService();
     this.svConsumer = new ConsumerService();

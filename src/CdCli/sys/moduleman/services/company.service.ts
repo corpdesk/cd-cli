@@ -76,7 +76,7 @@ export class CompanyService extends GenericService<ObjectLiteral> {
    */
   async afterCreate(
     pl: CompanyModel,
-  ): Promise<CdFxReturn<CompanyModel | ObjectLiteral>> {
+  ): Promise<CdFxReturn<CompanyModel | ObjectLiteral | null >> {
     const query = {
       where: { companyGuid: pl.companyGuid },
     };

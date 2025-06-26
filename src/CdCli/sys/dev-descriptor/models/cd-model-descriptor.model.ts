@@ -3,7 +3,10 @@ import type { DependencyDescriptor } from './dependancy-descriptor.model.js';
 
 export interface CdModelDescriptor extends BaseDescriptor {
   module?: string; // The module to which this model belongs
-  parent?: string; // Parent model (if part of a hierarchical structure)
+  parentModule?: string; // Parent module (if part of a hierarchical structure)
+  parentController?: string; // Parent model (if part of a hierarchical structure)
+  fileName?: string; // File name where the model is defined
+  tableName?: string; // Database table name
   dependencies?: DependencyDescriptor[]; // Other models this model is related to
   relationships?: RelationshipDescriptor[]; // Model relationships
   fields: FieldDescriptor[]; // Fields of the model
@@ -13,11 +16,13 @@ export interface CdModelDescriptor extends BaseDescriptor {
 // Base Field Descriptor
 export interface FieldDescriptor extends BaseDescriptor {
   name: string; // Field name
+  dbName?: string; // Database column name (if different from field name)
   type: string; // Data type of the field
   required: boolean; // Indicates if the field is mandatory
   defaultValue?: any; // Default value for the field
   unique?: boolean; // Indicates if the field value must be unique
   validation?: ValidationDescriptor; // Field validation rules
+  default: boolean; // Indicates if the field is a default export
 }
 
 // Validation Descriptor

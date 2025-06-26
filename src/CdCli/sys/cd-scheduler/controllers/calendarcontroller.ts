@@ -1,7 +1,10 @@
-import { BaseService } from '../../base/base.service';
+// import { BaseService } from '../../base/base.service';
+
+import { BaseService } from "../../base/index.js";
+import { CalendarModel } from "../models/calendar.model.js";
 
 export class CalendarController {
-    b: BaseService;
+    b: BaseService<CalendarModel>;
     constructor(){
         this.b = new BaseService();
     }
@@ -41,6 +44,6 @@ export class CalendarController {
             action: req.post.a, // all services must implement send
         }
         const ret = await this.b.resolveCls(req, res, clsCtx);
-        await this.b.respond(req, res, ret);
+        await this.b.respond(req, res);
     }
 }

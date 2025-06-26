@@ -17,6 +17,7 @@ import {
 import { CdCliStoreService } from "../../cd-cli/services/cd-cli-store.service.js";
 import { CdObjTypeModel } from "../../moduleman/models/cd-obj-type.model.js";
 import { GenericService } from "../../base/generic-service.js";
+import { CdModuleDescriptor } from "../models/cd-module-descriptor.model.js";
 
 export class DevDescriptorService extends GenericService<CdObjModel> {
   cdToken = "";
@@ -116,7 +117,7 @@ export class DevDescriptorService extends GenericService<CdObjModel> {
   async syncDescriptors(
     d: CdObjModel[],
     db: "mysql" | "redis" | "all" = "all"
-  ): Promise<CdFxReturn<ICdResponse | CdObjModel[]>> {
+  ): Promise<CdFxReturn<ICdResponse | CdObjModel[] | null>> {
     CdLog.debug(`DevDescriptorService::syncDescriptors() - Sync Target: ${db}`);
 
     let mysqlResult: CdFxReturn<ICdResponse> | null = null;
@@ -154,7 +155,13 @@ export class DevDescriptorService extends GenericService<CdObjModel> {
     // Sync to Redis if needed
     if (db === "redis" || db === "all") {
       try {
-        redisResult = await this.redisService.createCdObj(d);
+        {
+          const result = await this.redisService.createCdObj(d);
+          redisResult = {
+            ...result,
+            data: result.data ?? [],
+          };
+        }
 
         CdLog.debug(
           `DevDescriptorService::syncDescriptors() - Synced ${d.length} descriptors to Redis`
@@ -276,7 +283,13 @@ export class DevDescriptorService extends GenericService<CdObjModel> {
     // Sync to Redis
     if (db === "redis" || db === "all") {
       try {
-        redisResult = await this.redisService.createCdObj(descriptorData);
+        {
+          const result = await this.redisService.createCdObj(descriptorData);
+          redisResult = {
+            ...result,
+            data: result.data ?? [],
+          };
+        }
 
         CdLog.debug(
           "DevDescriptorService::syncDescriptorData() - Synced descriptor data to Redis"

@@ -92,7 +92,7 @@ export class EnvironmentController {
     return this.svEnvironment.create(d);
   }
 
-  async read(q?: IQuery): Promise<CdFxReturn<CdDescriptor[]>> {
+  async read(q?: IQuery): Promise<CdFxReturn<CdDescriptor[] | null >> {
     return this.svEnvironment.read(q);
   }
 
@@ -110,7 +110,7 @@ export class EnvironmentController {
   }
 
   // Get a single app by name
-  async getAppByName(name: string): Promise<CdFxReturn<CdDescriptor[]>> {
+  async getAppByName(name: string): Promise<CdFxReturn<CdDescriptor[] | null >> {
     return this.svEnvironment.getAppByName(name);
   }
 }

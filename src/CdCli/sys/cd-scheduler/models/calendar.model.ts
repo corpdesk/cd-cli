@@ -26,16 +26,16 @@ import {
 } from 'class-validator';
 
 @Entity()
-export class Calendar {
+export class CalendarModel {
 
     @PrimaryGeneratedColumn()
-    comm_id?: number;
+    calendarId?: number;
 
     @Column({
         length: 36,
         default: uuidv4()
     })
-    comm_guid?: string;
+    calendarGuid?: string;
 
     @Column(
         'varchar',
@@ -44,6 +44,6 @@ export class Calendar {
             nullable: true
         }
     )
-    comm_name: string;
+    calendarName?: string;
 
 }

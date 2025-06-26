@@ -22,13 +22,14 @@ import CdLog from '../../cd-comm/controllers/cd-logger.controller.js';
 import { DevDescriptorController } from '../../dev-descriptor/controllers/dev-descriptor.controller.js';
 import { DevModeController } from '../controllers/dev-mode.controller.js';
 import { CiCdDescriptor } from '../../dev-descriptor/models/cicd-descriptor.model.js';
+import { CdSchedulerDescriptor } from '../../cd-scheduler/models/cd-scheduler.model.js';
 
 // let chalk: any;
 
 export interface DevModeModel {
   method: 'wizard' | 'manual' | 'ai' | 'json' | 'context';
   process: 'create' | 'read' | 'update' | 'delete';
-  workflow: CiCdDescriptor;
+  workflow: CdSchedulerDescriptor;
 }
 
 // // Branding utility for reusable prompt designs

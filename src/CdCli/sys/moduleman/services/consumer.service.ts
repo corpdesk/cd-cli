@@ -86,7 +86,7 @@ export class ConsumerService extends GenericService<ObjectLiteral> {
    */
   async afterCreate(
     pl: ConsumerModel,
-  ): Promise<CdFxReturn<ConsumerModel | ObjectLiteral>> {
+  ): Promise<CdFxReturn<ConsumerModel | ObjectLiteral | null >> {
     const query = {
       where: { consumerGuid: pl.consumerGuid },
     };

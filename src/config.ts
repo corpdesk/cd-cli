@@ -236,6 +236,16 @@ export default {
   },
 };
 
+export let AllowModelSyncing = false;
+
+export function enableModelSyncing() {
+  AllowModelSyncing = true;
+}
+
+export function disableModelSyncing() {
+  AllowModelSyncing = false;
+}
+
 export function mailConfig(username: string, password: string) {
   return {
     mailService: 'cloudmailin',

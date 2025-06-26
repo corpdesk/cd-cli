@@ -1,7 +1,7 @@
 import type { BaseDescriptor } from './base-descriptor.model.js';
 
 export interface FunctionDescriptor extends BaseDescriptor {
-  scope: ScopeDescriptor; // Access and static information
+  scope: ScopeDescriptor; // Access level and static nature
   parameters?: ParameterDescriptor[]; // Function parameters
   output?: OutputDescriptor; // Return type and description
   typeInfo?: TypeInfoDescriptor; // Generic types information
@@ -10,6 +10,7 @@ export interface FunctionDescriptor extends BaseDescriptor {
   apiInfo?: ApiInfoDescriptor; // API-related information
   documentation?: DocumentationDescriptor; // Documentation details
   miscellaneous?: MiscellaneousDescriptor; // Overloads and tags
+  isDefault: boolean; // Indicates if the function is a default export
 }
 
 // Scope Descriptor
@@ -32,9 +33,14 @@ export interface ParameterDescriptor extends BaseDescriptor {
 }
 
 // Output Descriptor
+// export interface OutputDescriptor extends BaseDescriptor {
+//   returnType: string; // Data type of the return value
+//   description?: string; // Explanation of the return value
+// }
 export interface OutputDescriptor extends BaseDescriptor {
-  returnType: string; // Data type of the return value
-  description?: string; // Explanation of the return value
+  returnType: string; // e.g., 'Observable<CdFxReturn<...>>'
+  description?: string;
+  observableInnerType?: string; // ✅ Optional: e.g., 'CdFxReturn<MyModel[]>'
 }
 
 // Type Information Descriptor
@@ -46,6 +52,9 @@ export interface TypeInfoDescriptor extends BaseDescriptor {
 export interface BehaviorDescriptor extends BaseDescriptor {
   isPure: boolean; // If the function is pure
   isAsync: boolean; // If the function is asynchronous
+  isStatic?: boolean; // If the function is static
+  returnsPromise?: boolean; // If the function returns a Promise
+  isObservable?: boolean; // If the function returns an Observable
   throws?: string[]; // List of exceptions or errors the function might throw
 }
 

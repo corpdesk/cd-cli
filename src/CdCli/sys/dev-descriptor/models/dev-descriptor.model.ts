@@ -1,3 +1,4 @@
+import { resolve } from 'path';
 import { CdObjModel } from '../../moduleman/models/cd-obj.model.js';
 import type { BaseDescriptor } from './base-descriptor.model.js';
 
@@ -21,6 +22,11 @@ export interface TypeDetails extends BaseDescriptor {
   isPrimitive?: boolean;
   extend?: number;
 }
+
+export const DEV_DESCRIPTORS_SERVICE_DIR = resolve(
+  process.cwd(),
+  "dist/CdCli/sys/dev-descriptor/services"
+);
 
 /**
  * Utility function to convert CdDescriptor into CdObjModel

@@ -77,7 +77,7 @@ export class JwtService extends GenericService<JwtModel> {
    */
   async afterCreate(
     pl: JwtModel,
-  ): Promise<CdFxReturn<JwtModel | ObjectLiteral>> {
+  ): Promise<CdFxReturn<JwtModel | ObjectLiteral | null >> {
     const query = {
       where: { jwtGuid: pl.jwtGuid },
     };

@@ -54,7 +54,7 @@ export class CdAppService extends GenericService<CdObjModel> {
     }
   }
 
-  async read(q?: IQuery): Promise<CdFxReturn<CdDescriptor[]>> {
+  async read(q?: IQuery): Promise<CdFxReturn<CdDescriptor[] | null >> {
     try {
       /**
        * The q is allowed to be null
@@ -117,7 +117,7 @@ export class CdAppService extends GenericService<CdObjModel> {
   }
 
   // Get all applications
-  async getAllApps(): Promise<CdFxReturn<CdDescriptor[]>> {
+  async getAllApps(): Promise<CdFxReturn<CdDescriptor[] | null >> {
     try {
       return await this.read(); // Fetch all applications
     } catch (error) {
@@ -130,7 +130,7 @@ export class CdAppService extends GenericService<CdObjModel> {
   }
 
   // Get a single app by name
-  async getAppByName(name: string): Promise<CdFxReturn<CdDescriptor[]>> {
+  async getAppByName(name: string): Promise<CdFxReturn<CdDescriptor[] | null >> {
     try {
       // Validate input
       if (!name.trim()) {

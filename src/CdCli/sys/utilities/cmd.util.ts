@@ -1,0 +1,72 @@
+import { exec } from "child_process";
+import { promisify } from "util";
+
+const execAsync = promisify(exec);
+
+/**
+ * A simple shell utility object to manage current working directory context.
+ */
+export const $ = {
+  cwd: process.cwd()
+};
+
+/**
+ * Executes a shell command in the context of current working directory.
+ * Optionally, overrides the working directory.
+ *
+ * @param cmd Shell command to run
+ * @param cwdOverride Optional path to run the command in
+ * @returns Resolves to stdout string or throws on error with stderr and code
+ */
+export async function run(cmd: string, cwdOverride?: string): Promise<string> {
+  const cwdToUse = cwdOverride || $.cwd;
+
+  try {
+    const { stdout, stderr } = await execAsync(cmd, { cwd: cwdToUse });
+
+    if (stderr && stderr.trim()) {
+      console.warn(`[cmd.util] Stderr from "${cmd}":`, stderr.trim());
+    }
+
+    return stdout.trim();
+  } catch (error: any) {
+    const err = new Error(`[cmd.util] Failed: ${cmd}`);
+    (err as any).stderr = error.stderr;
+    (err as any).code = error.code;
+    throw err;
+  }
+}
+/**
+ * Executes a shell command and returns the result.
+ * This is a wrapper around the `run` function to provide a more convenient interface.
+ *
+ * @param cmd The command to execute
+ * @param cwdOverride Optional override for the current working directory
+ * @returns A promise that resolves with the command output
+ */
+export async function executeCommand(cmd: string, cwdOverride?: string): Promise<string> {
+  try {
+    const result = await run(cmd, cwdOverride);
+    return result;
+  } catch (error: any) {
+    console.error(`[cmd.util] Error executing command "${cmd}":`, error);
+    throw error;
+  }
+}
+/**
+ * Executes a shell command and returns the result.
+ * This is a wrapper around the `run` function to provide a more convenient interface.
+ *
+ * @param cmd The command to execute
+ * @param cwdOverride Optional override for the current working directory
+ * @returns A promise that resolves with the command output
+ */
+export async function execute(cmd: string, cwdOverride?: string): Promise<string> {
+  try {
+    const result = await run(cmd, cwdOverride);
+    return result;
+  } catch (error: any) {
+    console.error(`[cmd.util] Error executing command "${cmd}":`, error);
+    throw error;
+  }
+}   

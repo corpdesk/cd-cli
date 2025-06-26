@@ -272,7 +272,7 @@ export class CdCliStoreService {
     );
   }
 
-  async createCdObj(cdObjects: CdObjModel[]): Promise<CdFxReturn<CdObjModel[]>> {
+  async createCdObj(cdObjects: CdObjModel[]): Promise<CdFxReturn<CdObjModel[] | null >> {
     try {
       const retArr: CdObjModel[] = [];
 
@@ -366,7 +366,7 @@ export class CdCliStoreService {
     }
   }
 
-  async getDescriptorCdObjTypeGuid(): Promise<CdFxReturn<string>> {
+  async getDescriptorCdObjTypeGuid(): Promise<CdFxReturn<string  | null >> {
     const resultCdObjTypeGuid = await this.getCdObjTypeByName("descriptor");
     if (!resultCdObjTypeGuid.state || !resultCdObjTypeGuid.data) return CD_FX_FAIL;
 

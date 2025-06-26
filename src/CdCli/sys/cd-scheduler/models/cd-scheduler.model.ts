@@ -275,14 +275,23 @@ export type WorkflowEdgeList = WorkflowEdge[];
 export type WFNextRef = string | WFNext;
 
 // | CdFxStateLevel[]; // 💡 Support both single and multiple
+// export interface TransitionRule {
+//   toTask: string;                // Target task ID
+//   ifState?: CdFxStateLevel | CdFxStateLevel[];     // Optional state condition
+//   ifExpr?: string;              // Optional JS-like expression (data context)
+//   delayMs?: number;             // Optional delay before transitioning
+//   window?: ExecutionWindow;     // Optional time window constraint
+//   fallback?: boolean;
+// }
 export interface TransitionRule {
-  toTask: string;                // Target task ID
-  ifState?: CdFxStateLevel | CdFxStateLevel[];     // Optional state condition
-  ifExpr?: string;              // Optional JS-like expression (data context)
-  delayMs?: number;             // Optional delay before transitioning
-  window?: ExecutionWindow;     // Optional time window constraint
+  toTask: WFNextRef;                          // 🆕 Supports string or WFNext object
+  ifState?: CdFxStateLevel | CdFxStateLevel[];
+  ifExpr?: string;
+  delayMs?: number;
+  window?: ExecutionWindow;
   fallback?: boolean;
 }
+
 
 export interface WFNext {
   pipelineName?: string;

@@ -9,13 +9,13 @@ import type { TestingFrameworkDescriptor } from "./testing-framework.model.js";
 import CdLog from "../../cd-comm/controllers/cd-logger.controller.js";
 import { EnvironmentService } from "../services/environment.service.js";
 import { CdVaultItem } from "../../cd-cli/models/cd-cli-vault.model.js";
-import { WorkflowTask } from "../../cd-scheduler/models/cd-scheduler.model.js";
+import { CdSchedulerTask, WorkflowTask } from "../../cd-scheduler/models/cd-scheduler.model.js";
 
 
 // /////////////////////////////////////////////////////////////////////////////////////////
 
 // ─── Task Interface ─────────────────────────────────────────
-export interface CICdTask<T = any> extends WorkflowTask<T> {
+export interface CICdTask<T = any> extends CdSchedulerTask<T> {
   type: 'script-inline' | 'script-file' | 'method' | 'cdRequest';
   status: 'pending' | 'running' | 'completed' | 'failed';
 }

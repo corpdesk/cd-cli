@@ -77,7 +77,7 @@ export class DocService extends GenericService<DocModel> {
    */
   async afterCreate(
     pl: DocModel,
-  ): Promise<CdFxReturn<DocModel | ObjectLiteral>> {
+  ): Promise<CdFxReturn<DocModel | ObjectLiteral | null >> {
     const query = {
       where: { docGuid: pl.docGuid },
     };
@@ -171,7 +171,7 @@ export class DocService extends GenericService<DocModel> {
     return await ret;
   }
 
-  async createDocType(pl: DocTypeModel): Promise<CdFxReturn<DocTypeModel>> {
+  async createDocType(pl: DocTypeModel): Promise<CdFxReturn<DocTypeModel | null >> {
     const b = new BaseService<DocTypeModel>();
     const serviceInput = {
       serviceModel: DocTypeModel,
@@ -200,7 +200,7 @@ export class DocService extends GenericService<DocModel> {
     req: Request | null,
     res: Request | null,
     docTypeName: string,
-  ): Promise<CdFxReturn<DocTypeModel[]>> {
+  ): Promise<CdFxReturn<DocTypeModel[] | null >> {
     const b = new BaseService<DocTypeModel>();
     const serviceInput = {
       serviceModel: DocTypeModel,

@@ -174,7 +174,7 @@ export class CdObjService extends GenericService<CdObjModel> {
    */
   async afterCreate(
     pl: CdObjModel,
-  ): Promise<CdFxReturn<CdObjModel | ObjectLiteral>> {
+  ): Promise<CdFxReturn<CdObjModel | ObjectLiteral | null >> {
     const query = {
       where: { cdObjGuid: pl.cdObjGuid },
     };

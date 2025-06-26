@@ -24,7 +24,8 @@
     "build": "tsc",
     "start": "node dist/index.js",
     "dev": "ts-node src/index.ts",
-    "build:watch": "tsc --watch"
+    "build:watch": "tsc --watch",
+    "postbuild": "./scripts/post-build.sh"
   },
   "keywords": [],
   "dependencies": {
