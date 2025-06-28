@@ -1,5 +1,7 @@
 import { homedir } from "os";
 import path from "path";
+import prettier from 'prettier';
+import fs from 'fs/promises';
 
 export const HOME = homedir();
 
@@ -112,4 +114,9 @@ export async function writeFileSafely(fullPath: string, content: string): Promis
     console.error(`❌ Failed to write file: ${fullPath}`, err);
     throw err;
   }
+}
+
+export async function writePrettyFileSafely(path: string, content: string): Promise<void> {
+  const formatted = await prettier.format(content, { parser: 'typescript' });
+  await fs.writeFile(path, formatted, 'utf8');
 }

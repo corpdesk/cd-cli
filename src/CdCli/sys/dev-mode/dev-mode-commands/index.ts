@@ -178,7 +178,7 @@ import repl from 'node:repl';
 import chalk from 'chalk';
 import minimist from 'minimist';
 import CdLog from '../../cd-comm/controllers/cd-logger.controller.js';
-import { CdAiController } from '../../../app/cd-ai/controllers/cd-ai.controller.js';
+import { CdAiController } from '../../../app/cd-ai-pwa/controllers/cd-ai.controller.js';
 
 // Branding utility for reusable prompt designs
 export const Branding = {

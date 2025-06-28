@@ -1,6 +1,6 @@
 /* eslint-disable antfu/if-newline */
 /* eslint-disable style/brace-style */
-import { CdAiLogRouterService } from '../../../app/cd-ai/services/cd-ai-log-router.service.js';
+import { CdAiLogRouterService } from '../../../app/cd-ai-pwa/services/cd-ai-log-router.service.js';
 import chalk from 'chalk';
 import dayjs from 'dayjs';
 

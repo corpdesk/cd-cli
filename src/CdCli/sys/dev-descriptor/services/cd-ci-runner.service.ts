@@ -1,16 +1,11 @@
-import path, { join } from "path";
-import { fileURLToPath, pathToFileURL } from "url";
-import { dirname } from "path";
-import { CdAiModel } from "../../../app/mod-craft/workshop/cd-api/model/cd-ai-module.model.js";
-import {
-  CD_FX_FAIL,
-  CdFxReturn,
-  CdFxStateLevel,
-  ICdRequest,
-} from "../../base/IBase.js";
-import CdLog from "../../cd-comm/controllers/cd-logger.controller.js";
-import { CdControllerDescriptor } from "../models/cd-controller-descriptor.model.js";
-import { CdModuleDescriptor } from "../models/cd-module-descriptor.model.js";
+import path, { join } from 'path';
+import { fileURLToPath, pathToFileURL } from 'url';
+import { dirname } from 'path';
+import { CdAiModel } from '../../../app/mod-craft/workshop/cd-api/model/cd-ai-module.model.js';
+import { CD_FX_FAIL, CdFxReturn, CdFxStateLevel, ICdRequest } from '../../base/IBase.js';
+import CdLog from '../../cd-comm/controllers/cd-logger.controller.js';
+import { CdControllerDescriptor } from '../models/cd-controller-descriptor.model.js';
+import { CdModuleDescriptor } from '../models/cd-module-descriptor.model.js';
 import {
   CiCdDescriptor,
   CICdPipeline,
@@ -18,145 +13,91 @@ import {
   // ExecutionEnvironmentType,
   // WFNext,
   // WFNextRef,
-} from "../models/cicd-descriptor.model.js";
-import { CdAiWorkFlow } from "../../../app/mod-craft/workshop/cd-api/workflow/cd-ai.create.workflow.js";
-import { toDashedFileName } from "../../utilities/request-helper.js";
-import { inspect } from "util";
+} from '../models/cicd-descriptor.model.js';
+import { CdAiWorkFlow } from '../../../app/mod-craft/workshop/cd-api/workflow/cd-ai.create.workflow.js';
+import { toDashedFileName } from '../../utilities/request-helper.js';
+import { inspect } from 'util';
 import {
   ExecutionEnvironmentType,
   WFNext,
   WFNextRef,
-} from "../../cd-scheduler/models/cd-scheduler.model.js";
+} from '../../cd-scheduler/models/cd-scheduler.model.js';
 // import { MOD_CRAFT_WORKSHOP_DIR } from "../../../app/mod-craft/index.js";
-import { DEV_DESCRIPTORS_SERVICE_DIR } from "../models/dev-descriptor.model.js";
-import { CdModuleDescriptorService } from "./cd-module-descriptor.service.js";
-import { MOD_CRAFT_WORKSHOP_DIR } from "../../../app/mod-craft/index.js";
+import { DEV_DESCRIPTORS_SERVICE_DIR } from '../models/dev-descriptor.model.js';
+import { CdModuleDescriptorService } from './cd-module-descriptor.service.js';
+import { MOD_CRAFT_WORKSHOP_DIR } from '../../../app/mod-craft/index.js';
 
 /** Runner responsible for executing CICdTask logic */
 export class CICdRunnerService {
-  currentPipelineName = "";
-  currentStageName = "";
-  // async loadModuleDescriptorAndWorkflow(
-  //   moduleName: string,
-  //   moduleType: string,
-  //   token: string
-  // ): Promise<{
-  //   moduleDescriptor: CdModuleDescriptor;
-  //   workflowModel: CiCdDescriptor;
-  // }> {
-  //   CdLog.debug(
-  //     "Starting CICdRunnerService::loadModuleDescriptorAndWorkflow()"
-  //   );
-
-  //   const dashedName = moduleName.toLowerCase();
-  //   const pascalName = dashedName
-  //     .split("-")
-  //     .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
-  //     .join("");
-
-  //   // Convert __dirname equivalent in ESM
-  //   const __filename = fileURLToPath(import.meta.url);
-  //   const __dirname = dirname(__filename);
-
-  //   // Build real absolute paths
-  //   // Go up to /dist
-  //   const projectRoot = path.resolve(__dirname, "../../../..");
-  //   const modelFile = path.resolve(
-  //     projectRoot,
-  //     `CdCli/app/mod-craft/workshop/${moduleType}/model/${dashedName}-module.model.js`
-  //   );
-  //   const workflowFile = path.resolve(
-  //     projectRoot,
-  //     `CdCli/app/mod-craft/workshop/${moduleType}/workflow/${dashedName}.create.workflow.js`
-  //   );
-
-  //   CdLog.debug(`Model Path: ${modelFile}`);
-  //   CdLog.debug(`Workflow Path: ${workflowFile}`);
-
-  //   // Import dynamically using pathToFileURL
-  //   const modelModule = await import(pathToFileURL(modelFile).href);
-  //   const ModelClass = modelModule[`${pascalName}Model`];
-  //   const moduleInstance = new ModelClass();
-  //   const moduleDescriptor: CdModuleDescriptor =
-  //     moduleInstance.getModuleModel();
-
-  //   const workflowModule = await import(pathToFileURL(workflowFile).href);
-  //   const WorkflowClass = workflowModule[`${pascalName}WorkFlow`];
-  //   const workflowInstance = new WorkflowClass();
-  //   const workflowModel: CiCdDescriptor = workflowInstance.createWorkFlow(
-  //     moduleDescriptor,
-  //     moduleType,
-  //     token
-  //   );
-
-  //   return { moduleDescriptor, workflowModel };
-  // }
+  currentPipelineName = '';
+  currentStageName = '';
 
   async loadModuleDescriptorAndWorkflow(
     moduleName: string,
     moduleType: string,
-    cdToken: string
+    cdToken: string,
   ): Promise<{
     moduleDescriptor: CdModuleDescriptor;
     workflowModel: CiCdDescriptor;
   }> {
+    CdLog.debug('Starting CICdRunnerService::loadModuleDescriptorAndWorkflow()');
+
     CdLog.debug(
-      "Starting CICdRunnerService::loadModuleDescriptorAndWorkflow()"
+      `CICdRunnerService::loadModuleDescriptorAndWorkflow()/moduleName:${moduleName}, moduleType:${moduleType}, cdToken:${cdToken}`,
     );
 
     const dashedName = moduleName.toLowerCase();
+    CdLog.debug(`CICdRunnerService::loadModuleDescriptorAndWorkflow()/dashedName:${dashedName}`);
     const pascalName = dashedName
-      .split("-")
+      .split('-')
       .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
-      .join("");
+      .join('');
+
+    CdLog.debug(`CICdRunnerService::loadModuleDescriptorAndWorkflow()/pascalName:${pascalName}`);
 
     // Construct absolute file paths using MOD_CRAFT_WORKSHOP_DIR
     // /home/emp-12/cd-cli/src/CdCli/sys/dev-descriptor/services/cd-module-descriptor.service.ts
     const modelFile = join(
       DEV_DESCRIPTORS_SERVICE_DIR,
       moduleType,
-      "model",
-      `${dashedName}-module.model.js`
+      'model',
+      `${dashedName}-module.model.js`,
     );
 
     const workflowFile = join(
       MOD_CRAFT_WORKSHOP_DIR,
       moduleType,
-      "workflow",
-      `${dashedName}.create.workflow.js`
+      'workflow',
+      `${dashedName}.create.workflow.js`,
     );
 
     CdLog.debug(`Model Path: ${modelFile}`);
     CdLog.debug(`Workflow Path: ${workflowFile}`);
 
-    // Dynamically import model module and instantiate
-    // const modelModule = await import(pathToFileURL(modelFile).href);
-    // const ModelClass = modelModule[`${pascalName}Model`];
-    // const moduleInstance = new ModelClass();
-    // const moduleDescriptor: CdModuleDescriptor =
-    //   moduleInstance.cdApiModuleData(moduleName, moduleType, cdToken);
     const svCdModuleDescriptor = new CdModuleDescriptorService();
     const result = await svCdModuleDescriptor.cdApiModuleData(moduleName, moduleType, cdToken);
     CdLog.debug(
-      `CICdRunnerService::loadModuleDescriptorAndWorkflow()/moduleDescriptor:${inspect(
-        result,
-        { depth: 2 }
-      )}`
+      `CICdRunnerService::loadModuleDescriptorAndWorkflow()/moduleDescriptor:${inspect(result, {
+        depth: 2,
+      })}`,
     );
     if (!result || !result.state) {
       CdLog.debug(
-        `CICdRunnerService::loadModuleDescriptorAndWorkflow()/Failed to load module descriptor: ${result.message}`
+        `CICdRunnerService::loadModuleDescriptorAndWorkflow()/Failed to load module descriptor: ${result.message}`,
       );
       throw new Error(`Failed to load module descriptor: ${result.message}`);
     }
 
-    if(!result.data) {
+    if (!result.data) {
       CdLog.debug(
-        `CICdRunnerService::loadModuleDescriptorAndWorkflow()/No module descriptor data returned.`
+        `CICdRunnerService::loadModuleDescriptorAndWorkflow()/No module descriptor data returned.`,
       );
       throw new Error(`No module descriptor data returned.`);
     }
 
+    CdLog.debug(
+      `CICdRunnerService::loadModuleDescriptorAndWorkflow()/moduleDescriptor:${inspect(result.data.controllers, { depth: 2 })}`,
+    );
     const moduleDescriptor: CdModuleDescriptor = result.data;
 
     // Dynamically import workflow module and instantiate
@@ -166,7 +107,7 @@ export class CICdRunnerService {
     const workflowModel: CiCdDescriptor = workflowInstance.createWorkFlow(
       moduleDescriptor,
       moduleType,
-      cdToken
+      cdToken,
     );
 
     return {
@@ -177,25 +118,25 @@ export class CICdRunnerService {
 
   async run(
     moduleDescriptor: CdModuleDescriptor,
-    descriptor: CiCdDescriptor
+    descriptor: CiCdDescriptor,
   ): Promise<CdFxReturn<null>> {
-    CdLog.debug("Starting CICdRunnerService::run()");
-    CdLog.debug("CICdRunnerService::run()/01");
+    CdLog.debug('Starting CICdRunnerService::run()');
+    CdLog.debug('CICdRunnerService::run()/01');
 
     const pipeline = descriptor?.cICdPipeline;
-    this.currentPipelineName = pipeline?.name ?? "";
+    this.currentPipelineName = pipeline?.name ?? '';
 
     if (!pipeline?.stages?.length) {
-      CdLog.debug("CICdRunnerService::run()/02");
-      return { state: false, message: "No pipeline stages defined." };
+      CdLog.debug('CICdRunnerService::run()/02');
+      return { state: false, message: 'No pipeline stages defined.' };
     }
 
     // 1. Flatten and index all tasks with a unique key: stageName/taskName
     const taskMap = new Map<string, CICdTask>();
     for (const stage of pipeline.stages) {
-      CdLog.debug("CICdRunnerService::run()/03");
+      CdLog.debug('CICdRunnerService::run()/03');
       for (const task of stage.tasks) {
-        CdLog.debug("CICdRunnerService::run()/04");
+        CdLog.debug('CICdRunnerService::run()/04');
         const key = `${stage.name}/${task.name}`; // unique key
         taskMap.set(key, task);
       }
@@ -209,40 +150,30 @@ export class CICdRunnerService {
     const visited = new Set<string>();
 
     while (currentTask) {
-      CdLog.debug("CICdRunnerService::run()/05");
+      CdLog.debug('CICdRunnerService::run()/05');
       const taskKey = `${this.currentStageName}/${currentTask.name}`;
       if (visited.has(taskKey)) {
-        CdLog.debug("CICdRunnerService::run()/06");
+        CdLog.debug('CICdRunnerService::run()/06');
         return {
           state: false,
           message: `Loop detected at task: ${currentTask.name}`,
         };
       }
-      CdLog.debug("CICdRunnerService::run()/07");
+      CdLog.debug('CICdRunnerService::run()/07');
       visited.add(taskKey);
 
-      currentTask.status = "running";
-      const result = await this.executeTaskWithPolicies(
-        currentTask,
-        moduleDescriptor
-      );
-      CdLog.debug(
-        "CICdRunnerService::run()/result:" + inspect(result, { depth: 2 })
-      );
-      CdLog.debug("CICdRunnerService::run()/08");
-      currentTask.status = result.state ? "completed" : "failed";
+      currentTask.status = 'running';
+      const result = await this.executeTaskWithPolicies(currentTask, moduleDescriptor);
+      CdLog.debug('CICdRunnerService::run()/result:' + inspect(result, { depth: 2 }));
+      CdLog.debug('CICdRunnerService::run()/08');
+      currentTask.status = result.state ? 'completed' : 'failed';
 
       // 3. Determine next task
-      const nextRef = this.resolveNextTask(
-        currentTask,
-        result.state as CdFxStateLevel
-      );
-      CdLog.debug(
-        `CICdRunnerService::run()/nextRef:${inspect(nextRef, { depth: 2 })}`
-      );
+      const nextRef = this.resolveNextTask(currentTask, result.state as CdFxStateLevel);
+      CdLog.debug(`CICdRunnerService::run()/nextRef:${inspect(nextRef, { depth: 2 })}`);
       if (!nextRef) break;
 
-      CdLog.debug("CICdRunnerService::run()/09");
+      CdLog.debug('CICdRunnerService::run()/09');
       // Normalize for lookup key
       const pipelineName = nextRef.pipelineName ?? this.currentPipelineName;
       const stageName = nextRef.stageName ?? this.currentStageName;
@@ -250,7 +181,7 @@ export class CICdRunnerService {
 
       // 🚨 Optional: support only current pipeline for now
       if (pipelineName !== this.currentPipelineName) {
-        CdLog.debug("CICdRunnerService::run()/10");
+        CdLog.debug('CICdRunnerService::run()/10');
         return {
           state: false,
           message: `Cross-pipeline transition not supported: ${pipelineName}`,
@@ -261,7 +192,7 @@ export class CICdRunnerService {
       const nextTask = taskMap.get(nextKey);
 
       if (!nextTask) {
-        CdLog.debug("CICdRunnerService::run()/11");
+        CdLog.debug('CICdRunnerService::run()/11');
         return {
           state: false,
           message: `Next task "${taskName}" in stage "${stageName}" not found.`,
@@ -273,16 +204,16 @@ export class CICdRunnerService {
       currentTask = nextTask;
     }
 
-    CdLog.debug("CICdRunnerService::run()/12");
-    return { state: true, message: "Pipeline executed successfully." };
+    CdLog.debug('CICdRunnerService::run()/12');
+    return { state: true, message: 'Pipeline executed successfully.' };
   }
 
   private async executeTaskWithPolicies(
     task: CICdTask,
-    moduleDescriptor: CdModuleDescriptor
+    moduleDescriptor: CdModuleDescriptor,
   ): Promise<CdFxReturn<null>> {
-    CdLog.debug("Starting CICdRunnerService::executeTaskWithPolicies()");
-    CdLog.debug("CICdRunnerService::executeTaskWithPolicies()/01");
+    CdLog.debug('Starting CICdRunnerService::executeTaskWithPolicies()');
+    CdLog.debug('CICdRunnerService::executeTaskWithPolicies()/01');
     let attempts = 0;
     const maxAttempts = task.retryCount ?? 1;
 
@@ -292,35 +223,32 @@ export class CICdRunnerService {
         const result = await Promise.race([
           this.executeTask(task, moduleDescriptor),
           new Promise<CdFxReturn<null>>((_, reject) =>
-            setTimeout(() => reject(new Error("Timeout")), timeout)
+            setTimeout(() => reject(new Error('Timeout')), timeout),
           ),
         ]);
 
         CdLog.debug(
-          `CICdRunnerService::executeTaskWithPolicies()/result:${inspect(
-            result,
-            { depth: 2 }
-          )}`
+          `CICdRunnerService::executeTaskWithPolicies()/result:${inspect(result, { depth: 2 })}`,
         );
-        CdLog.debug("CICdRunnerService::executeTaskWithPolicies()/02");
+        CdLog.debug('CICdRunnerService::executeTaskWithPolicies()/02');
 
         if (result.state as CdFxStateLevel) return result;
         attempts++;
         if (attempts < maxAttempts && task.retryDelay) {
-          CdLog.debug("CICdRunnerService::executeTaskWithPolicies()/03");
+          CdLog.debug('CICdRunnerService::executeTaskWithPolicies()/03');
           await this.sleep(task.retryDelay);
         }
       } catch (e) {
-        CdLog.debug("CICdRunnerService::executeTaskWithPolicies()/04");
+        CdLog.debug('CICdRunnerService::executeTaskWithPolicies()/04');
         CdLog.debug(
           `CICdRunnerService::executeTaskWithPolicies()/Task ${
             task.name
-          } failed with error: ${(e as Error).message}`
+          } failed with error: ${(e as Error).message}`,
         );
         attempts++;
       }
     }
-    CdLog.debug("CICdRunnerService::executeTaskWithPolicies()/05");
+    CdLog.debug('CICdRunnerService::executeTaskWithPolicies()/05');
     return {
       state: false,
       message: `Task ${task.name} failed after ${maxAttempts} attempts.`,
@@ -331,13 +259,8 @@ export class CICdRunnerService {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
-  private resolveNextTask(
-    task: CICdTask,
-    success: CdFxStateLevel
-  ): WFNext | null {
-    const resultKey: CdFxStateLevel = success
-      ? CdFxStateLevel.Success
-      : CdFxStateLevel.Error;
+  private resolveNextTask(task: CICdTask, success: CdFxStateLevel): WFNext | null {
+    const resultKey: CdFxStateLevel = success ? CdFxStateLevel.Success : CdFxStateLevel.Error;
 
     if (!task.onResult || !Array.isArray(task.onResult)) return null;
 
@@ -367,9 +290,9 @@ export class CICdRunnerService {
 
   normalizeWFNext(
     next: WFNextRef,
-    context: { currentPipeline: string; currentStage: string }
+    context: { currentPipeline: string; currentStage: string },
   ): WFNext {
-    if (typeof next === "string") {
+    if (typeof next === 'string') {
       return {
         pipelineName: context.currentPipeline,
         stageName: context.currentStage,
@@ -389,39 +312,30 @@ export class CICdRunnerService {
    * @param descriptor - The module descriptor for context.
    * @returns A promise resolving to the result of the task execution.
    */
-  async executeTask(
-    task: CICdTask,
-    descriptor: CdModuleDescriptor
-  ): Promise<CdFxReturn<null>> {
-    CdLog.debug("Starting CICdRunnerService::executeTask()");
-    CdLog.debug(
-      `CICdRunnerService::executeTask()/task:${JSON.stringify(task)}`
-    );
+  async executeTask(task: CICdTask, descriptor: CdModuleDescriptor): Promise<CdFxReturn<null>> {
+    CdLog.debug('Starting CICdRunnerService::executeTask()');
+    CdLog.debug(`CICdRunnerService::executeTask()/task:${JSON.stringify(task)}`);
     CdLog.debug(`CICdRunnerService::executeTask()/task.type:${task.type}`);
-    CdLog.debug(
-      `CICdRunnerService::executeTask()/descriptor:${JSON.stringify(
-        descriptor
-      )}`
-    );
+    CdLog.debug(`CICdRunnerService::executeTask()/descriptor:${JSON.stringify(descriptor)}`);
     try {
       switch (task.type) {
-        case "script-inline":
-          CdLog.debug("Running case: script-inline");
+        case 'script-inline':
+          CdLog.debug('Running case: script-inline');
           return await this.runScript(task.executor, task.script);
-        case "script-file":
-          CdLog.debug("Running case: script-file");
+        case 'script-file':
+          CdLog.debug('Running case: script-file');
           return await this.runScriptFromFile(task.executor, task.scriptFile);
-        case "method":
-          CdLog.debug("Running case: method");
+        case 'method':
+          CdLog.debug('Running case: method');
           if (!task.cdRequest) {
             return {
               state: false,
-              message: "cdRequest is undefined for method task.",
+              message: 'cdRequest is undefined for method task.',
             };
           }
           return await this.callMethodFromCdRequest(task.cdRequest);
-        case "cdRequest":
-          CdLog.debug("Running case: cdRequest");
+        case 'cdRequest':
+          CdLog.debug('Running case: cdRequest');
           return await this.invokeCdRequest(task.cdRequest);
         default:
           return { state: false, message: `Unknown task type: ${task.type}` };
@@ -429,46 +343,42 @@ export class CICdRunnerService {
     } catch (err) {
       return {
         state: false,
-        message: `Exception in task: ${task.name}. Error: ${
-          (err as Error).message
-        }`,
+        message: `Exception in task: ${task.name}. Error: ${(err as Error).message}`,
       };
     }
   }
 
   private async runScript(
     executor: ExecutionEnvironmentType,
-    script?: string
+    script?: string,
   ): Promise<CdFxReturn<null>> {
-    CdLog.debug("Starting CICdRunnerService::runScript()");
-    if (!script) return { state: false, message: "No inline script provided." };
+    CdLog.debug('Starting CICdRunnerService::runScript()');
+    if (!script) return { state: false, message: 'No inline script provided.' };
     // Placeholder: implement real script runner
     console.log(`[${executor}] Running script: ${script}`);
-    return { state: true, message: "Script executed." };
+    return { state: true, message: 'Script executed.' };
   }
 
   private async runScriptFromFile(
     executor: ExecutionEnvironmentType,
-    scriptFile?: string
+    scriptFile?: string,
   ): Promise<CdFxReturn<null>> {
-    CdLog.debug("Starting CICdRunnerService::runScriptFromFile()");
-    if (!scriptFile)
-      return { state: false, message: "No script file path provided." };
+    CdLog.debug('Starting CICdRunnerService::runScriptFromFile()');
+    if (!scriptFile) return { state: false, message: 'No script file path provided.' };
     // Placeholder: simulate reading and running the script
     console.log(`[${executor}] Executing script file: ${scriptFile}`);
-    return { state: true, message: "Script file executed." };
+    return { state: true, message: 'Script file executed.' };
   }
 
   async callMethod(
     className?: string,
     methodName?: string,
-    input?: any
+    input?: any,
   ): Promise<CdFxReturn<null>> {
-    CdLog.debug("Starting CICdRunnerService::callMethod()");
+    CdLog.debug('Starting CICdRunnerService::callMethod()');
     CdLog.debug(`CICdRunnerService::callMethod()/01`);
-    if (!className || !methodName)
-      CdLog.debug(`CICdRunnerService::callMethod()/02`);
-    return { state: false, message: "Missing class or method name." };
+    if (!className || !methodName) CdLog.debug(`CICdRunnerService::callMethod()/02`);
+    return { state: false, message: 'Missing class or method name.' };
     // // Placeholder: simulate reflection call to service
     // console.log(
     //   `[cd-cli] Calling ${className}.${methodName} with input:`,
@@ -477,10 +387,8 @@ export class CICdRunnerService {
     // return { state: true, message: "Method called successfully." };
   }
 
-  async callMethodFromCdRequest<T = any>(
-    cdRequest: ICdRequest
-  ): Promise<CdFxReturn<T>> {
-    CdLog.debug("Starting CICdRunnerService::callMethodFromCdRequest()");
+  async callMethodFromCdRequest<T = any>(cdRequest: ICdRequest): Promise<CdFxReturn<T>> {
+    CdLog.debug('Starting CICdRunnerService::callMethodFromCdRequest()');
     CdLog.debug(`CICdRunnerService::callMethodFromCdRequest()/01`);
     let { ctx, m, c, a, args, dat } = cdRequest;
 
@@ -488,31 +396,26 @@ export class CICdRunnerService {
       CdLog.debug(`CICdRunnerService::callMethodFromCdRequest()/02`);
       return {
         state: false,
-        message: "Incomplete cdRequest — requires ctx, m, c, and a",
+        message: 'Incomplete cdRequest — requires ctx, m, c, and a',
       };
     }
 
     try {
       CdLog.debug(`CICdRunnerService::callMethodFromCdRequest()/03`);
-      const ctlDashedName = toDashedFileName(c, "controller");
+      const ctlDashedName = toDashedFileName(c, 'controller');
       CdLog.debug(`CICdRunnerService::callMethodFromCdRequest()/04`);
-      CdLog.debug(
-        `CICdRunnerService::callMethodFromCdRequest()/ctlDashedName:${ctlDashedName}`
-      );
+      CdLog.debug(`CICdRunnerService::callMethodFromCdRequest()/ctlDashedName:${ctlDashedName}`);
       const controllerPath = `../../../${ctx}/${m}/controllers/${ctlDashedName}`;
       CdLog.debug(`CICdRunnerService::callMethodFromCdRequest()/05`);
-      CdLog.debug(
-        `CICdRunnerService::callMethodFromCdRequest()/controllerPath:${controllerPath}`
-      );
+      CdLog.debug(`CICdRunnerService::callMethodFromCdRequest()/controllerPath:${controllerPath}`);
 
       // Dynamic ESM import (MUST include .js in helper-generated name)
       const controllerModule = await import(controllerPath);
       CdLog.debug(`CICdRunnerService::callMethodFromCdRequest()/06`);
       CdLog.debug(
-        `CICdRunnerService::callMethodFromCdRequest()/controllerModule:${inspect(
-          controllerModule,
-          { depth: 2 }
-        )}`
+        `CICdRunnerService::callMethodFromCdRequest()/controllerModule:${inspect(controllerModule, {
+          depth: 2,
+        })}`,
       );
       c = `${c}Controller`;
       CdLog.debug(`CICdRunnerService::callMethodFromCdRequest()/c:${c}`);
@@ -525,14 +428,14 @@ export class CICdRunnerService {
       }
 
       CdLog.debug(
-        `CICdRunnerService::callMethodFromCdRequest()/{ctx:${ctx},m:${m},c:${c},a:${a},}`
+        `CICdRunnerService::callMethodFromCdRequest()/{ctx:${ctx},m:${m},c:${c},a:${a},}`,
       );
 
       const ControllerClass = controllerModule[c];
       CdLog.debug(`CICdRunnerService::callMethodFromCdRequest()/08`);
       const controllerInstance = new ControllerClass();
       CdLog.debug(`CICdRunnerService::callMethodFromCdRequest()/09`);
-      if (typeof controllerInstance[a] !== "function") {
+      if (typeof controllerInstance[a] !== 'function') {
         CdLog.debug(`CICdRunnerService::callMethodFromCdRequest()/10`);
         return {
           state: false,
@@ -542,40 +445,31 @@ export class CICdRunnerService {
 
       CdLog.debug(`CICdRunnerService::callMethodFromCdRequest()/11`);
       const argValues = args ? Object.values(args) : [];
-      const result: CdFxReturn<T> = await controllerInstance[a](
-        ...argValues,
-        dat
-      );
+      const result: CdFxReturn<T> = await controllerInstance[a](...argValues, dat);
       CdLog.debug(`CICdRunnerService::callMethodFromCdRequest()/12`);
       return result;
     } catch (e: any) {
       CdLog.debug(`CICdRunnerService::callMethodFromCdRequest()/13`);
-      CdLog.error(
-        `CICdRunnerService::callMethodFromCdRequest error: ${
-          (e as Error).message
-        }`
-      );
+      CdLog.error(`CICdRunnerService::callMethodFromCdRequest error: ${(e as Error).message}`);
       return {
         state: false,
-        message: "Failed to invoke method from cdRequest",
+        message: 'Failed to invoke method from cdRequest',
         data: null,
       };
     }
   }
 
-  private async invokeCdRequest(
-    cdRequest?: ICdRequest
-  ): Promise<CdFxReturn<null>> {
-    CdLog.debug("Starting CICdRunnerService::invokeCdRequest()");
+  private async invokeCdRequest(cdRequest?: ICdRequest): Promise<CdFxReturn<null>> {
+    CdLog.debug('Starting CICdRunnerService::invokeCdRequest()');
     if (!cdRequest) {
-      return { state: false, message: "cdRequest is undefined or null." };
+      return { state: false, message: 'cdRequest is undefined or null.' };
     }
 
     const { ctx, m, c, a, args, dat } = cdRequest;
 
     try {
       // Resolve context directory
-      const contextRoot = ctx === "Sys" ? "sys" : "app";
+      const contextRoot = ctx === 'Sys' ? 'sys' : 'app';
       const moduleName = `${m}Module`;
       const controllerName = `${c}Controller`;
 
@@ -592,15 +486,12 @@ export class CICdRunnerService {
 
       const controllerInstance = new ControllerClass();
 
-      if (typeof controllerInstance[a] !== "function") {
+      if (typeof controllerInstance[a] !== 'function') {
         return { state: false, message: `Action method not found: ${a}` };
       }
 
       // Call the controller method with args and dat
-      const result = await controllerInstance[a](
-        ...(args ? Object.values(args) : []),
-        dat
-      );
+      const result = await controllerInstance[a](...(args ? Object.values(args) : []), dat);
       if (!result.state) {
         CdLog.error(`Task failed: ${result.message}`);
         return result;

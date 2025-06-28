@@ -2,7 +2,7 @@ import { CD_AUTO_GIT_CMD } from '../../../app/cd-auto-git/models/cd-auto-git.mod
 import { LOGIN_CMD, LOGOUT_CMD } from '../../user/models/user.model.js';
 import { PROFILE_CMD } from './cd-cli-profile.model.js';
 import { DEV_MODE_COMMANDS } from '../../dev-mode/dev-mode-commands/index.js';
-import { CD_AI_LOGS_CMD, CD_OPEN_AI_CMD } from '../../../app/cd-ai/index.js';
+import { CD_AI_LOGS_CMD, CD_OPEN_AI_CMD } from '../../../app/cd-ai-pwa/index.js';
 import {
   MODULE_CMD,
   TEMPLATE_CMD,

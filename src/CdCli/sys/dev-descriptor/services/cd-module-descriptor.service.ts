@@ -9,6 +9,7 @@ import {
 import { CdCtx, CdModuleDescriptor, CdModuleTypeDescriptor } from "../index.js";
 import { join } from "path";
 import { readFileSync } from "fs";
+import { MOD_CRAFT_WORKFLOW_DIR } from "../../../app/mod-craft/workshop/cd-api/workflow/default.model.js";
 
 export class CdModuleDescriptorService {
   // This service is responsible for managing module descriptors in the system.
@@ -117,7 +118,7 @@ export class CdModuleDescriptorService {
 
         // === MODEL ===
         const model = {
-          name: `${controllerPascal}Model`,
+          name: `${controllerPascal}`,
           parentController: controllerName,
           fileName: `${controllerKebab}.model.ts`,
           tableName: controllerSnake,
@@ -248,38 +249,6 @@ export class CdModuleDescriptorService {
     };
   }
 
-  // async mergeCdModuleDescriptors(
-  //   // base: CdModuleDescriptor,
-  //   custom: CdModuleDescriptor
-  // ): Promise<CdFxReturn<CdModuleDescriptor>> {
-  //   try {
-  //     const base: CdModuleDescriptor = this.defaultCdApiModuleData(custom);
-  //     const merged: CdModuleDescriptor = {
-  //       ...base,
-  //       ...custom,
-  //       controllers: [
-  //         ...(base.controllers || []),
-  //         ...(custom.controllers || []),
-  //       ],
-  //       services: [...(base.services || []), ...(custom.services || [])],
-  //       models: [...(base.models || []), ...(custom.models || [])],
-  //       contributors: custom.contributors || base.contributors,
-  //       description: custom.description || base.description,
-  //     };
-
-  //     return {
-  //       state: true,
-  //       message: "Descriptors merged successfully.",
-  //       data: merged,
-  //     };
-  //   } catch (error: any) {
-  //     return {
-  //       state: false,
-  //       message: `Failed to merge descriptors: ${error.message}`,
-  //       data: null,
-  //     };
-  //   }
-  // }
   async cdApiModuleData(
     moduleName: string,
     moduleType: string,
@@ -288,9 +257,7 @@ export class CdModuleDescriptorService {
     try {
       // Build full path to the JSON descriptor
       const workflowPath = join(
-        MOD_CRAFT_WORKSHOP_DIR,
-        moduleType,
-        "workflow",
+        MOD_CRAFT_WORKFLOW_DIR,
         `${moduleName}.create.module.json`
       );
 

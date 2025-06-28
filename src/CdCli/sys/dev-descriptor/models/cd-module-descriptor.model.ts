@@ -28,8 +28,7 @@ export interface CdModuleDescriptor extends BaseDescriptor {
   controllers: CdControllerDescriptor[]; // List of controllers
   models: CdModelDescriptor[]; // List of models
   services: CdServiceDescriptor[]; // List of services
-  environment?: EnvironmentDescriptor; // Development environment settings
-  productionEnvironment?: EnvironmentDescriptor; // Production environment settings
+  environments?: EnvironmentDescriptor[]; // Development environment settings
   cdCi?: CiCdDescriptor; // Continuous Integration/Continuous Delivery
   versionControl?: VersionControlDescriptor; // Version control details
 }
