@@ -144,10 +144,10 @@ export interface CommunityDescriptor extends BaseDescriptor {
 }
 
 export const cdAiVersionControl: VersionControlDescriptor = {
-    name: "GitHub Source",
+    name: "CdAi",
     repository: {
-      name: "cd-api",
-      url: "https://github.com/corpdesk/cd-api.git",
+      name: "cd-ai",
+      url: "https://github.com/corpdesk/cd-ai.git",
       type: "git",
       enabled: true,
       isPrivate: false,
