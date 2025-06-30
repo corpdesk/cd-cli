@@ -13,7 +13,7 @@ import {
   type DependencyDescriptor,
 } from '../../dev-descriptor/models/dependancy-descriptor.model.js';
 import {
-  CdApiSetupTasks,
+  // CdApiSetupTasks,
   type CiCdDescriptor,
   type CICdTask,
 } from './cicd-descriptor.model.js';
@@ -926,6 +926,37 @@ export const osPermissions: OperatingSystemPermissionDescriptor = {
   ],
 };
 
+export const CdApiSetupTasks: CICdTask<EnvironmentDescriptor>[] = [
+  {
+    name: "installDependencies",
+    type: "script-inline",
+    executor: "bash",
+    status: "pending",
+    methodName: "installDependencies",
+  },
+  {
+    name: "cloneRepositories",
+    type: "script-inline",
+    executor: "bash",
+    status: "pending",
+    methodName: "cloneRepositories",
+  },
+  {
+    name: "configureServices",
+    type: "script-inline",
+    executor: "bash",
+    status: "pending",
+    methodName: "configureServices",
+  },
+  {
+    name: "startServices",
+    type: "script-inline",
+    executor: "bash",
+    status: "pending",
+    methodName: "startServices",
+  },
+];
+
 export const cdApiCiCd: CiCdDescriptor = {
   cICdPipeline: {
     name: 'Corpdesk CI/CD - Bash Deployment',
@@ -947,7 +978,7 @@ export const CdApiRepo: VersionControlDescriptor = {
     url: 'https://github.com/corpdesk/cd-api.git',
     type: 'git',
     isPrivate: false,
-    directory: '~/', // NEW: Local directory where the repo should be cloned
+    // directory: '~/', // NEW: Local directory where the repo should be cloned
     credentials: { repoHost: 'corpdesk', accessToken: '#CdVault' },
   },
 };

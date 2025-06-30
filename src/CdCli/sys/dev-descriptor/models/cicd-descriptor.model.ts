@@ -414,36 +414,36 @@ export const methodRegistry = {
   },
 };
 
-export const CdApiSetupTasks: CICdTask<EnvironmentDescriptor>[] = [
-  {
-    name: "installDependencies",
-    type: "script-inline",
-    executor: "bash",
-    status: "pending",
-    methodName: "installDependencies",
-  },
-  {
-    name: "cloneRepositories",
-    type: "script-inline",
-    executor: "bash",
-    status: "pending",
-    methodName: "cloneRepositories",
-  },
-  {
-    name: "configureServices",
-    type: "script-inline",
-    executor: "bash",
-    status: "pending",
-    methodName: "configureServices",
-  },
-  {
-    name: "startServices",
-    type: "script-inline",
-    executor: "bash",
-    status: "pending",
-    methodName: "startServices",
-  },
-];
+// export const CdApiSetupTasks: CICdTask<EnvironmentDescriptor>[] = [
+//   {
+//     name: "installDependencies",
+//     type: "script-inline",
+//     executor: "bash",
+//     status: "pending",
+//     methodName: "installDependencies",
+//   },
+//   {
+//     name: "cloneRepositories",
+//     type: "script-inline",
+//     executor: "bash",
+//     status: "pending",
+//     methodName: "cloneRepositories",
+//   },
+//   {
+//     name: "configureServices",
+//     type: "script-inline",
+//     executor: "bash",
+//     status: "pending",
+//     methodName: "configureServices",
+//   },
+//   {
+//     name: "startServices",
+//     type: "script-inline",
+//     executor: "bash",
+//     status: "pending",
+//     methodName: "startServices",
+//   },
+// ];
 
 // Function to execute a task given its method name and input
 export async function executeTask(

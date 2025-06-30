@@ -49,13 +49,12 @@ import { from, Observable } from 'rxjs';
 import { SocketStore } from '../cd-push/models/cd-push-socket.model.js';
 import { QueryBuilderHelper } from '../utilities/query-builder-helper.js';
 import { TypeOrmDatasource } from './type-orm-connect.js';
+import { toKebabCase } from '../utilities/cd-naming.util.js';
 
 const USER_ANON = 1000;
 const INVALID_REQUEST = 'invalid request';
 
-export class BaseService<
-  T extends ObjectLiteral,
-> extends AbstractBaseService<T> {
+export class BaseService<T extends ObjectLiteral> extends AbstractBaseService<T> {
   logTimeStamp(arg0: string) {
     throw new Error('Method not implemented.');
   }
@@ -120,9 +119,7 @@ export class BaseService<
       // this.logger.logDebug('BaseService::init()/this.models:', this.models);
     } catch (e) {
       this.logger.logDebug('BaseService::init()/02:');
-      this.logger.logDebug(
-        `BaseService::init() failed:${(e as Error).message}`,
-      );
+      this.logger.logDebug(`BaseService::init() failed:${(e as Error).message}`);
       this.err.push(`BaseService::init() failed:${(e as Error).message}`);
     }
   }
@@ -203,6 +200,60 @@ export class BaseService<
     }
   }
 
+  async invokeCdRequest<T = any>(cdRequest?: ICdRequest): Promise<CdFxReturn<T>> {
+    this.logger.logDebug('BaseService::invokeCdRequest() → Starting dispatch...');
+
+    if (!cdRequest) {
+      return { state: false, message: 'cdRequest is undefined or null.' };
+    }
+
+    const { ctx, m, c, a, args, dat } = cdRequest;
+
+    try {
+      const contextRoot = ctx.toLowerCase() === 'sys' ? 'sys' : 'app';
+      // const moduleName = `${m}`;
+      const controllerName = `${c}Controller`;
+      const controllerkebab = toKebabCase(c);
+      const modulePath = `../../${contextRoot}/${m}/controllers/${controllerkebab}.controller.js`;
+
+      this.logger.logDebug(`BaseService::invokeCdRequest() → Importing: ${modulePath}`);
+
+      const importedModule = await import(modulePath);
+      const ControllerClass = importedModule?.[controllerName];
+
+      if (!ControllerClass) {
+        return {
+          state: false,
+          message: `Controller not found: ${controllerName} at ${modulePath}`,
+        };
+      }
+
+      const controllerInstance = new ControllerClass();
+
+      if (typeof controllerInstance[a] !== 'function') {
+        return { state: false, message: `Action method not found: ${a}` };
+      }
+
+      const result = await controllerInstance[a](...(args ? Object.values(args) : []), dat);
+
+      if (!result?.state) {
+        this.logger.logError(`BaseService::invokeCdRequest() → Task failed: ${result.message}`);
+        return result;
+      }
+
+      return result as CdFxReturn<T>;
+    } catch (err: any) {
+      const message = `Error executing cdRequest: ${err.message}`;
+      this.logger.logError(`BaseService::invokeCdRequest() → ${message}`);
+      return {
+        state: false,
+        message,
+      };
+    }
+  }
+
+  
+
   /**
    * 1. create new doc
    * 2. use docId to complete create
@@ -248,9 +299,7 @@ export class BaseService<
       }
 
       const repository = this.db.getRepository(serviceInput.serviceModel);
-      const entityInstance = repository.create(
-        serviceInput.data as DeepPartial<T>,
-      );
+      const entityInstance = repository.create(serviceInput.data as DeepPartial<T>);
       const savedEntity = await repository.save(entityInstance);
       if (req) {
         return savedEntity;
@@ -314,12 +363,8 @@ export class BaseService<
     let serviceRepository = null;
 
     try {
-      const repository = this.db.getRepository(
-        createIParams.serviceInput.serviceModel,
-      );
-      const entityInstance = repository.create(
-        serviceInput.data as DeepPartial<T>,
-      );
+      const repository = this.db.getRepository(createIParams.serviceInput.serviceModel);
+      const entityInstance = repository.create(serviceInput.data as DeepPartial<T>);
       const savedEntity = await repository.save(entityInstance);
       if (req) {
         return savedEntity;
@@ -348,9 +393,7 @@ export class BaseService<
 
   async createSL(req, res, serviceInput: IServiceInput<T>) {
     try {
-      const repo: any = await this.sqliteConn.getRepository(
-        serviceInput.serviceModel,
-      );
+      const repo: any = await this.sqliteConn.getRepository(serviceInput.serviceModel);
       const pl = this.getPlData(req);
       return await repo.save(pl);
     } catch (e) {
@@ -458,10 +501,7 @@ export class BaseService<
   async feildMapSL(req, res, serviceInput: IServiceInput<T>) {
     await this.initSqlite(req, res);
     // this.logger.logDebug('BaseService::feildMapSL()/this.sqliteConn:', this.sqliteConn)
-    this.logger.logDebug(
-      'BaseService::feildMapSL()/serviceInput:',
-      serviceInput.serviceModel,
-    );
+    this.logger.logDebug('BaseService::feildMapSL()/serviceInput:', serviceInput.serviceModel);
     const meta = await this.ds.getMetadata(serviceInput.serviceModel).columns;
     return await meta.map(async (c) => {
       return {
@@ -522,10 +562,7 @@ export class BaseService<
   }
 
   readCount$(req, res, serviceInput): Observable<any> {
-    this.logger.logDebug(
-      'BaseService::readCount$()/serviceInput:',
-      serviceInput,
-    );
+    this.logger.logDebug('BaseService::readCount$()/serviceInput:', serviceInput);
     return from(this.readCount(req, res, serviceInput));
   }
 
@@ -536,11 +573,7 @@ export class BaseService<
       await this.setRepo(serviceInput);
       // this.setRepo(serviceInput.serviceModel)
       const repo: any = this.repo;
-      const meta = await this.getEntityPropertyMapSL(
-        req,
-        res,
-        serviceInput.serviceModel,
-      );
+      const meta = await this.getEntityPropertyMapSL(req, res, serviceInput.serviceModel);
       const [result, total] = await repo.findAndCount(this.getQuery(req));
       return {
         metaData: meta,
@@ -617,9 +650,7 @@ export class BaseService<
       // const items = await queryBuilder.getMany();
       let items = await queryBuilder.getRawMany();
       console.log('BaseService::readQB()/items:', items);
-      const entityName = this.entityAdapter.getEntityName(
-        serviceInput.serviceModel,
-      );
+      const entityName = this.entityAdapter.getEntityName(serviceInput.serviceModel);
       items = this.entityAdapter.mapRawToEntity(entityName, items);
 
       console.log('BaseService::readQB()/Fetched-Items:', items); // Debug logging for items
@@ -661,33 +692,20 @@ export class BaseService<
 
     // Use MySQL JSON_EXTRACT to extract specific fields from the JSON column
     keys.forEach((key) => {
-      queryBuilder.addSelect(
-        `JSON_UNQUOTE(JSON_EXTRACT(${jsonField}, '$.${key}'))`,
-        key,
-      );
+      queryBuilder.addSelect(`JSON_UNQUOTE(JSON_EXTRACT(${jsonField}, '$.${key}'))`, key);
     });
 
     try {
       const items = await queryBuilder.getRawMany();
-      const entityName = this.entityAdapter.getEntityName(
-        serviceInput.serviceModel,
-      );
-      const processedItems = this.entityAdapter.mapRawToEntity(
-        entityName,
-        items,
-      );
+      const entityName = this.entityAdapter.getEntityName(serviceInput.serviceModel);
+      const processedItems = this.entityAdapter.mapRawToEntity(entityName, items);
 
       return {
         items: processedItems,
         count: await queryBuilder.getCount(),
       };
     } catch (err) {
-      return await this.serviceErr(
-        req,
-        res,
-        err,
-        'BaseService:readJSONColumnQB',
-      );
+      return await this.serviceErr(req, res, err, 'BaseService:readJSONColumnQB');
     }
   }
 
@@ -745,13 +763,9 @@ export class BaseService<
       const repository = this.db.getRepository(serviceInput.serviceModel);
 
       // Ensure update is cast to the correct TypeORM update type
-      const updateData = serviceInput.cmd.query
-        .update as unknown as QueryDeepPartialEntity<T>;
+      const updateData = serviceInput.cmd.query.update as unknown as QueryDeepPartialEntity<T>;
 
-      const updateResult = await repository.update(
-        serviceInput.cmd.query.where,
-        updateData,
-      );
+      const updateResult = await repository.update(serviceInput.cmd.query.where, updateData);
 
       if (req) {
         return updateResult;
@@ -791,13 +805,9 @@ export class BaseService<
       const repository = this.db.getRepository(serviceInput.serviceModel);
 
       // Ensure update is cast to the correct TypeORM update type
-      const updateData = serviceInput.cmd!.query
-        .update as unknown as QueryDeepPartialEntity<T>;
+      const updateData = serviceInput.cmd!.query.update as unknown as QueryDeepPartialEntity<T>;
 
-      const updateResult = await repository.update(
-        serviceInput.cmd!.query.where,
-        updateData,
-      );
+      const updateResult = await repository.update(serviceInput.cmd!.query.where, updateData);
 
       if (req) {
         return updateResult;
@@ -828,12 +838,7 @@ export class BaseService<
     const repo: any = this.repo;
     const result = await repo.update(
       serviceInput.cmd?.query.where,
-      await this.fieldsAdaptorSL(
-        req,
-        res,
-        serviceInput.cmd?.query.update,
-        serviceInput,
-      ),
+      await this.fieldsAdaptorSL(req, res, serviceInput.cmd?.query.update, serviceInput),
     );
     this.logger.logDebug('result:', result);
     // this.cdResp.data = ret;
@@ -852,9 +857,7 @@ export class BaseService<
     const propMap = await this.feildMapSL(req, res, serviceInput);
     for (const fieldName in fieldsData) {
       if (fieldName) {
-        const fieldMapData: any = propMap.filter(
-          (f: any) => f.propertyPath === fieldName,
-        );
+        const fieldMapData: any = propMap.filter((f: any) => f.propertyPath === fieldName);
 
         /**
          * adapt boolean values as desired
@@ -914,9 +917,7 @@ export class BaseService<
       }
 
       const repository = this.db.getRepository(serviceInput.serviceModel);
-      const deleteResult = await repository.delete(
-        serviceInput.cmd.query.where,
-      );
+      const deleteResult = await repository.delete(serviceInput.cmd.query.where);
 
       if (req) {
         return deleteResult;
@@ -1166,21 +1167,14 @@ export class BaseService<
     // const baseRepository: any = await this.repo(req, res, params.model)
     // const baseRepository: any = await this.repo
     // get model properties
-    const propMap = await this.getEntityPropertyMap(
-      req,
-      res,
-      serviceInput,
-    ).then((result) => {
+    const propMap = await this.getEntityPropertyMap(req, res, serviceInput).then((result) => {
       // console.log('validateUnique()/result:', result)
       return result;
     });
     // console.log('validateUnique()/propMap:', await propMap)
     // const strQueryItems = await this.getQueryItems(req, propMap, params)
     const strQueryItems = await this.getQueryItems(req, serviceInput);
-    this.logger.logDebug(
-      'BaseService::validateUnique()/strQueryItems:',
-      strQueryItems,
-    );
+    this.logger.logDebug('BaseService::validateUnique()/strQueryItems:', strQueryItems);
     // convert the string items into JSON objects
     // const arrQueryItems = await strQueryItems.map(async (item) => {
     //     console.log('validateUnique()/item:', await item)
@@ -1190,10 +1184,7 @@ export class BaseService<
     // console.log('validateUnique()/arrQueryItems:', arrQueryItems)
     // const filterItems = await JSON.parse(strQueryItems)
     const filterItems = await strQueryItems;
-    this.logger.logDebug(
-      'BaseService::validateUnique()/filterItems:',
-      filterItems,
-    );
+    this.logger.logDebug('BaseService::validateUnique()/filterItems:', filterItems);
     // execute the query
     const results = await baseRepository.count({
       where: await filterItems,
@@ -1231,9 +1222,7 @@ export class BaseService<
     // assign payload data to this.userModel
     //** */ params.controllerInstance.userModel = this.getPlData(req);
     // set connection
-    const baseRepository = this.db.getRepository(
-      params.serviceInput.serviceModel,
-    );
+    const baseRepository = this.db.getRepository(params.serviceInput.serviceModel);
     this.logger.logDebug('BaseService::validateUniqueI()/repo/model:', {
       model: params.serviceInput.serviceModel,
     });
@@ -1247,10 +1236,7 @@ export class BaseService<
       params.controllerData,
       params.serviceInput.serviceInstance.cRules.noDuplicate,
     );
-    this.logger.logDebug(
-      'BaseService::validateUniqueI()/filterItems:',
-      filterItems,
-    );
+    this.logger.logDebug('BaseService::validateUniqueI()/filterItems:', filterItems);
     // execute the query
     const results = await baseRepository.count({
       where: await filterItems,
@@ -1280,14 +1266,8 @@ export class BaseService<
     controllerData: T,
     noDuplicate: string[],
   ): Promise<Partial<T>> {
-    this.logger.logDebug(
-      'BaseService::duplicateFilter()/controllerData:',
-      controllerData,
-    );
-    this.logger.logDebug(
-      'BaseService::duplicateFilter()/noDuplicate:',
-      noDuplicate,
-    );
+    this.logger.logDebug('BaseService::duplicateFilter()/controllerData:', controllerData);
+    this.logger.logDebug('BaseService::duplicateFilter()/noDuplicate:', noDuplicate);
     const filteredData = {} as Partial<T>;
 
     for (const field of noDuplicate) {
@@ -1309,9 +1289,7 @@ export class BaseService<
       }
     });
     if (this.isInvalidFields.length > 0) {
-      this.i.app_msg = `the required fields ${this.isInvalidFields.join(
-        ', ',
-      )} is missing`;
+      this.i.app_msg = `the required fields ${this.isInvalidFields.join(', ')} is missing`;
       this.i.messages.push(this.i.app_msg);
       this.setAppState(false, this.i, svSess.sessResp);
       return false;
@@ -1357,9 +1335,7 @@ export class BaseService<
       // console.log('getQueryItems()/e:', e)
       const k = e[0];
       const v = e[1];
-      const ret = JSON.parse(
-        `[{"key":"${k}","val":"${v}","obj":{"${k}":"${v}"}}]`,
-      );
+      const ret = JSON.parse(`[{"key":"${k}","val":"${v}","obj":{"${k}":"${v}"}}]`);
       // console.log('getQueryItems()/ret:', ret)
       return ret;
     });
@@ -1563,10 +1539,7 @@ export class BaseService<
   ): { valid: boolean; errors: string[] } {
     const errors: string[] = [];
 
-    function traversePath(
-      currentPath: string[],
-      currentInterface: any,
-    ): boolean {
+    function traversePath(currentPath: string[], currentInterface: any): boolean {
       // If no path left to validate, return true
       if (currentPath.length === 0) return true;
 
@@ -1578,20 +1551,14 @@ export class BaseService<
       } else if (currentInterface && typeof currentInterface === 'object') {
         // Check if the key exists in the interface
         if (!(currentKey in currentInterface)) {
-          errors.push(
-            `Invalid path key '${currentKey}' at '${currentPath.join('.')}'`,
-          );
+          errors.push(`Invalid path key '${currentKey}' at '${currentPath.join('.')}'`);
           return false;
         }
         // Continue traversing the remaining path
         return traversePath(remainingPath, currentInterface[currentKey]);
       } else {
         // If the structure doesn't match, log an error
-        errors.push(
-          `Unexpected type at '${currentPath.join(
-            '.',
-          )}'. Expected object or array.`,
-        );
+        errors.push(`Unexpected type at '${currentPath.join('.')}'. Expected object or array.`);
         return false;
       }
     }
@@ -1650,9 +1617,7 @@ export class BaseService<
           // Handle array index
           const index = parseInt(key.slice(1, -1), 10);
           if (isNaN(index) || !Array.isArray(target)) {
-            this.err.push(
-              `Invalid path at '${key}': Expected a valid array index in an array.`,
-            );
+            this.err.push(`Invalid path at '${key}': Expected a valid array index in an array.`);
             return null;
           }
           target = target[index];
@@ -1683,10 +1648,7 @@ export class BaseService<
         console.log('BaseService::updateJsonData()/target2:', target);
         target[index] = jsonUpdate.value; // Update the value at the specified index
       } else {
-        console.log(
-          'BaseService::updateJsonData()/jsonUpdate.value:',
-          jsonUpdate.value,
-        );
+        console.log('BaseService::updateJsonData()/jsonUpdate.value:', jsonUpdate.value);
         console.log('BaseService::updateJsonData()/target3:', target);
         console.log('BaseService::updateJsonData()/finalKey3:', finalKey);
         target[finalKey] = jsonUpdate.value; // Update the value at the specified key
@@ -1727,11 +1689,7 @@ export class BaseService<
     //         }
     //     }).filter(Boolean);
     // };
-    const buildJsonSetPaths = (
-      jsonField: string,
-      obj: any,
-      prefix: string = '',
-    ): string[] => {
+    const buildJsonSetPaths = (jsonField: string, obj: any, prefix: string = ''): string[] => {
       return Object.keys(obj)
         .map((key) => {
           const path = `${prefix}${prefix ? '.' : ''}${key}`;
@@ -1759,9 +1717,7 @@ export class BaseService<
     // );
 
     // Start building the query using the input provided in serviceInput.cmd.query
-    const queryBuilder = this.repo
-      .createQueryBuilder()
-      .update(serviceInput.serviceModel);
+    const queryBuilder = this.repo.createQueryBuilder().update(serviceInput.serviceModel);
 
     // Handle dynamic update fields using the update property from QueryInput
     if (serviceInput.cmd?.query.update) {
@@ -1792,12 +1748,7 @@ export class BaseService<
       // Execute the query
       return await queryBuilder.execute();
     } catch (err) {
-      return await this.serviceErr(
-        req,
-        res,
-        err,
-        'BaseService:updateJSONColumnQB',
-      );
+      return await this.serviceErr(req, res, err, 'BaseService:updateJSONColumnQB');
     }
   }
 
@@ -1898,10 +1849,7 @@ export class BaseService<
     } else {
       req.post.dat.f_vals[0].data[item.key] = item.value;
     }
-    this.logger.logInfo(
-      'BaseService::setPlData()/req.post.dat.f_vals[0]:',
-      req.post.dat.f_vals[0],
-    );
+    this.logger.logInfo('BaseService::setPlData()/req.post.dat.f_vals[0]:', req.post.dat.f_vals[0]);
   }
 
   /**
@@ -1910,12 +1858,7 @@ export class BaseService<
    * @param item
    * @param extData
    */
-  async setPlDataM(
-    req,
-    data: any,
-    item: ObjectItem,
-    extData?: string,
-  ): Promise<void> {
+  async setPlDataM(req, data: any, item: ObjectItem, extData?: string): Promise<void> {
     this.logger.logInfo('BaseService::setPlDataM()/item:', item);
     if (extData) {
       console.log('BaseService::setPlDataM()/extData:', { context: extData });
@@ -1988,10 +1931,7 @@ export class BaseService<
   async wsRedisInit() {
     this.logger.logDebug('BaseService::wsRedisInit()/01');
     this.redisClient = createClient();
-    this.logger.logDebug(
-      'BaseService::wsRedisInit()/this.redisClient:',
-      this.redisClient,
-    );
+    this.logger.logDebug('BaseService::wsRedisInit()/this.redisClient:', this.redisClient);
     this.redisClient.on('error', async (err) => {
       this.logger.logDebug('BaseService::redisCreate()/err:', err);
       this.err.push(err.toString());
@@ -2037,13 +1977,9 @@ export class BaseService<
     await this.wsRedisInit();
     try {
       const setRet = await this.redisClient.set(k, v);
-      this.logger.logDebug(
-        `BaseService::wsRedisCreate()/setRet:${JSON.stringify(setRet)}`,
-      );
+      this.logger.logDebug(`BaseService::wsRedisCreate()/setRet:${JSON.stringify(setRet)}`);
       const readBack = await this.redisClient.get(k);
-      this.logger.logDebug(
-        `BaseService::wsRedisCreate()/readBack:${JSON.stringify(readBack)}`,
-      );
+      this.logger.logDebug(`BaseService::wsRedisCreate()/readBack:${JSON.stringify(readBack)}`);
       return {
         status: setRet,
         saved: readBack,
@@ -2134,9 +2070,7 @@ export class BaseService<
   }
 
   async wsServiceErr(e, eCode, cdToken = null) {
-    this.logger.logDebug(
-      `Error as BaseService::wsServiceErr, e: ${(e as Error).toString()} `,
-    );
+    this.logger.logDebug(`Error as BaseService::wsServiceErr, e: ${(e as Error).toString()} `);
     const svSess = new SessionService();
     if (cdToken) {
       svSess.sessResp.cd_token = cdToken;

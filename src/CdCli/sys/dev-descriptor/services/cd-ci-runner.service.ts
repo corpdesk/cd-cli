@@ -26,6 +26,7 @@ import {
 import { DEV_DESCRIPTORS_SERVICE_DIR } from '../models/dev-descriptor.model.js';
 import { CdModuleDescriptorService } from './cd-module-descriptor.service.js';
 import { MOD_CRAFT_WORKSHOP_DIR } from '../../../app/mod-craft/index.js';
+import { BaseService } from '../../base/base.service.js';
 
 /** Runner responsible for executing CICdTask logic */
 export class CICdRunnerService {
@@ -336,7 +337,8 @@ export class CICdRunnerService {
           return await this.callMethodFromCdRequest(task.cdRequest);
         case 'cdRequest':
           CdLog.debug('Running case: cdRequest');
-          return await this.invokeCdRequest(task.cdRequest);
+          const b = new BaseService();
+          return await b.invokeCdRequest(task.cdRequest);
         default:
           return { state: false, message: `Unknown task type: ${task.type}` };
       }
@@ -459,50 +461,50 @@ export class CICdRunnerService {
     }
   }
 
-  private async invokeCdRequest(cdRequest?: ICdRequest): Promise<CdFxReturn<null>> {
-    CdLog.debug('Starting CICdRunnerService::invokeCdRequest()');
-    if (!cdRequest) {
-      return { state: false, message: 'cdRequest is undefined or null.' };
-    }
+  // private async invokeCdRequest(cdRequest?: ICdRequest): Promise<CdFxReturn<null>> {
+  //   CdLog.debug('Starting CICdRunnerService::invokeCdRequest()');
+  //   if (!cdRequest) {
+  //     return { state: false, message: 'cdRequest is undefined or null.' };
+  //   }
 
-    const { ctx, m, c, a, args, dat } = cdRequest;
+  //   const { ctx, m, c, a, args, dat } = cdRequest;
 
-    try {
-      // Resolve context directory
-      const contextRoot = ctx === 'Sys' ? 'sys' : 'app';
-      const moduleName = `${m}Module`;
-      const controllerName = `${c}Controller`;
+  //   try {
+  //     // Resolve context directory
+  //     const contextRoot = ctx === 'Sys' ? 'sys' : 'app';
+  //     const moduleName = `${m}Module`;
+  //     const controllerName = `${c}Controller`;
 
-      // Construct full path
-      const modulePath = `../../${contextRoot}/${moduleName}/controllers/${controllerName}`;
-      const ControllerClass = (await import(modulePath))[controllerName];
+  //     // Construct full path
+  //     const modulePath = `../../${contextRoot}/${moduleName}/controllers/${controllerName}`;
+  //     const ControllerClass = (await import(modulePath))[controllerName];
 
-      if (!ControllerClass) {
-        return {
-          state: false,
-          message: `Controller not found: ${controllerName}`,
-        };
-      }
+  //     if (!ControllerClass) {
+  //       return {
+  //         state: false,
+  //         message: `Controller not found: ${controllerName}`,
+  //       };
+  //     }
 
-      const controllerInstance = new ControllerClass();
+  //     const controllerInstance = new ControllerClass();
 
-      if (typeof controllerInstance[a] !== 'function') {
-        return { state: false, message: `Action method not found: ${a}` };
-      }
+  //     if (typeof controllerInstance[a] !== 'function') {
+  //       return { state: false, message: `Action method not found: ${a}` };
+  //     }
 
-      // Call the controller method with args and dat
-      const result = await controllerInstance[a](...(args ? Object.values(args) : []), dat);
-      if (!result.state) {
-        CdLog.error(`Task failed: ${result.message}`);
-        return result;
-      } else {
-        return CD_FX_FAIL;
-      }
-    } catch (err) {
-      return {
-        state: false,
-        message: `Error executing cdRequest: ${(err as Error).message}`,
-      };
-    }
-  }
+  //     // Call the controller method with args and dat
+  //     const result = await controllerInstance[a](...(args ? Object.values(args) : []), dat);
+  //     if (!result.state) {
+  //       CdLog.error(`Task failed: ${result.message}`);
+  //       return result;
+  //     } else {
+  //       return CD_FX_FAIL;
+  //     }
+  //   } catch (err) {
+  //     return {
+  //       state: false,
+  //       message: `Error executing cdRequest: ${(err as Error).message}`,
+  //     };
+  //   }
+  // }
 }

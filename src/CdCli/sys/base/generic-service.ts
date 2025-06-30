@@ -20,7 +20,7 @@ export class GenericService<T extends ObjectLiteral> {
   async create(
     req,
     res,
-    serviceInput: IServiceInput<T>,
+    serviceInput: any,
   ): Promise<CdFxReturn<T | ObjectLiteral | null>> {
     // const modelName =
     //   typeof this.model === 'function' ? this.model.name : String(this.model);

@@ -7,7 +7,7 @@ import { CdAutoGitController } from '../../../app/cd-auto-git/controllers/cd-aut
 import { BaseService } from '../../base/base.service.js';
 import { HttpService } from '../../base/http.service.js';
 import { getCiCdByName, knownCiCds } from '../models/cicd-descriptor.model.js';
-import { type EnvironmentDescriptor } from '../models/environment.model.js';
+import { CdEnvName, type EnvironmentDescriptor } from '../models/environment.model.js';
 import {
   type BaseServiceDescriptor,
   getServiceByName,
@@ -91,9 +91,7 @@ export class EnvironmentService extends GenericService<CdObjModel> {
     devEnviron: EnvironmentDescriptor,
     steps?: number[],
   ): Promise<CdFxReturn<null>> {
-    CdLog.debug(
-      `EnvironmentService::setupEnvironment()/devEnviron:${devEnviron}`,
-    );
+    CdLog.debug(`EnvironmentService::setupEnvironment()/devEnviron:${devEnviron}`);
     CdLog.debug(`EnvironmentService::setupEnvironment()/steps:${steps}`);
     try {
       if (!devEnviron.ciCd) {
@@ -107,9 +105,7 @@ export class EnvironmentService extends GenericService<CdObjModel> {
         this.progressTracker,
       );
 
-      CdLog.debug(
-        `EnvironmentService::setupEnvironment()/resInitStepMap:${resInitStepMap}`,
-      );
+      CdLog.debug(`EnvironmentService::setupEnvironment()/resInitStepMap:${resInitStepMap}`);
 
       if (!resInitStepMap.state) {
         return {
@@ -120,9 +116,7 @@ export class EnvironmentService extends GenericService<CdObjModel> {
       }
 
       const registeredSteps = this.progressTracker.getSteps();
-      CdLog.debug(
-        `EnvironmentService::setupEnvironment()/registeredSteps:${registeredSteps}`,
-      );
+      CdLog.debug(`EnvironmentService::setupEnvironment()/registeredSteps:${registeredSteps}`);
 
       for (let i = 0; i < registeredSteps.length; i++) {
         if (steps && !steps.includes(i + 1)) continue; // Skip steps not included
@@ -140,12 +134,7 @@ export class EnvironmentService extends GenericService<CdObjModel> {
           return result; // Stop execution on failure
         }
 
-        this.progressTracker.updateProgress(
-          key,
-          'completed',
-          totalTasks,
-          totalTasks,
-        );
+        this.progressTracker.updateProgress(key, 'completed', totalTasks, totalTasks);
       }
 
       return {
@@ -162,9 +151,7 @@ export class EnvironmentService extends GenericService<CdObjModel> {
     }
   }
 
-  async installDependencies(
-    workstation: WorkstationDescriptor,
-  ): Promise<CdFxReturn<null>> {
+  async installDependencies(workstation: WorkstationDescriptor): Promise<CdFxReturn<null>> {
     const retValidWS = this.svWorkstation.validateWorkstation(workstation);
     if (!retValidWS) {
       CdLog.error('This workstation is invalid!');
@@ -174,12 +161,7 @@ export class EnvironmentService extends GenericService<CdObjModel> {
     const totalTasks = workstation.requiredSoftware?.length || 0;
     let completedTasks = 0;
 
-    this.progressTracker.updateProgress(
-      stepKey,
-      'in-progress',
-      totalTasks,
-      completedTasks,
-    );
+    this.progressTracker.updateProgress(stepKey, 'in-progress', totalTasks, completedTasks);
 
     try {
       if (
@@ -187,12 +169,7 @@ export class EnvironmentService extends GenericService<CdObjModel> {
         !workstation.workstationAccess.physicalAccess ||
         !workstation.workstationAccess.transport
       ) {
-        this.progressTracker.updateProgress(
-          stepKey,
-          'completed',
-          totalTasks,
-          totalTasks,
-        );
+        this.progressTracker.updateProgress(stepKey, 'completed', totalTasks, totalTasks);
         return {
           data: null,
           state: true,
@@ -200,31 +177,17 @@ export class EnvironmentService extends GenericService<CdObjModel> {
         };
       }
 
-      const result: CdFxReturn<{ completedTasks: number }> =
-        this.svSsh.requiresSSH(
-          workstation.workstationAccess.accessScope,
-          workstation.workstationAccess.physicalAccess,
-          workstation.workstationAccess.transport,
-        )
-          ? await this.svDependency.handleRemoteInstallation(
-              workstation,
-              totalTasks,
-              completedTasks,
-            )
-          : await this.svDependency.handleLocalInstallation(
-              workstation,
-              totalTasks,
-              completedTasks,
-            );
+      const result: CdFxReturn<{ completedTasks: number }> = this.svSsh.requiresSSH(
+        workstation.workstationAccess.accessScope,
+        workstation.workstationAccess.physicalAccess,
+        workstation.workstationAccess.transport,
+      )
+        ? await this.svDependency.handleRemoteInstallation(workstation, totalTasks, completedTasks)
+        : await this.svDependency.handleLocalInstallation(workstation, totalTasks, completedTasks);
 
       completedTasks = result.data?.completedTasks ?? completedTasks;
 
-      this.progressTracker.updateProgress(
-        stepKey,
-        'completed',
-        totalTasks,
-        completedTasks,
-      );
+      this.progressTracker.updateProgress(stepKey, 'completed', totalTasks, completedTasks);
       return {
         data: null,
         state: true,
@@ -264,9 +227,7 @@ export class EnvironmentService extends GenericService<CdObjModel> {
     completedTasks: number,
   ): Promise<CdFxReturn<null>> {
     for (const dependency of workstation.requiredSoftware) {
-      console.log(
-        `Checking dependency: ${dependency.name} on ${workstation.name}`,
-      );
+      console.log(`Checking dependency: ${dependency.name} on ${workstation.name}`);
       const isInstalledResult = await this.svDependency.isDependencyInstalled(
         workstation,
         dependency,
@@ -280,21 +241,14 @@ export class EnvironmentService extends GenericService<CdObjModel> {
       }
 
       if (isInstalledResult.data) {
-        console.log(
-          `Dependency ${dependency.name} is already installed. Skipping...`,
-        );
+        console.log(`Dependency ${dependency.name} is already installed. Skipping...`);
         completedTasks++;
         continue;
       }
 
-      const scriptResult = await this.svDependency.getInstallationScript(
-        dependency,
-        os,
-      );
+      const scriptResult = await this.svDependency.getInstallationScript(dependency, os);
       if (!scriptResult.state || !scriptResult.data) {
-        console.warn(
-          `No installation script found for ${dependency.name}. Skipping...`,
-        );
+        console.warn(`No installation script found for ${dependency.name}. Skipping...`);
         completedTasks++;
         continue;
       }
@@ -306,9 +260,7 @@ export class EnvironmentService extends GenericService<CdObjModel> {
           scriptResult.data,
         );
         if (!executionResult.state) {
-          console.error(
-            `Failed to install ${dependency.name}: ${executionResult.message}`,
-          );
+          console.error(`Failed to install ${dependency.name}: ${executionResult.message}`);
         }
       }
 
@@ -323,9 +275,7 @@ export class EnvironmentService extends GenericService<CdObjModel> {
     };
   }
 
-  async cloneRepositories(
-    devEnviron: EnvironmentDescriptor,
-  ): Promise<CdFxReturn<null>> {
+  async cloneRepositories(devEnviron: EnvironmentDescriptor): Promise<CdFxReturn<null>> {
     const stepKey = 'cloneRepositories';
     this.progressTracker.updateProgress(stepKey, 'in-progress', 1, 0);
 
@@ -338,14 +288,12 @@ export class EnvironmentService extends GenericService<CdObjModel> {
 
         if (repo && repo.enabled) {
           const repoName = repo.name;
-          const repoDirectory = repo.directory ?? '/default/path'; // Provide fallback if undefined
+          const repoDirectory = repo.directories?.find(
+            (dir) => dir.environment.name === CdEnvName.WORKSHOP,
+          )?.path ?? '~'; // Provide fallback if undefined
           const repoHost = repo.credentials.repoHost ?? 'corpdesk'; // Provide fallback if undefined
 
-          await ctlCdAutoGit.cloneRepoToLocal(
-            repoName,
-            repoDirectory,
-            repoHost,
-          );
+          await ctlCdAutoGit.cloneRepoToLocal(repoName, repoDirectory, repoHost);
         }
       }
 
@@ -365,9 +313,7 @@ export class EnvironmentService extends GenericService<CdObjModel> {
     }
   }
 
-  async configureServices(
-    devEnviron: EnvironmentDescriptor,
-  ): Promise<CdFxReturn<null>> {
+  async configureServices(devEnviron: EnvironmentDescriptor): Promise<CdFxReturn<null>> {
     const stepKey = 'configureServices';
     this.progressTracker.updateProgress(stepKey, 'in-progress', 1, 0);
 
@@ -384,9 +330,7 @@ export class EnvironmentService extends GenericService<CdObjModel> {
         CdLog.info(`Configuring service: ${service.serviceName}`);
 
         if (!service.configuration) {
-          CdLog.warning(
-            `Skipping ${service.serviceName}: No configuration found.`,
-          );
+          CdLog.warning(`Skipping ${service.serviceName}: No configuration found.`);
           continue;
         }
 
@@ -433,9 +377,7 @@ export class EnvironmentService extends GenericService<CdObjModel> {
         return !!credentials.apiKey;
 
       case 'usernamePassword':
-        CdLog.info(
-          `Authenticating ${service.serviceName} with username/password...`,
-        );
+        CdLog.info(`Authenticating ${service.serviceName} with username/password...`);
         return !!credentials.username && !!credentials.password;
 
       case 'oauth':
@@ -443,32 +385,21 @@ export class EnvironmentService extends GenericService<CdObjModel> {
         return !!credentials.token;
 
       case 'custom':
-        CdLog.info(
-          `Authenticating ${service.serviceName} with custom method...`,
-        );
+        CdLog.info(`Authenticating ${service.serviceName} with custom method...`);
         return !!credentials.customAuthConfig;
 
       default:
-        CdLog.warning(
-          `Unknown authentication method for ${service.serviceName}`,
-        );
+        CdLog.warning(`Unknown authentication method for ${service.serviceName}`);
         return false;
     }
   }
 
-  async applyServiceConfiguration(
-    service: BaseServiceDescriptor,
-  ): Promise<void> {
+  async applyServiceConfiguration(service: BaseServiceDescriptor): Promise<void> {
     // Placeholder for actual configuration logic
-    CdLog.debug(
-      `Applying configuration for ${service.serviceName}:`,
-      service.configuration,
-    );
+    CdLog.debug(`Applying configuration for ${service.serviceName}:`, service.configuration);
   }
 
-  async startServices(
-    devEnviron: EnvironmentDescriptor,
-  ): Promise<CdFxReturn<null>> {
+  async startServices(devEnviron: EnvironmentDescriptor): Promise<CdFxReturn<null>> {
     const stepKey = 'startServices';
     await this.progressTracker.updateProgress(stepKey, 'in-progress', 1, 0);
 
@@ -485,9 +416,7 @@ export class EnvironmentService extends GenericService<CdObjModel> {
         CdLog.info(`Starting service: ${service.serviceName}`);
 
         if (!service.configuration) {
-          CdLog.warning(
-            `Skipping ${service.serviceName}: No configuration found.`,
-          );
+          CdLog.warning(`Skipping ${service.serviceName}: No configuration found.`);
           continue;
         }
 
@@ -556,7 +485,7 @@ export class EnvironmentService extends GenericService<CdObjModel> {
     }
   }
 
-  async read(q?: IQuery): Promise<CdFxReturn<CdDescriptor[] | null >> {
+  async read(q?: IQuery): Promise<CdFxReturn<CdDescriptor[] | null>> {
     try {
       /**
        * The q is allowed to be null
@@ -636,7 +565,7 @@ export class EnvironmentService extends GenericService<CdObjModel> {
   }
 
   // Get a single app by name
-  async getAppByName(name: string): Promise<CdFxReturn<CdDescriptor[] | null >> {
+  async getAppByName(name: string): Promise<CdFxReturn<CdDescriptor[] | null>> {
     try {
       // Validate input
       if (!name.trim()) {
@@ -675,11 +604,9 @@ export class EnvironmentService extends GenericService<CdObjModel> {
   async buildEnvironmentData(
     name: string,
     workstation: string,
-  ): Promise<CdFxReturn<EnvironmentDescriptor | null >> {
+  ): Promise<CdFxReturn<EnvironmentDescriptor | null>> {
     CdLog.debug(`EnvironmentService::buildEnvironmentData()/name:${name}`);
-    CdLog.debug(
-      `EnvironmentService::buildEnvironmentData()/workstation:${workstation}`,
-    );
+    CdLog.debug(`EnvironmentService::buildEnvironmentData()/workstation:${workstation}`);
     /**
      * pull appropriate profile from the cd-cli.config.json (which is a session storage from database)
      */
@@ -692,15 +619,10 @@ export class EnvironmentService extends GenericService<CdObjModel> {
     }
 
     const cdCliProfile: ProfileModel = ret.data;
-    CdLog.debug(
-      'CdAutoGitController::getGitHubProfile()/cdCliProfile:',
-      cdCliProfile,
-    );
+    CdLog.debug('CdAutoGitController::getGitHubProfile()/cdCliProfile:', cdCliProfile);
 
     const environment = cdCliProfile.cdCliProfileData?.details;
-    CdLog.debug(
-      `EnvironmentService::buildEnvironmentData()/environment:${environment}`,
-    );
+    CdLog.debug(`EnvironmentService::buildEnvironmentData()/environment:${environment}`);
     if (!environment) {
       return {
         data: null,
@@ -717,9 +639,7 @@ export class EnvironmentService extends GenericService<CdObjModel> {
      * For experiments, the data will be set at the model files.
      */
     const resCiCd = [getCiCdByName([name], knownCiCds)];
-    CdLog.debug(
-      `EnvironmentService::buildEnvironmentData()/resCiCd:${resCiCd}`,
-    );
+    CdLog.debug(`EnvironmentService::buildEnvironmentData()/resCiCd:${resCiCd}`);
     if (resCiCd) {
       devEnv.ciCd = resCiCd;
     }
@@ -739,17 +659,12 @@ export class EnvironmentService extends GenericService<CdObjModel> {
     }
 
     const resServices = getServiceByName([name], services);
-    CdLog.debug(
-      `EnvironmentService::buildEnvironmentData()/resServices:${resServices}`,
-    );
+    CdLog.debug(`EnvironmentService::buildEnvironmentData()/resServices:${resServices}`);
     if (resServices) {
       devEnv.services = resServices;
     }
 
-    const resTestingFrameworks = getTestingFrameworkByContext(
-      name,
-      testingFrameworks,
-    );
+    const resTestingFrameworks = getTestingFrameworkByContext(name, testingFrameworks);
     CdLog.debug(
       `EnvironmentService::buildEnvironmentData()/resTestingFrameworks:${resTestingFrameworks}`,
     );
@@ -757,10 +672,7 @@ export class EnvironmentService extends GenericService<CdObjModel> {
       devEnv.testingFrameworks = resTestingFrameworks;
     }
 
-    const resVersionControl = getVersionControlByContext(
-      name,
-      versionControlRepositories,
-    );
+    const resVersionControl = getVersionControlByContext(name, versionControlRepositories);
     CdLog.debug(
       `EnvironmentService::buildEnvironmentData()/resVersionControl:${resVersionControl}`,
     );
@@ -769,9 +681,7 @@ export class EnvironmentService extends GenericService<CdObjModel> {
     }
 
     const resWorkstation = getWorkstationByName(workstation, workstations);
-    CdLog.debug(
-      `EnvironmentService::buildEnvironmentData()/resWorkstation:${resWorkstation}`,
-    );
+    CdLog.debug(`EnvironmentService::buildEnvironmentData()/resWorkstation:${resWorkstation}`);
     if (resWorkstation) {
       devEnv.workstation = resWorkstation;
     }
@@ -784,12 +694,8 @@ export class EnvironmentService extends GenericService<CdObjModel> {
       };
     }
     // Explicitly cast devEnv to EnvironmentDescriptor since workstation is now guaranteed
-    const retValidDevEnv = this.validateEnvironment(
-      devEnv as EnvironmentDescriptor,
-    );
-    CdLog.debug(
-      `EnvironmentService::buildEnvironmentData()/retValidDevEnv:${retValidDevEnv}`,
-    );
+    const retValidDevEnv = this.validateEnvironment(devEnv as EnvironmentDescriptor);
+    CdLog.debug(`EnvironmentService::buildEnvironmentData()/retValidDevEnv:${retValidDevEnv}`);
     if (!retValidDevEnv.state) {
       return CD_FX_FAIL;
     }

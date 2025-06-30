@@ -1,20 +1,25 @@
 import chalk from 'chalk';
+import CdLog from '../../../../sys/cd-comm/controllers/cd-logger.controller.js';
+import { DevModeModel } from '../../models/dev-mode.model.js';
+import { CdModuleController } from '../../../../app/mod-craft/controllers/cd-module.controller.js';
+import { CICdRunnerService } from '../../../../sys/dev-descriptor/services/cd-ci-runner.service.js';
 import { SessionService } from '../../../../sys/user/services/session.service.js';
+import { CdAiModel } from '../../../../app/mod-craft/workshop/cd-api/model/cd-ai-module.model.js';
 import { BaseService, ICdRequest } from '../../../../sys/base/index.js';
-import { createItemRegistry, ICdCreateRequest } from './create.registry.js';
+import { migrateItemRegistry, ICdMigrateRequest } from './migrate.registry.js';
 
-export const createCommand = {
-  name: 'create',
+export const migrateCommand = {
+  name: 'migrate',
   description: 'Setup environments, modules, controllers, or models dynamically.',
   options: [
-    { flags: 'module', description: 'Create a module' },
-    { flags: 'controller', description: 'Create a controller' },
-    { flags: 'model', description: 'Create a model' },
-    { flags: 'test-bed', description: 'Create a developer test-bed environment' },
-    { flags: 'prod', description: 'Create a production deployment environment' },
-    { flags: 'package', description: 'Create a package for registry' },
-    { flags: 'sandbox', description: 'Create a sandbox environment' },
-    { flags: 'name', description: 'Name of the item to create' },
+    { flags: 'module', description: 'Migrate a module' },
+    { flags: 'controller', description: 'Migrate a controller' },
+    { flags: 'model', description: 'Migrate a model' },
+    { flags: 'test-bed', description: 'Migrate a developer test-bed environment' },
+    { flags: 'prod', description: 'Migrate a production deployment environment' },
+    { flags: 'package', description: 'Migrate a package for registry' },
+    { flags: 'sandbox', description: 'Migrate a sandbox environment' },
+    { flags: 'name', description: 'Name of the item to migrate' },
     { flags: 'type', description: 'Type of the module (e.g. cd-api, cd-ui)' },
     {
       flags: 'method',
@@ -24,12 +29,13 @@ export const createCommand = {
     { flags: 'model-file', description: 'Path to JSON workflow model file' },
     { flags: 'workstation', description: 'Target workstation' },
   ],
+
   action: {
     execute: async (options: any) => {
-      const selectedItem = getSelectedCreateItem(options);
+      const selectedItem = getSelectedMigrateItem(options);
 
       if (!selectedItem) {
-        console.log(chalk.red('❌ Invalid item to create.'));
+        console.log(chalk.red('❌ Invalid item to migrate.'));
         return;
       }
 
@@ -62,25 +68,28 @@ export const createCommand = {
 
         if (response?.state) {
           console.log(
-            chalk.green(`✔ ${selectedItem.label} "${options.name}" created successfully.`),
+            chalk.green(`✔ ${selectedItem.label} "${options.name}" migrated successfully.`),
           );
         } else {
-          console.log(chalk.red(`❌ Failed to create ${selectedItem.label}: ${response.message}`));
+          console.log(chalk.red(`❌ Failed to migrate ${selectedItem.label}: ${response.message}`));
         }
       } catch (err: any) {
-        console.error(chalk.red(`❌ Error during create: ${err.message}`));
+        console.error(chalk.red(`❌ Error during migrate: ${err.message}`));
       }
     },
   },
 };
+// function getSelectedMigrateItem(options: any) {
+//   throw new Error('Function not implemented.');
+// }
 
 // Returns active flag and descriptor (e.g., { flag: 'module', item: {...} })
-function getSelectedCreateItem(options: any) {
-  return createItemRegistry.find((item) => options[item.flag]);
+function getSelectedMigrateItem(options: any) {
+  return migrateItemRegistry.find((item) => options[item.flag]);
 }
 
 // Validates required options
-function validateRequiredOptions(item: ICdCreateRequest, options: any): string[] {
+function validateRequiredOptions(item: ICdMigrateRequest, options: any): string[] {
   return item.required.filter((key) => !options[key]);
 }
 

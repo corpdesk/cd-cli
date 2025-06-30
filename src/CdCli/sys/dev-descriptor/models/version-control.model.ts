@@ -1,19 +1,27 @@
-import type {
-  BaseServiceDescriptor,
-  VendorDescriptor,
-} from './service-descriptor.model.js';
+import type { BaseServiceDescriptor, VendorDescriptor } from './service-descriptor.model.js';
 // import type { ServiceDescriptor } from './app-descriptor.model';
 import type { BaseDescriptor } from './base-descriptor.model.js';
 // import type { ServiceDescriptor } from './service-provider.model';
 
 // import type { VersionControlDescriptor } from './dev-descriptor.model';
 import { execSync } from 'node:child_process';
+import { EnvironmentDescriptor, envTestBed, envWorkshop } from './environment.model.js';
 // Example Usage
 
 /**
  * const descriptor = getVersionControlDescriptor('.');
     console.log(descriptor);
  */
+
+// Main VersionControlDescriptor Interface
+export interface VersionControlDescriptor extends BaseDescriptor {
+  repository: RepoDescriptor; // Repository details
+  versionControlBranch?: VersionControlBranch; // Branch details
+  versionControlWorkflow?: VersionControlWorkflow; // Workflow details
+  sourceContributors?: SourceContributor[]; // List of contributors
+  versionControlTags?: VersionControlTag[]; // List of tags
+  versionControlMetadata?: VersionControlMetadata; // Metadata information
+}
 
 // Interface for Tags
 export interface VersionControlTag extends BaseDescriptor {
@@ -32,16 +40,6 @@ export interface VersionControlMetadata extends BaseDescriptor {
   language?: string; // Primary programming language of the repository
 }
 
-// Main VersionControlDescriptor Interface
-export interface VersionControlDescriptor extends BaseDescriptor {
-  repository: RepoDescriptor; // Repository details
-  versionControlBranch?: VersionControlBranch; // Branch details
-  versionControlWorkflow?: VersionControlWorkflow; // Workflow details
-  sourceContributors?: SourceContributor[]; // List of contributors
-  versionControlTags?: VersionControlTag[]; // List of tags
-  versionControlMetadata?: VersionControlMetadata; // Metadata information
-}
-
 export interface RepoDescriptor extends BaseDescriptor {
   name: string;
   description?: string;
@@ -51,12 +49,22 @@ export interface RepoDescriptor extends BaseDescriptor {
   isPrivate?: boolean;
   remote?: string;
   service?: BaseServiceDescriptor;
-  directory?: string; // NEW: Local directory where the repo should be cloned
+  // directory?: string; // NEW: Local directory where the repo should be cloned
+  directories?: RepoDirectoryDescriptor[]; // List of directories associated with the repository
   credentials: RepoCredentials;
 }
 
+// Interface for repository directory. Multiples can be used to describe different directories of different contextual usage in the repository.
+export interface RepoDirectoryDescriptor {
+  // context: 'workshop' | 'test-bed' | 'production' | 'ci-cd' | 'custom'; // known use-case types
+  environment: EnvironmentDescriptor; // Environment context (e.g., workshop, test-bed)
+  path: string; // absolute or relative path
+  purpose?: string; // optional human-readable explanation
+  isDefault?: boolean; // helpful when one is "primary"
+}
+
 export interface RepoCredentials extends BaseDescriptor {
-  repoHost: string;
+  repoHost: string; // Organization hosting a repository (e.g., georemo, corpdesk")
   password?: string;
   accessToken?: string;
 }
@@ -134,6 +142,36 @@ export interface CommunityDescriptor extends BaseDescriptor {
   type: 'forum' | 'github' | 'mailingList' | 'other';
   link: string; // URL to the community
 }
+
+export const cdAiVersionControl: VersionControlDescriptor = {
+    name: "GitHub Source",
+    repository: {
+      name: "cd-api",
+      url: "https://github.com/corpdesk/cd-api.git",
+      type: "git",
+      enabled: true,
+      isPrivate: false,
+      credentials: {
+        repoHost: "corpdesk", // Organization or user hosting the repository
+        // password: "your-password", // Uncomment if needed
+        // accessToken: "your-access-token", // Uncomment if needed 
+      },
+      directories: [
+        {
+          environment: envWorkshop,
+          path: "$HOME/cd-cli/dist/CdCli/app/mod-craft/workshop/cd-api/output/cd-ai",
+          purpose: "Auto-generated source files",
+          isDefault: true
+        },
+        {
+          environment: envTestBed,
+          path: "$HOME/cd-projects/cd-api/src/CdApi/app/cd-ai",
+          purpose: "Integration and live testing"
+        }
+      ]
+    }
+  };
+
 
 export const versionControlRepositories: VersionControlDescriptor[] = [
   {
@@ -238,7 +276,5 @@ export function getVersionControlByContext(
   context: string,
   repositories: VersionControlDescriptor[],
 ): VersionControlDescriptor[] {
-  return repositories.filter(
-    (repo) => repo.context?.includes(context) ?? false,
-  );
+  return repositories.filter((repo) => repo.context?.includes(context) ?? false);
 }
