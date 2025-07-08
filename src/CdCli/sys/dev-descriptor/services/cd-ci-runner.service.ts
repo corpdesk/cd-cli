@@ -1,20 +1,9 @@
 import path, { join } from 'path';
-import { fileURLToPath, pathToFileURL } from 'url';
-import { dirname } from 'path';
-import { CdAiModel } from '../../../app/mod-craft/workshop/cd-api/model/cd-ai-module.model.js';
-import { CD_FX_FAIL, CdFxReturn, CdFxStateLevel, ICdRequest } from '../../base/IBase.js';
+import { pathToFileURL } from 'url';
+import { CdFxReturn, CdFxStateLevel, ICdRequest } from '../../base/IBase.js';
 import CdLog from '../../cd-comm/controllers/cd-logger.controller.js';
-import { CdControllerDescriptor } from '../models/cd-controller-descriptor.model.js';
 import { CdModuleDescriptor } from '../models/cd-module-descriptor.model.js';
-import {
-  CiCdDescriptor,
-  CICdPipeline,
-  CICdTask,
-  // ExecutionEnvironmentType,
-  // WFNext,
-  // WFNextRef,
-} from '../models/cicd-descriptor.model.js';
-import { CdAiWorkFlow } from '../../../app/mod-craft/workshop/cd-api/workflow/cd-ai.create.workflow.js';
+import { CiCdDescriptor, CICdPipeline, CICdTask } from '../models/cicd-descriptor.model.js';
 import { toDashedFileName } from '../../utilities/request-helper.js';
 import { inspect } from 'util';
 import {
@@ -27,6 +16,7 @@ import { DEV_DESCRIPTORS_SERVICE_DIR } from '../models/dev-descriptor.model.js';
 import { CdModuleDescriptorService } from './cd-module-descriptor.service.js';
 import { MOD_CRAFT_WORKSHOP_DIR } from '../../../app/mod-craft/index.js';
 import { BaseService } from '../../base/base.service.js';
+import { DevModeAction } from '../../dev-mode/index.js';
 
 /** Runner responsible for executing CICdTask logic */
 export class CICdRunnerService {
@@ -34,6 +24,8 @@ export class CICdRunnerService {
   currentStageName = '';
 
   async loadModuleDescriptorAndWorkflow(
+    action: DevModeAction,
+    cdObjType: string,
     moduleName: string,
     moduleType: string,
     cdToken: string,
@@ -47,6 +39,7 @@ export class CICdRunnerService {
       `CICdRunnerService::loadModuleDescriptorAndWorkflow()/moduleName:${moduleName}, moduleType:${moduleType}, cdToken:${cdToken}`,
     );
 
+    // const actionStr = getActionString(action);
     const dashedName = moduleName.toLowerCase();
     CdLog.debug(`CICdRunnerService::loadModuleDescriptorAndWorkflow()/dashedName:${dashedName}`);
     const pascalName = dashedName
@@ -69,8 +62,27 @@ export class CICdRunnerService {
       MOD_CRAFT_WORKSHOP_DIR,
       moduleType,
       'workflow',
-      `${dashedName}.create.workflow.js`,
+      cdObjType,
+      `${dashedName}.workflow.js`,
     );
+
+    // const modelFile = join(
+    //   MOD_CRAFT_OUTPUT_DIR,
+    //   moduleName,
+    //   'dist/CdCli/sys/dev-descriptor/services',
+    //   moduleType,
+    //   'model',
+    //   `${dashedName}-module.model.js`,
+    // );
+
+    // const workflowFile = join(
+    //   MOD_CRAFT_OUTPUT_DIR,
+    //   moduleName,
+    //   'dist/CdCli/app/mod-craft/workshop',
+    //   moduleType,
+    //   'workflow',
+    //   `${dashedName}.create.workflow.js`,
+    // );
 
     CdLog.debug(`Model Path: ${modelFile}`);
     CdLog.debug(`Workflow Path: ${workflowFile}`);
@@ -105,11 +117,51 @@ export class CICdRunnerService {
     const workflowModule = await import(pathToFileURL(workflowFile).href);
     const WorkflowClass = workflowModule[`${pascalName}WorkFlow`];
     const workflowInstance = new WorkflowClass();
-    const workflowModel: CiCdDescriptor = workflowInstance.createWorkFlow(
-      moduleDescriptor,
-      moduleType,
-      cdToken,
-    );
+    let workflowModel;
+    switch (action) {
+      case DevModeAction.CREATE:
+        workflowModel = workflowInstance.createWorkFlow(
+          moduleDescriptor,
+          moduleType,
+          cdToken,
+        );
+        break;
+      case DevModeAction.READ:
+        workflowModel = workflowInstance.readWorkFlow(
+          moduleDescriptor,
+          moduleType,
+          cdToken,
+        );
+        break;
+      case DevModeAction.UPDATE:
+        workflowModel = workflowInstance.updateWorkFlow(
+          moduleDescriptor,
+          moduleType,
+          cdToken,
+        );
+        break;
+      case DevModeAction.DELETE:
+        workflowModel = workflowInstance.deleteWorkFlow(
+          moduleDescriptor,
+          moduleType,
+          cdToken,
+        );
+        break;
+      case DevModeAction.UPGRADE:
+        workflowModel = workflowInstance.upgradeWorkFlow(
+          moduleDescriptor,
+          moduleType,
+          cdToken,
+        );
+        break;
+      case DevModeAction.MIGRATE:
+        workflowModel = workflowInstance.migrateWorkFlow(
+          moduleDescriptor,
+          moduleType,
+          cdToken,
+        );
+        break;
+    }
 
     return {
       moduleDescriptor,
@@ -416,7 +468,7 @@ export class CICdRunnerService {
       CdLog.debug(`CICdRunnerService::callMethodFromCdRequest()/06`);
       CdLog.debug(
         `CICdRunnerService::callMethodFromCdRequest()/controllerModule:${inspect(controllerModule, {
-          depth: 2,
+          depth: 3,
         })}`,
       );
       c = `${c}Controller`;

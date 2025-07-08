@@ -41,6 +41,8 @@ export enum CdEnvName {
   CI_CD = 'ci-cd',
   SANDBOX = 'sandbox',
   CUSTOM = 'custom',
+  LOCAL_CD_API_APP = 'local-cd-api-app',
+  LOCAL_CD_API_SYS = 'local-cd-api-sys',
 }
 
 export interface EnvironmentVariablesDescriptor extends BaseDescriptor {
@@ -59,6 +61,18 @@ export const envWorkshop: EnvironmentDescriptor = {
 export const envTestBed: EnvironmentDescriptor = {
   name: CdEnvName.TEST_BED,
   type: 'testing',
+  workstation: workstations.find((w) => w.name === 'emp-12') || defaultWorkstation,
+};
+
+export const envCdApiApp: EnvironmentDescriptor = {
+  name: CdEnvName.LOCAL_CD_API_APP,
+  type: 'local-cd-api-app',
+  workstation: workstations.find((w) => w.name === 'emp-12') || defaultWorkstation,
+};
+
+export const envCdApiSys: EnvironmentDescriptor = {
+  name: CdEnvName.LOCAL_CD_API_SYS,
+  type: 'local-cd-api-sys',
   workstation: workstations.find((w) => w.name === 'emp-12') || defaultWorkstation,
 };
 

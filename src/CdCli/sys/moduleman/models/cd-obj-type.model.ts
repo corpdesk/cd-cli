@@ -32,17 +32,14 @@ export class CdObjTypeModel {
   })
   cdObjTypeName!: string;
 
-  @Column('char', {
+  @Column({
     name: 'doc_id',
-    length: 60,
-    default: null,
   })
-  docId?: string;
+  docId?: number;
 
-  // HOOKS
-  // @BeforeInsert()
-  // @BeforeUpdate()
-  // async validate() {
-  //     await validateOrReject(this);
-  // }
+  @Column( {
+    name: 'mod_craft_controller',
+  })
+  modCraftController?: string;
+
 }

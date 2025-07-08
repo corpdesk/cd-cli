@@ -35,8 +35,10 @@ export interface CdAppDescriptor<T extends BaseDescriptor = BaseDescriptor> {
 export enum AppType {
   Frontend = 'frontend', // User-facing web or app interfaces
   Api = 'api', // Backend APIs
+  CdApi = 'cd-api', // Corpdesk backend APIs
   PushServer = 'push-server', // Services for push notifications
   Cli = 'cli', // Command-line interfaces
+  CdCli = 'cd-cli', // Corpdesk command-line interfaces
   Pwa = 'pwa', // Progressive Web Apps
   DesktopPwa = 'desktop-pwa', // PWAs optimized for desktop
   Mobile = 'mobile', // General mobile apps

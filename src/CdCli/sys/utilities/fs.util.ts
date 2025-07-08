@@ -116,6 +116,28 @@ export async function writeFileSafely(fullPath: string, content: string): Promis
   }
 }
 
+/**
+ * Formats content with Prettier and overwrites file even if it exists.
+ *
+ * @param fullPath Absolute or relative file path (e.g., 'src/CdApi/app/coop/models/coop-member.model.ts')
+ * @param content Text content to format and write
+ */
+export async function writePrettyFile(fullPath: string, content: string): Promise<void> {
+  const dir = path.dirname(fullPath);
+
+  try {
+    await fs.mkdir(dir, { recursive: true });
+
+    const formatted = await prettier.format(content, { parser: 'typescript' });
+
+    await fs.writeFile(fullPath, formatted, 'utf-8');
+    console.log(`✅ Pretty file written (overwrite): ${fullPath}`);
+  } catch (err) {
+    console.error(`❌ Failed to write pretty file: ${fullPath}`, err);
+    throw err;
+  }
+}
+
 export async function writePrettyFileSafely(path: string, content: string): Promise<void> {
   const formatted = await prettier.format(content, { parser: 'typescript' });
   await fs.writeFile(path, formatted, 'utf8');

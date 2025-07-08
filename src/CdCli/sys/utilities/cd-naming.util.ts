@@ -90,3 +90,48 @@ export function toUniversalSnakeCase(input: string): string {
     .trim();
 }
 
+/**
+ * Deduces cdObjType/workshop directory from a class or file name.
+ * - "TestBedService" => "test-bed"
+ * - "CdModuleService" => "cd-module"
+ * - "test-bed.service.ts" => "test-bed"
+ */
+export function inferCdObjType(source: string): string {
+  const name = source.replace(/\.ts$/, '').replace(/Service$/, '');
+
+  // Convert PascalCase to kebab-case
+  return name
+    .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
+    .replace(/([A-Z]+)([A-Z][a-z])/g, '$1-$2')
+    .toLowerCase();
+}
+
+/**
+ * Converts a field like "cdAiId" to "cdAiTypeId"
+ * and snake_case "cd_ai_id" to "cd_ai_type_id"
+ */
+export function injectTypeBeforeSuffix(
+  original: string,
+  suffixes: string[] = ['Id', 'Guid', 'Code', 'Ref', 'Name', 'DocId'],
+  injection: string = 'Type',
+): string {
+  const suffix = suffixes.find((s) => original.endsWith(s));
+  if (!suffix) return `${original}${injection}`; // fallback
+
+  const prefix = original.slice(0, -suffix.length);
+  return `${prefix}${injection}${suffix}`;
+}
+
+export function injectTypeBeforeSnakeSuffix(
+  original: string,
+  suffixes: string[] = ['_id', '_guid', '_code', '_ref', '_name', '_doc_id'],
+  injection: string = '_type',
+): string {
+  const suffix = suffixes.find((s) => original.endsWith(s));
+  if (!suffix) return `${original}${injection}`;
+
+  const prefix = original.slice(0, -suffix.length);
+  return `${prefix}${injection}${suffix}`;
+}
+
+

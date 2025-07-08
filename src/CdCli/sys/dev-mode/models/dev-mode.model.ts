@@ -1,30 +1,14 @@
 /* eslint-disable style/operator-linebreak */
 /* eslint-disable no-case-declarations */
 
-/**
- * dev-mode.model.ts main role is to manage the interactive commands that are applicable after executes the command
- * > cd-cli dev
- * Simiar to sql inteructive session, you have the following commands:
- * > show <recource>
- * > use <recource-name>
- *
- */
-
 /* eslint-disable style/brace-style */
 /* eslint-disable node/prefer-global/process */
 /* eslint-disable unused-imports/no-unused-vars */
 
-import repl from 'node:repl';
-import chalk from 'chalk';
-import minimist from 'minimist';
-import { CdCli } from '../../cd-cli/models/cd-cli.model.js';
-import CdLog from '../../cd-comm/controllers/cd-logger.controller.js';
-import { DevDescriptorController } from '../../dev-descriptor/controllers/dev-descriptor.controller.js';
-import { DevModeController } from '../controllers/dev-mode.controller.js';
-import { CiCdDescriptor } from '../../dev-descriptor/models/cicd-descriptor.model.js';
 import { CdSchedulerDescriptor } from '../../cd-scheduler/models/cd-scheduler.model.js';
-
-// let chalk: any;
+import { CdFxReturn, ICdRequest } from '../../base/index.js';
+import { CdObjTypeModel } from '../../moduleman/index.js';
+import { AppType, BaseDescriptor } from '../../dev-descriptor/index.js';
 
 export interface DevModeModel {
   method: 'wizard' | 'manual' | 'ai' | 'json' | 'context';
@@ -32,251 +16,364 @@ export interface DevModeModel {
   workflow: CdSchedulerDescriptor;
 }
 
-// // Branding utility for reusable prompt designs
-// export const Branding = {
-//   getPrompt: (mode: 'default' | 'py' | 'js' = 'default') => {
-//     const branding = {
-//       cd: chalk.bgHex('#FF6A00').white.bold('cd'), // Orange background, white text
-//       separator: chalk.white(''), // White separator
-//     };
+// DevMode is the module that manages REPL mode for cd-cli
+// This interface is used to constrain the syntaxt policy for the commands
+export interface IDevModeInstructionDescriptor extends BaseDescriptor {
+  flag: string;
+  label: string;
+  action: DevModeAction; // e.g., CRUD options, migrate, upgrade
+  actionTarget?: CdObjTypeModel; // e.g., In principle any CdObj item for corpdesk should qualify
+  targetName: string; // e.g., 'cd-ai' <-- specific application name
+  targetType?: AppType; // e.g., 'cd-api' <-- the specific CdObjType item
+  execStrategy?: 'json' | 'context' | 'gui-wizard' | 'ai' | 'cmd'; // action strategy
+  requiredOptions: string[];
+  cdRequest: ICdRequest;
+  enabled?: boolean;
+  jsonFile?: string; // optional descriptor file path
+  modelFile?: string; // optional model descriptor path
+  workstation?: string; // target environment
+}
 
-//     const modes = {
-//       default: chalk.bgGray.black.bold(' dev '), // Gray background, black text
-//       py: chalk.bgBlue.white.bold(' py '), // Blue background, white text
-//       js: chalk.bgYellow.black.bold(' js '), // Yellow background, black text
-//     };
+export enum DevModeAction {
+  CREATE = 1,
+  READ = 2,
+  UPDATE = 3,
+  DELETE = 4,
+  UPGRADE = 5,
+  MIGRATE = 6,
+}
 
-//     const modeLabel = modes[mode] || modes.default;
-//     return `${branding.cd}${branding.separator}${modeLabel} ${chalk.greenBright('>')} `;
-//   },
-// };
 
-// // Main Development Mode Commands
-// let inputBuffer: string = '';
-// let isCommandIncomplete = false;
 
-// export const DEV_MODE_COMMANDS_old = {
-//   name: 'dev',
-//   description: 'Enter development mode to manage applications.',
-//   action: {
-//     execute: async () => {
-//       console.log('Entering development mode...');
-//       let currentMode: 'default' | 'py' | 'js' = 'default';
+/**
+ * Selected CdObjTypes from corpdesk database that are relevant to application cdevelopment automation
+ */
+export const actionTargets: CdObjTypeModel[] = [
+  {
+    cdObjTypeId: 3,
+    cdObjTypeName: 'module',
+    cdObjTypeGuid: '8b4cf8de-1ffc-4575-9e73-4ccf45a7756b',
+    modCraftController: 'CdModule',
+  },
+  {
+    cdObjTypeId: 5,
+    cdObjTypeName: 'model',
+    cdObjTypeGuid: 'f028f009-1a2d-40d4-b284-645c855ad04c',
+    modCraftController: 'CdModel',
+  },
+  {
+    cdObjTypeId: 6,
+    cdObjTypeName: 'controller',
+    cdObjTypeGuid: 'cbbd698d-34a9-4982-a75a-cfe7797c1d00',
+    modCraftController: 'CdController',
+  },
+  {
+    cdObjTypeId: 8,
+    cdObjTypeName: 'action',
+    cdObjTypeGuid: '55ffe474-f46b-452b-9a13-01c258995cdb',
+    modCraftController: 'CdAction',
+  },
+  {
+    cdObjTypeId: 34,
+    cdObjTypeName: 'package',
+    cdObjTypeGuid: 'cb35a1da-51b5-41a6-a147-4798de7b3b38',
+    modCraftController: 'Package',
+  },
+  {
+    cdObjTypeId: 126,
+    cdObjTypeName: 'test-bed',
+    cdObjTypeGuid: '8bf59db2-a2c2-4da0-ad28-bce77c022ce5',
+    modCraftController: 'TestBed',
+  },
+  {
+    cdObjTypeId: 127,
+    cdObjTypeName: 'production',
+    cdObjTypeGuid: '010ef125-937a-4e7a-b571-2be23976946d',
+    modCraftController: 'Production',
+  },
+  {
+    cdObjTypeId: 128,
+    cdObjTypeName: 'package',
+    cdObjTypeGuid: '54b178d5-fc96-4aaf-97c7-c37a9c8c3f84',
+    modCraftController: 'Package',
+  },
+  {
+    cdObjTypeId: 129,
+    cdObjTypeName: 'sandbox',
+    cdObjTypeGuid: 'aa943c76-1998-4165-ab75-4424c9755587',
+    modCraftController: 'Sandbox',
+  },
+  {
+    cdObjTypeId: 130,
+    cdObjTypeName: 'method',
+    cdObjTypeGuid: '647e5383-e9bc-447c-944c-39b892670711',
+    modCraftController: 'CdMethod',
+  },
+];
 
-//       const replServer = repl.start({
-//         prompt: Branding.getPrompt(currentMode),
-//         eval: async (input, context, filename, callback) => {
-//           try {
-//             CdLog.debug(`DevModeModel::eval()/input:${input}`);
-//             input = input.trim();
-//             inputBuffer += input;
-//             CdLog.debug(`DevModeModel::eval()/inputBuffer:${inputBuffer}`);
+/**
+ * Converts an enum value (e.g. DevModeAction.UPDATE) to lowercase string: 'update'
+ */
+export function getActionString(action: DevModeAction): string {
+  return DevModeAction[action].toLowerCase();
+}
 
-//             const hasDelimiterAtEnd = inputBuffer.endsWith(';');
-//             const lastPart = inputBuffer.split(';').pop();
-//             const hasTextAfterLastDelimiter = lastPart
-//               ? lastPart.trim().length > 0
-//               : false;
+/**
+ * Converts an enum value to Title Case: 'Update', 'Create'
+ */
+export function getActionLabel(action: DevModeAction): string {
+  const raw = getActionString(action);
+  return raw.charAt(0).toUpperCase() + raw.slice(1);
+}
 
-//             if (!hasDelimiterAtEnd || hasTextAfterLastDelimiter) {
-//               callback(null, '...'); // Show continuation prompt
-//               return;
-//             }
+// export function getRegistry(
+//   action: DevModeAction,
+//   moduleName: string,
+//   moduleType: AppType,
+// ): CdFxReturn<IDevModeInstructionDescriptor[]> {
+//   const actionStr = getActionString(action); // e.g. 'update'
+//   const actionLabel = getActionLabel(action); // e.g. 'Update'
 
-//             const commands = inputBuffer.split(';').filter((cmd) => cmd.trim());
-//             CdLog.debug(`DevModeModel::eval()/commands:${commands}`);
-//             inputBuffer = '';
+//   const devModInstructions: IDevModeInstructionDescriptor[] = [];
 
-//             // **Create an array of promises** to track command execution
-//             const executionPromises = commands.map(async (fullCommand) => {
-//               CdLog.debug(`DevModeModel::eval()/fullCommand:${fullCommand}`);
-//               return handleInput(`${fullCommand.trim()};`);
-//             });
-
-//             // **Wait for all commands to complete**
-//             // await Promise.all(executionPromises);
-//             try {
-//               await Promise.all(executionPromises);
-//             } catch (error) {
-//               console.error('Error executing commands:', error);
-//             }
-
-//             // **Now call callback, ensuring the REPL is notified only after execution is finished**
-//             callback(
-//               null,
-//               `Executed ${commands.length} commands successfully.`,
-//             );
-
-//             // **Manually trigger REPL prompt after execution is complete**
-//             replServer.displayPrompt();
-//           } catch (error) {
-//             callback(
-//               error instanceof Error ? error : new Error(String(error)),
-//               undefined,
-//             );
-//             replServer.displayPrompt();
-//           }
-//         },
-//       });
-
-//       // Handle REPL mode switching
-//       replServer.defineCommand('mode', {
-//         help: 'Switch between modes (default, py, js).',
-//         action(newMode: string) {
-//           if (['default', 'py', 'js'].includes(newMode)) {
-//             currentMode = newMode as 'default' | 'py' | 'js';
-//             replServer.setPrompt(Branding.getPrompt(currentMode));
-//             replServer.displayPrompt();
-//             this.write(`Switched to ${newMode} mode.\n`);
-//           } else {
-//             this.write(
-//               `Unknown mode: ${newMode}. Available modes: default, py, js.\n`,
-//             );
-//           }
-//         },
-//       });
-
-//       replServer.on('exit', () => {
-//         console.log(chalk.yellow('Exited development mode.'));
-//         process.exit(0);
-//       });
-//     },
-//   },
-//   subcommands: [
-//     {
-//       name: 'show',
-//       description: 'List items within the current context.',
-//       options: [
-//         { flags: '--apps', description: 'List all registered applications.' },
-//         {
-//           flags: '--modules',
-//           description: 'List all modules within the current app.',
-//         },
-//         {
-//           flags: '--controllers',
-//           description: 'List all controllers within the current module.',
-//         },
-//         { flags: '--json', description: 'Display output in JSON format.' },
-//         { flags: '--pretty', description: 'Pretty-print JSON output.' },
-//         {
-//           flags: '--names <descriptor-names>',
-//           description:
-//             'Filter descriptors by one or more names (comma-separated).',
-//         },
-//       ],
-//       action: {
-//         execute: async (options: any) => {
-//           const ctlDevMode = new DevModeController();
-//           const ctlDevDescriptor = new DevDescriptorController();
-//           CdLog.debug(
-//             `DevModeModel::eval()/subcommands/options:${JSON.stringify(options)}`,
-//           );
-
-//           const command =
-//             options._[0] || Object.keys(options).find((key) => options[key]);
-
-//           switch (command) {
-//             case 'apps':
-//               console.log('Showing registered apps...');
-//               await ctlDevMode.showApps();
-//               break;
-//             case 'modules':
-//               console.log('Showing modules...');
-//               await ctlDevMode.showModules();
-//               break;
-//             case 'controllers':
-//               console.log('Showing controllers...');
-//               await ctlDevMode.showControllers();
-//               break;
-//             case 'descriptors':
-//               console.log('Showing descriptors...');
-//               CdLog.debug(
-//                 `DEV_MODE_COMMANDS::execute()/show/options?.names:${options.names}`,
-//               );
-//               const descriptorNames = options.names
-//                 ? options.names.split(',').map((n) => n.trim())
-//                 : null;
-//               CdLog.debug(
-//                 `DEV_MODE_COMMANDS::execute()/show/descriptorNames:${descriptorNames}`,
-//               );
-//               await ctlDevDescriptor.showSrcDescriptors({
-//                 names: descriptorNames,
-//                 json: options.json,
-//                 pretty: options.pretty,
-//               });
-//               break;
-//             default:
-//               throw new Error(
-//                 'Specify a valid option: apps, modules, controllers, or descriptors.',
-//               );
-//           }
-//         },
-//       },
-//     },
-
-//     {
-//       name: 'exit',
-//       description: 'Exit development mode.',
-//       action: {
-//         execute: () => {
-//           console.log(chalk.yellow('Exiting development mode...'));
-//           process.exit(0);
-//         },
-//       },
-//     },
-//   ],
-// };
-
-// export async function handleInput(input: string) {
-//   CdLog.debug(`DevModeModel::handleInput()/input:${input}`);
-
-//   if (input.endsWith(';')) {
-//     const commands = input.split(';').filter((cmd) => cmd.trim());
-//     for (const command of commands) {
-//       await executeCommand(command.trim()); // Ensure this is awaited
+//   for (const t of actionTargets) {
+//     if (!t.modCraftController) {
+//       return {
+//         state: false,
+//         data: null,
+//         message: `Controller data is invalid`,
+//       };
 //     }
-//     inputBuffer = ''; // Clear buffer after processing
-//   } else {
-//     inputBuffer += input; // Append incomplete command
-//     console.log('...');
-//     isCommandIncomplete = true;
+//     devModInstructions.push({
+//       name: t.cdObjTypeName,
+//       flag: t.cdObjTypeName,
+//       label: t.cdObjTypeName,
+//       description: `${actionLabel} a developer ${t.cdObjTypeName} environment`,
+//       action,
+//       actionTarget: t,
+//       requiredOptions: ['name', 'type'],
+//       targetName: moduleName,
+//       targetType: moduleType,
+//       cdRequest: {
+//         ctx: 'app',
+//         m: 'mod-craft',
+//         c: t.modCraftController, // options: CdModule, TestBed, CdController...any equivalent of what is available in the CdObjTypeNames
+//         a: actionStr,
+//         dat: {
+//           f_vals: [{ data: null }],
+//           token: '',
+//         },
+//         args: null,
+//       },
+//     });
 //   }
+
+//   return devModInstructions;
 // }
 
-// export async function executeCommand(command: string) {
-//   CdLog.debug(`DevModeModel::executeCommand()/command:${command}`);
-//   command = command.replace(/;$/, ''); // Remove trailing semicolon
-//   const [cmdName, ...args] = command.split(/\s+/);
+export function getRegistry(
+  action: DevModeAction,
+  moduleName: string,
+  moduleType: AppType,
+): CdFxReturn<IDevModeInstructionDescriptor[]> {
+  const actionStr = getActionString(action);    // e.g., 'update'
+  const actionLabel = getActionLabel(action);  // e.g., 'Update'
 
-//   const subcommand = DEV_MODE_COMMANDS_old.subcommands.find(
-//     (sub) => sub.name === cmdName,
-//   );
+  const devModInstructions: IDevModeInstructionDescriptor[] = [];
 
-//   CdLog.debug(`DevModeModel::executeCommand()/subcommand:${subcommand}`);
-//   if (!subcommand) {
-//     console.log(`Unknown command: ${cmdName}`);
-//     return;
-//   }
+  for (const t of actionTargets) {
+    if (!t.modCraftController) {
+      console.warn(`⚠️ Skipping target "${t.cdObjTypeName}" — missing modCraftController`);
+      continue;
+    }
 
-//   // Handle options differently based on subcommand
-//   const options = minimist(args);
-//   CdLog.debug(
-//     `DevModeModel::executeCommand()/options:${JSON.stringify(options)}`,
-//   );
+    devModInstructions.push({
+      name: t.cdObjTypeName,
+      flag: t.cdObjTypeName,
+      label: t.cdObjTypeName,
+      description: `${actionLabel} a developer ${t.cdObjTypeName} environment`,
+      action,
+      actionTarget: t,
+      requiredOptions: ['name', 'type'],
+      targetName: moduleName,
+      targetType: moduleType,
+      cdRequest: {
+        ctx: 'app',
+        m: 'mod-craft',
+        c: t.modCraftController, // dynamic controller from CdObjTypeModel
+        a: actionStr,
+        dat: {
+          f_vals: [{ data: null }],
+          token: '',
+        },
+        args: null,
+      },
+    });
+  }
 
-//   try {
-//     // Call action.execute with proper options
-//     if (subcommand.action?.execute) {
-//       await subcommand.action.execute({
-//         // Ensure this is awaited
-//         ...options,
-//         _: args, // Ensure positional arguments are passed
-//       });
-//     } else {
-//       console.log(`No action defined for command: ${cmdName}`);
-//     }
-//   } catch (error) {
-//     console.error(`Error executing command "${cmdName}":`, error);
-//     throw error; // Propagate the error to the eval function
-//   }
-// }
+  if (devModInstructions.length === 0) {
+    return {
+      state: false,
+      data: null,
+      message: 'No valid DevMode instructions could be generated. Check modCraftController mappings.',
+    };
+  }
+
+  return {
+    state: true,
+    data: devModInstructions,
+    message: `${actionLabel} registry generated successfully`,
+  };
+}
+
+export function getCreateRegistry(
+  moduleName: string,
+  moduleType: AppType,
+): IDevModeInstructionDescriptor[] {
+  const action = DevModeAction.CREATE;
+  const actionStr = getActionString(action); // 'update'
+  const actionLabel = getActionLabel(action); // 'Update'
+
+  const devModInstructions: IDevModeInstructionDescriptor[] = [];
+
+  for (const t of actionTargets) {
+    devModInstructions.push({
+      name: t.cdObjTypeName,
+      flag: t.cdObjTypeName,
+      label: t.cdObjTypeName,
+      description: `${actionLabel} a developer ${t.cdObjTypeName} environment`,
+      action,
+      actionTarget: t,
+      requiredOptions: ['name', 'type'],
+      targetName: moduleName,
+      targetType: moduleType,
+      cdRequest: {
+        ctx: 'app',
+        m: 'mod-craft',
+        c: 'TestBed',
+        a: actionStr, // ← 'update'
+        dat: {
+          f_vals: [{ data: null }],
+          token: '',
+        },
+        args: null,
+      },
+    });
+  }
+
+  return devModInstructions;
+}
+
+export function getReadRegistry(
+  moduleName: string,
+  moduleType: AppType,
+): IDevModeInstructionDescriptor[] {
+  const action = DevModeAction.READ;
+  const actionStr = getActionString(action); // 'update'
+  const actionLabel = getActionLabel(action); // 'Update'
+
+  const devModInstructions: IDevModeInstructionDescriptor[] = [];
+
+  for (const t of actionTargets) {
+    devModInstructions.push({
+      name: t.cdObjTypeName,
+      flag: t.cdObjTypeName,
+      label: t.cdObjTypeName,
+      description: `${actionLabel} a developer ${t.cdObjTypeName} environment`,
+      action,
+      actionTarget: t,
+      requiredOptions: ['name', 'type'],
+      targetName: moduleName,
+      targetType: moduleType,
+      cdRequest: {
+        ctx: 'app',
+        m: 'mod-craft',
+        c: 'TestBed',
+        a: actionStr, // ← 'update'
+        dat: {
+          f_vals: [{ data: null }],
+          token: '',
+        },
+        args: null,
+      },
+    });
+  }
+
+  return devModInstructions;
+}
+
+export function getUpdateRegistry(
+  moduleName: string,
+  moduleType: AppType,
+): IDevModeInstructionDescriptor[] {
+  const action = DevModeAction.UPDATE;
+  const actionStr = getActionString(action); // 'update'
+  const actionLabel = getActionLabel(action); // 'Update'
+
+  const devModInstructions: IDevModeInstructionDescriptor[] = [];
+
+  for (const t of actionTargets) {
+    devModInstructions.push({
+      name: t.cdObjTypeName,
+      flag: t.cdObjTypeName,
+      label: t.cdObjTypeName,
+      description: `${actionLabel} a developer ${t.cdObjTypeName} environment`,
+      action,
+      actionTarget: t,
+      requiredOptions: ['name', 'type'],
+      targetName: moduleName,
+      targetType: moduleType,
+      cdRequest: {
+        ctx: 'app',
+        m: 'mod-craft',
+        c: 'TestBed',
+        a: actionStr, // ← 'update'
+        dat: {
+          f_vals: [{ data: null }],
+          token: '',
+        },
+        args: null,
+      },
+    });
+  }
+
+  return devModInstructions;
+}
+
+export function getDeleteRegistry(
+  moduleName: string,
+  moduleType: AppType,
+): IDevModeInstructionDescriptor[] {
+  const action = DevModeAction.DELETE;
+  const actionStr = getActionString(action); // 'update'
+  const actionLabel = getActionLabel(action); // 'Update'
+
+  const devModInstructions: IDevModeInstructionDescriptor[] = [];
+
+  for (const t of actionTargets) {
+    devModInstructions.push({
+      name: t.cdObjTypeName,
+      flag: t.cdObjTypeName,
+      label: t.cdObjTypeName,
+      description: `${actionLabel} a developer ${t.cdObjTypeName} environment`,
+      action,
+      actionTarget: t,
+      requiredOptions: ['name', 'type'],
+      targetName: moduleName,
+      targetType: moduleType,
+      cdRequest: {
+        ctx: 'app',
+        m: 'mod-craft',
+        c: 'TestBed',
+        a: actionStr, // ← 'update'
+        dat: {
+          f_vals: [{ data: null }],
+          token: '',
+        },
+        args: null,
+      },
+    });
+  }
+
+  return devModInstructions;
+}

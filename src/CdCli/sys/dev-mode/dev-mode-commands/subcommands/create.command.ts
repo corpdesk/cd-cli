@@ -1,86 +1,45 @@
-import chalk from 'chalk';
-import { SessionService } from '../../../../sys/user/services/session.service.js';
-import { BaseService, ICdRequest } from '../../../../sys/base/index.js';
-import { createItemRegistry, ICdCreateRequest } from './create.registry.js';
+import { DevModeAction } from '../../models/dev-mode.model.js';
+import { DevModeService } from '../../services/dev-mode.service.js';
+
+// export const createCommand = {
+//   name: 'create',
+//   description: 'Setup environments, modules, controllers, or models dynamically.',
+//   options: [
+//     { flags: 'name', description: 'Name of the item to create' },
+//     { flags: 'type', description: 'Type of the module (e.g. cd-api, cd-ui)' },
+//     { flags: 'json-file', description: 'Path to JSON module descriptor file' },
+//     { flags: 'model-file', description: 'Path to JSON workflow model file' },
+//     { flags: 'workstation', description: 'Target workstation' },
+//   ],
+//   action: {
+//     execute: async (options: any) => {
+//       const svDevMode = new DevModeService();
+//       await svDevMode.executeCrudCommand(DevModeAction.CREATE, options);
+//     },
+//   },
+// };
 
 export const createCommand = {
   name: 'create',
   description: 'Setup environments, modules, controllers, or models dynamically.',
   options: [
-    { flags: 'module', description: 'Create a module' },
-    { flags: 'controller', description: 'Create a controller' },
-    { flags: 'model', description: 'Create a model' },
-    { flags: 'test-bed', description: 'Create a developer test-bed environment' },
-    { flags: 'prod', description: 'Create a production deployment environment' },
-    { flags: 'package', description: 'Create a package for registry' },
-    { flags: 'sandbox', description: 'Create a sandbox environment' },
     { flags: 'name', description: 'Name of the item to create' },
     { flags: 'type', description: 'Type of the module (e.g. cd-api, cd-ui)' },
-    {
-      flags: 'method',
-      description: 'Creation method (json, context, wizard, ai)',
-    },
     { flags: 'json-file', description: 'Path to JSON module descriptor file' },
     { flags: 'model-file', description: 'Path to JSON workflow model file' },
     { flags: 'workstation', description: 'Target workstation' },
   ],
   action: {
     execute: async (options: any) => {
-      const selectedItem = getSelectedCreateItem(options);
-
-      if (!selectedItem) {
-        console.log(chalk.red('❌ Invalid item to create.'));
-        return;
-      }
-
-      const missing = validateRequiredOptions(selectedItem, options);
-      if (missing.length > 0) {
-        console.log(chalk.red(`❌ Missing required options: ${missing.join(', ')}`));
-        return;
-      }
-
-      try {
-        const sessionService = new SessionService();
-        const cdToken = await sessionService.sessData.cdToken;
-
-        // Clone and inject values into the cdRequest
-        const request: ICdRequest = {
-          ...selectedItem.cdRequest,
-          dat: {
-            ...selectedItem.cdRequest.dat,
-            token: cdToken,
-          },
-          args: {
-            name: options.name,
-            type: options.type,
-            ...(options.method && { method: options.method }),
-          },
-        };
-
-        const b = new BaseService();
-        const response = await b.invokeCdRequest(request);
-
-        if (response?.state) {
-          console.log(
-            chalk.green(`✔ ${selectedItem.label} "${options.name}" created successfully.`),
-          );
-        } else {
-          console.log(chalk.red(`❌ Failed to create ${selectedItem.label}: ${response.message}`));
-        }
-      } catch (err: any) {
-        console.error(chalk.red(`❌ Error during create: ${err.message}`));
+      const svDevMode = new DevModeService();
+      const result = await svDevMode.executeCrudCommand(DevModeAction.CREATE, options);
+      if (result.state) {
+        console.log(result.message);
+      } else {
+        console.error(result.message);
+        // optionally exit process for CLI with error code
+        // process.exit(1);
       }
     },
   },
 };
-
-// Returns active flag and descriptor (e.g., { flag: 'module', item: {...} })
-function getSelectedCreateItem(options: any) {
-  return createItemRegistry.find((item) => options[item.flag]);
-}
-
-// Validates required options
-function validateRequiredOptions(item: ICdCreateRequest, options: any): string[] {
-  return item.required.filter((key) => !options[key]);
-}
-

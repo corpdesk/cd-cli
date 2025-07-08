@@ -5,7 +5,13 @@ import type { BaseDescriptor } from './base-descriptor.model.js';
 
 // import type { VersionControlDescriptor } from './dev-descriptor.model';
 import { execSync } from 'node:child_process';
-import { EnvironmentDescriptor, envTestBed, envWorkshop } from './environment.model.js';
+import {
+  envCdApiApp,
+  envCdApiSys,
+  EnvironmentDescriptor,
+  envTestBed,
+  envWorkshop,
+} from './environment.model.js';
 // Example Usage
 
 /**
@@ -143,35 +149,44 @@ export interface CommunityDescriptor extends BaseDescriptor {
   link: string; // URL to the community
 }
 
-export const cdAiVersionControl: VersionControlDescriptor = {
-    name: "CdAi",
-    repository: {
-      name: "cd-ai",
-      url: "https://github.com/corpdesk/cd-ai.git",
-      type: "git",
-      enabled: true,
-      isPrivate: false,
-      credentials: {
-        repoHost: "corpdesk", // Organization or user hosting the repository
-        // password: "your-password", // Uncomment if needed
-        // accessToken: "your-access-token", // Uncomment if needed 
-      },
-      directories: [
-        {
-          environment: envWorkshop,
-          path: "$HOME/cd-cli/dist/CdCli/app/mod-craft/workshop/cd-api/output/cd-ai",
-          purpose: "Auto-generated source files",
-          isDefault: true
-        },
-        {
-          environment: envTestBed,
-          path: "$HOME/cd-projects/cd-api/src/CdApi/app/cd-ai",
-          purpose: "Integration and live testing"
-        }
-      ]
-    }
-  };
-
+// export const cdAiVersionControl: VersionControlDescriptor = {
+//   name: 'CdAi',
+//   repository: {
+//     name: 'cd-ai',
+//     url: 'https://github.com/corpdesk/cd-ai.git',
+//     type: 'git',
+//     enabled: true,
+//     isPrivate: false,
+//     credentials: {
+//       repoHost: 'corpdesk', // Organization or user hosting the repository
+//       // password: "your-password", // Uncomment if needed
+//       // accessToken: "your-access-token", // Uncomment if needed
+//     },
+//     directories: [
+//       {
+//         environment: envWorkshop,
+//         path: '/home/emp-12/cd-cli/dist/CdCli/app/mod-craft/workshop/cd-api/output/cd-ai',
+//         purpose: 'Auto-generated source files',
+//         isDefault: true,
+//       },
+//       {
+//         environment: envTestBed,
+//         path: '/home/emp-12/cd-projects/cd-api/src/CdApi/app/cd-ai',
+//         purpose: 'Integration and live testing',
+//       },
+//       {
+//         environment: envCdApiApp,
+//         path: '/home/emp-12/cd-projects/cd-api/src/CdApi/app',
+//         purpose: 'cd-api apps directory',
+//       },
+//       {
+//         environment: envCdApiSys,
+//         path: '/home/emp-12/cd-projects/cd-api/src/CdApi/sys',
+//         purpose: 'cd-api core directory',
+//       },
+//     ],
+//   },
+// };
 
 export const versionControlRepositories: VersionControlDescriptor[] = [
   {

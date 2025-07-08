@@ -7,18 +7,19 @@ import {
   toUniversalSnakeCase,
 } from '../../utilities/cd-naming.util.js';
 import {
-  cdAiVersionControl,
   CdCtx,
   CdModuleDescriptor,
   CdModuleTypeDescriptor,
   envTestBed,
   envWorkshop,
+  VersionControlDescriptor,
 } from '../index.js';
-import { join } from 'path';
+import { join, resolve } from 'path';
 import { readFileSync } from 'fs';
 import { MOD_CRAFT_WORKFLOW_DIR } from '../../../app/mod-craft/workshop/cd-api/workflow/default.model.js';
 import CdLog from '../../cd-comm/controllers/cd-logger.controller.js';
 import { inspect } from 'util';
+import { pathToFileURL } from 'url';
 
 export class CdModuleDescriptorService {
   // This service is responsible for managing module descriptors in the system.
@@ -261,9 +262,18 @@ export class CdModuleDescriptorService {
       const fileContents = readFileSync(workflowPath, 'utf-8');
       const custom: CdModuleDescriptor = JSON.parse(fileContents);
       CdLog.debug('CdModuleDescritorService::cdApiModuleData()/02');
-      
+
       // set version control for the module
-      custom.versionControl = cdAiVersionControl;
+      // custom.versionControl = cdAiVersionControl;
+      const vcResult = await this.getVersionControl(moduleName, moduleType);
+      if (!vcResult || !vcResult.state || !vcResult.data) {
+        return {
+          state: false,
+          data: null,
+          message: `Could not get a valid version controll for the module`,
+        };
+      }
+      custom.versionControl = vcResult.data;
       CdLog.debug('CdModuleDescritorService::cdApiModuleData()/05');
       // Derive base descriptor from custom
       const base: CdModuleDescriptor = this.defaultCdApiModuleData(custom);
@@ -289,6 +299,68 @@ export class CdModuleDescriptorService {
       return {
         state: false,
         message: `Failed to merge descriptors: ${error.message}`,
+        data: null,
+      };
+    }
+  }
+
+  async getVersionControl(
+    moduleName: string,
+    moduleType: string,
+  ): Promise<CdFxReturn<VersionControlDescriptor>> {
+    CdLog.debug(`CdModuleDescriptorService::getVersioncontrol()/01`);
+    CdLog.debug(`CdModuleDescriptorService::getVersioncontrol()/moduleName:${moduleName}`);
+    CdLog.debug(`CdModuleDescriptorService::getVersioncontrol()/moduleType:${moduleType}`);
+    try {
+      // Convert to dashedName, e.g. cdAi → cd-ai
+      const dashedName = moduleName.toLowerCase();
+      const camelName = toCamelCase(moduleName);
+
+      // Absolute path to the model file
+      const modelFilePath = resolve(
+        process.env.HOME || '',
+        'cd-cli',
+        'dist',
+        'CdCli',
+        'app',
+        'mod-craft',
+        'workshop',
+        moduleType,
+        'workflow',
+        `${dashedName}-workshop.model.js`,
+      );
+      CdLog.debug(`CdModuleDescriptorService::getVersioncontrol()/02`);
+      CdLog.debug(`CdModuleDescriptorService::getVersioncontrol()/modelFilePath:${modelFilePath}`);
+      const modelUrl = pathToFileURL(modelFilePath).href;
+
+      const importedModule = await import(modelUrl);
+      CdLog.debug(`CdModuleDescriptorService::getVersioncontrol()/03`);
+      // The exported constant is expected to be named consistently, e.g. cdAiVersionControl
+      const exportName = `${camelName}VersionControl`;
+      CdLog.debug(`CdModuleDescriptorService::getVersioncontrol()/04`);
+      CdLog.debug(`CdModuleDescriptorService::getVersioncontrol()/exportName:${exportName}`);
+      const versionControl = importedModule[exportName] as VersionControlDescriptor;
+
+      if (!versionControl) {
+        CdLog.debug(`CdModuleDescriptorService::getVersioncontrol()/05`);
+        return {
+          state: false,
+          message: `VersionControlDescriptor '${exportName}' not found in ${modelFilePath}`,
+          data: null,
+        };
+      }
+      CdLog.debug(`CdModuleDescriptorService::getVersioncontrol()/06`);
+      return {
+        state: true,
+        message: 'VersionControlDescriptor loaded successfully.',
+        data: versionControl,
+      };
+    } catch (error: any) {
+      CdLog.debug(`CdModuleDescriptorService::getVersioncontrol()/07`);
+      CdLog.debug(`CdModuleDescriptorService::getVersioncontrol()/error.message: ${error.message}`);
+      return {
+        state: false,
+        message: `Failed to load VersionControlDescriptor: ${error.message}`,
         data: null,
       };
     }

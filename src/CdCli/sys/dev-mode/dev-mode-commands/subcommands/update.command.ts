@@ -1,67 +1,28 @@
-import chalk from 'chalk';
-import { SessionService } from '../../../user/services/session.service.js';
-import { BaseService, ICdRequest } from '../../../base/index.js';
-import { updateItemRegistry, ICdUpdateRequest } from './update.registry.js';
+// src/CdCli/sys/dev-mode/dev-mode-commands/subcommands/update.command.ts
+import { DevModeAction } from '../../models/dev-mode.model.js';
+import { DevModeService } from '../../services/dev-mode.service.js';
 
 export const updateCommand = {
   name: 'update',
-  description: 'Update modules, environments, packages, or sandboxed apps.',
-  options: updateItemRegistry.map((item) => ({ flags: item.flag, description: item.description }))
-    .concat([
-      { flags: 'name', description: 'Name of the item to update' },
-      { flags: 'type', description: 'Type of the module (e.g. cd-api, cd-ui)' },
-    ]),
-
+  description: 'Update environments, modules, controllers, or models.',
+  options: [
+    { flags: 'name', description: 'Name of the item to update' },
+    { flags: 'type', description: 'Type of the module (e.g. cd-api, cd-ui)' },
+    { flags: 'json-file', description: 'Path to JSON module descriptor file' },
+    { flags: 'model-file', description: 'Path to JSON workflow model file' },
+    { flags: 'workstation', description: 'Target workstation' },
+  ],
   action: {
     execute: async (options: any) => {
-      const selectedItem = getSelectedItem(options, updateItemRegistry);
-      if (!selectedItem) {
-        console.log(chalk.red('❌ Invalid item to update.'));
-        return;
-      }
-
-      const missing = validateRequiredOptions(selectedItem, options);
-      if (missing.length > 0) {
-        console.log(chalk.red(`❌ Missing required options: ${missing.join(', ')}`));
-        return;
-      }
-
-      try {
-        const sessionService = new SessionService();
-        const cdToken = await sessionService.sessData.cdToken;
-
-        const request: ICdRequest = {
-          ...selectedItem.cdRequest,
-          dat: {
-            ...selectedItem.cdRequest.dat,
-            token: cdToken,
-          },
-          args: {
-            name: options.name,
-            type: options.type,
-          },
-        };
-
-        const b = new BaseService();
-        const response = await b.invokeCdRequest(request);
-
-        if (response?.state) {
-          console.log(chalk.green(`✔ ${selectedItem.label} "${options.name}" update successfully.`));
-          console.log(JSON.stringify(response.data, null, 2));
-        } else {
-          console.log(chalk.red(`❌ Failed to update ${selectedItem.label}: ${response.message}`));
-        }
-      } catch (err: any) {
-        console.error(chalk.red(`❌ Error during update: ${err.message}`));
+      const svDevMode = new DevModeService();
+      const result = await svDevMode.executeCrudCommand(DevModeAction.UPDATE, options);
+      if (result.state) {
+        console.log(result.message);
+      } else {
+        console.error(result.message);
+        // optionally exit process for CLI with error code
+        // process.exit(1);
       }
     },
   },
 };
-
-function getSelectedItem(options: any, registry: ICdUpdateRequest[]): ICdUpdateRequest | undefined {
-  return registry.find((item) => options[item.flag]);
-}
-
-function validateRequiredOptions(item: ICdUpdateRequest, options: any): string[] {
-  return item.required.filter((key) => !options[key]);
-}

@@ -289,6 +289,11 @@ export const DEV_MODE_COMMANDS = {
     getSubcommand('sync'),
     getSubcommand('exit'),
     getSubcommand('create'),
+    getSubcommand('read'),
+    getSubcommand('update'),
+    getSubcommand('delete'),
+    getSubcommand('upgrade'),
+    getSubcommand('migrate'),
   ],
 };
 
