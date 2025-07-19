@@ -6,7 +6,6 @@ export * from './models/version-control.model.js';
 export * from './models/software-store.model.js';
 export * from './models/service-descriptor.model.js';
 export * from './models/base-descriptor.model.js';
-export * from './models/function-descriptor.model.js';
 export * from './models/contributor.model.js';
 export * from './models/os.model.js';
 export * from './models/migration-descriptor.model.js';

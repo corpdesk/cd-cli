@@ -1,5 +1,6 @@
 import { createCommand } from '../subcommands/create.command.js';
 import { deleteCommand } from '../subcommands/delete.command.js';
+import { deriveCommand } from '../subcommands/derive.command.js';
 import { exitCommand } from '../subcommands/exit.command.js';
 import { migrateCommand } from '../subcommands/migrate.command.js';
 import { readCommand } from '../subcommands/read.command.js';
@@ -18,6 +19,7 @@ const SUBCOMMANDS = {
   delete: deleteCommand,
   upgrade: upgradeCommand,
   migrate: migrateCommand,
+  derive: deriveCommand,
 };
 
 export function getSubcommand(name: string) {

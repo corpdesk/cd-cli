@@ -12,6 +12,37 @@ export function toCamelCase(input: string): string {
 }
 
 /**
+ * Converts a kebab-case string to PascalCase (e.g., "cd-my-name" -> "CdMyName")
+ * @param str The kebab-case string to convert
+ * @returns The PascalCase version of the input string
+ */
+export function toCamelMain(str: string): string {
+  if (!str) return str;
+  
+  return str
+    .split('-')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join('');
+}
+
+/**
+ * Converts a kebab-case string to camelCase (e.g., "cd-my-name" -> "cdMyName")
+ * @param str The kebab-case string to convert
+ * @returns The camelCase version of the input string
+ */
+export function toCamelMinor(str: string): string {
+  if (!str) return str;
+  
+  const pascal = str
+    .split('-')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join('');
+  
+  return pascal.charAt(0).toLowerCase() + pascal.slice(1);
+}
+
+
+/**
  * Converts kebab-case, snake_case, or camelCase to PascalCase.
  * 
  * Examples:

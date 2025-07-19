@@ -43,6 +43,7 @@ export enum CdEnvName {
   CUSTOM = 'custom',
   LOCAL_CD_API_APP = 'local-cd-api-app',
   LOCAL_CD_API_SYS = 'local-cd-api-sys',
+  LOCAL_CD_API = 'local-cd-api',
 }
 
 export interface EnvironmentVariablesDescriptor extends BaseDescriptor {
@@ -73,6 +74,12 @@ export const envCdApiApp: EnvironmentDescriptor = {
 export const envCdApiSys: EnvironmentDescriptor = {
   name: CdEnvName.LOCAL_CD_API_SYS,
   type: 'local-cd-api-sys',
+  workstation: workstations.find((w) => w.name === 'emp-12') || defaultWorkstation,
+};
+
+export const envCdApi: EnvironmentDescriptor = {
+  name: CdEnvName.LOCAL_CD_API,
+  type: 'local-cd-api',
   workstation: workstations.find((w) => w.name === 'emp-12') || defaultWorkstation,
 };
 

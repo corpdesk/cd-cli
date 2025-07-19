@@ -27,6 +27,7 @@ export interface IDevModeInstructionDescriptor extends BaseDescriptor {
   targetType?: AppType; // e.g., 'cd-api' <-- the specific CdObjType item
   execStrategy?: 'json' | 'context' | 'gui-wizard' | 'ai' | 'cmd'; // action strategy
   requiredOptions: string[];
+  optionalOptions?: string[]; 
   cdRequest: ICdRequest;
   enabled?: boolean;
   jsonFile?: string; // optional descriptor file path
@@ -34,16 +35,61 @@ export interface IDevModeInstructionDescriptor extends BaseDescriptor {
   workstation?: string; // target environment
 }
 
+/**
+ * See the document: sdk/docs/dev_mode_action_verb_semantics.md
+ * for the design and principles
+ */
 export enum DevModeAction {
+  /**
+   * Data Access & Manipulation Verbs
+   */
   CREATE = 1,
   READ = 2,
   UPDATE = 3,
   DELETE = 4,
+  DERIVE = 16, // e.g., derive CdObj from an existing source, like a module descriptor or workflow model
+
+  /**
+   * workflow-oriented verbs are a class of directional actions in 
+   * system lifecycles, and their semantics can deeply enrich both 
+   * CLI usability and AI integration later
+   */
+  // Directional Lifecycle
   UPGRADE = 5,
   MIGRATE = 6,
+  DEGRADE = 7,
+  REGRESS = 8,
+  PROMOTE = 9,
+  DEMOTE = 10,
+
+  // Branching/Divergence
+  MERGE = 11,
+  FORK = 12,
+  BRANCH = 13,
+
+  // Finalization
+  RELEASE = 14,
+  PACKAGE = 15,
 }
 
+export const SHARED_OPTIONS = [
+  { flags: 'name', description: 'Name of the item to process' },
+  { flags: 'type', description: 'Type of the module (e.g. cd-api, cd-ui)' },
+  { flags: 'json-file', description: 'Path to JSON module descriptor file' },
+  { flags: 'model-file', description: 'Path to JSON workflow model file' },
+  { flags: 'workstation', description: 'Target workstation' },
+];
 
+// export const UPGRADE_EXTRA_OPTIONS = [
+//   { flags: 'roadmap', description: 'id of roadmap to upgrade' },
+//   { flags: 'milestone', description: 'id of milestone to upgrade' },
+// ];
+
+export const UPGRADE_EXTRA_OPTIONS = [
+  { flags: 'version', description: 'semantic version or git sha to upgrade to' },
+  { flags: 'roadmap', description: 'optional override of roadmap id' },
+  { flags: 'milestone', description: 'optional override of milestone id' }
+];
 
 /**
  * Selected CdObjTypes from corpdesk database that are relevant to application cdevelopment automation
@@ -51,7 +97,7 @@ export enum DevModeAction {
 export const actionTargets: CdObjTypeModel[] = [
   {
     cdObjTypeId: 3,
-    cdObjTypeName: 'module',
+    cdObjTypeName: 'cd-module',
     cdObjTypeGuid: '8b4cf8de-1ffc-4575-9e73-4ccf45a7756b',
     modCraftController: 'CdModule',
   },
@@ -72,6 +118,12 @@ export const actionTargets: CdObjTypeModel[] = [
     cdObjTypeName: 'action',
     cdObjTypeGuid: '55ffe474-f46b-452b-9a13-01c258995cdb',
     modCraftController: 'CdAction',
+  },
+  {
+    cdObjTypeId: 33,
+    cdObjTypeName: 'cd-app',
+    cdObjTypeGuid: 'd6507c5d-a7ca-41fb-ad5f-dc5ceba46489',
+    modCraftController: 'CdApp',
   },
   {
     cdObjTypeId: 34,
@@ -108,6 +160,30 @@ export const actionTargets: CdObjTypeModel[] = [
     cdObjTypeName: 'method',
     cdObjTypeGuid: '647e5383-e9bc-447c-944c-39b892670711',
     modCraftController: 'CdMethod',
+  },
+  {
+    cdObjTypeId: 131,
+    cdObjTypeName: 'dev-roadmap',
+    cdObjTypeGuid: '2c132caa-bde3-404f-884c-e6abe6257b1d',
+    modCraftController: 'DevRoadmap',
+  },
+  {
+    cdObjTypeId: 132,
+    cdObjTypeName: 'dev-doc',
+    cdObjTypeGuid: 'f8705dbb-814b-4649-8a44-f9d43d1fdba4',
+    modCraftController: 'DevDoc',
+  },
+  {
+    cdObjTypeId: 133,
+    cdObjTypeName: 'dev-changelog',
+    cdObjTypeGuid: 'f38a4627-32e9-44fc-9b22-dbab38d2735b',
+    modCraftController: 'DevChangelog',
+  },
+  {
+    cdObjTypeId: 134,
+    cdObjTypeName: 'cd-api',
+    cdObjTypeGuid: 'c3279848-312d-42fa-91f0-0be2e27052d1',
+    modCraftController: 'CdApi',
   },
 ];
 
@@ -156,7 +232,7 @@ export function getActionLabel(action: DevModeAction): string {
 //       targetType: moduleType,
 //       cdRequest: {
 //         ctx: 'app',
-//         m: 'mod-craft',
+//         m: 'app-craft',
 //         c: t.modCraftController, // options: CdModule, TestBed, CdController...any equivalent of what is available in the CdObjTypeNames
 //         a: actionStr,
 //         dat: {
@@ -181,6 +257,8 @@ export function getRegistry(
 
   const devModInstructions: IDevModeInstructionDescriptor[] = [];
 
+  // actionTargets is defined as export const actionTargets: CdObjTypeModel[] in the file: 
+  // src/CdCli/sys/dev-mode/models/dev-mode.model.ts
   for (const t of actionTargets) {
     if (!t.modCraftController) {
       console.warn(`⚠️ Skipping target "${t.cdObjTypeName}" — missing modCraftController`);
@@ -195,11 +273,12 @@ export function getRegistry(
       action,
       actionTarget: t,
       requiredOptions: ['name', 'type'],
+      // optionalOptions: ['roadmap', 'milestone'],
       targetName: moduleName,
       targetType: moduleType,
       cdRequest: {
         ctx: 'app',
-        m: 'mod-craft',
+        m: 'app-craft',
         c: t.modCraftController, // dynamic controller from CdObjTypeModel
         a: actionStr,
         dat: {
@@ -249,7 +328,7 @@ export function getCreateRegistry(
       targetType: moduleType,
       cdRequest: {
         ctx: 'app',
-        m: 'mod-craft',
+        m: 'app-craft',
         c: 'TestBed',
         a: actionStr, // ← 'update'
         dat: {
@@ -287,7 +366,7 @@ export function getReadRegistry(
       targetType: moduleType,
       cdRequest: {
         ctx: 'app',
-        m: 'mod-craft',
+        m: 'app-craft',
         c: 'TestBed',
         a: actionStr, // ← 'update'
         dat: {
@@ -325,7 +404,7 @@ export function getUpdateRegistry(
       targetType: moduleType,
       cdRequest: {
         ctx: 'app',
-        m: 'mod-craft',
+        m: 'app-craft',
         c: 'TestBed',
         a: actionStr, // ← 'update'
         dat: {
@@ -363,7 +442,7 @@ export function getDeleteRegistry(
       targetType: moduleType,
       cdRequest: {
         ctx: 'app',
-        m: 'mod-craft',
+        m: 'app-craft',
         c: 'TestBed',
         a: actionStr, // ← 'update'
         dat: {

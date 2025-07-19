@@ -19,14 +19,14 @@ import { DevModeService } from '../../services/dev-mode.service.js';
 //   },
 // };
 
-export const createCommand = {
-  name: 'create',
-  description: 'Setup environments, modules, controllers, or models dynamically.',
+export const deriveCommand = {
+  name: 'derive',
+  description: 'Derive descriptors from existing environments, apps, modules, controllers, or models dynamically.',
   options: SHARED_OPTIONS,
   action: {
     execute: async (options: any) => {
       const svDevMode = new DevModeService();
-      const result = await svDevMode.executeCrudCommand(DevModeAction.CREATE, options);
+      const result = await svDevMode.executeCrudCommand(DevModeAction.DERIVE, options);
       if (result.state) {
         console.log(result.message);
       } else {

@@ -6,7 +6,7 @@ import { CD_AI_LOGS_CMD, CD_OPEN_AI_CMD } from '../../../app/cd-ai-pwa/index.js'
 import {
   MODULE_CMD,
   TEMPLATE_CMD,
-} from '../../../app/mod-craft/models/mod-craft.model.js';
+} from '../../../app/app-craft/models/app-craft.model.js';
 
 export const CdCli = {
   commands: [

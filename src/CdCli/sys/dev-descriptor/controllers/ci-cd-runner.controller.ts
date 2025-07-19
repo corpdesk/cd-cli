@@ -1,8 +1,13 @@
+import { CdFxReturn } from "../../base/IBase.js";
 import CdLog from "../../cd-comm/controllers/cd-logger.controller.js";
+import { CICdRunnerService } from "../services/cd-ci-runner.service.js";
 
 export class CICdRunnerController {
+
   // This controller is responsible for handling CI/CD runner operations
   // It will include methods to manage the lifecycle of CI/CD runners
+
+  svCICdRunner = new CICdRunnerService();
 
   // Example method to start a CI/CD runner
   async startRunner(runnerId: string): Promise<void> {

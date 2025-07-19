@@ -1,0 +1,10 @@
+[
+  { "moduleName": "user", "ctx": "sys", "enabled": false },
+  { "moduleName": "moduleman", "ctx": "sys", "enabled": false },
+  { "moduleName": "comm", "ctx": "sys", "enabled": false },
+  { "moduleName": "scheduler", "ctx": "sys", "enabled": false },
+  { "moduleName": "cd-dev", "ctx": "sys", "enabled": false },
+  { "moduleName": "cd-accts", "ctx": "app", "enabled": false },
+  { "moduleName": "coops", "ctx": "app", "enabled": false },
+  { "moduleName": "cd-geo", "ctx": "app", "enabled": false }
+]

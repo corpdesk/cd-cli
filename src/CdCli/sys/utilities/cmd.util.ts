@@ -69,4 +69,75 @@ export async function execute(cmd: string, cwdOverride?: string): Promise<string
     console.error(`[cmd.util] Error executing command "${cmd}":`, error);
     throw error;
   }
-}   
+}  
+// ///////////////////////////////////////////////////////////
+
+// import { exec } from "child_process";
+// import { promisify } from "util";
+
+// const execAsync = promisify(exec);
+
+// /**
+//  * A simple shell utility object to manage current working directory context.
+//  */
+// export const $ = {
+//   cwd: process.cwd()
+// };
+
+// /**
+//  * Executes a shell command in the context of current working directory.
+//  * Optionally, overrides the working directory.
+//  *
+//  * @param cmd Shell command to run
+//  * @param cwdOverride Optional path to run the command in
+//  * @param fullOutput Optional flag to return full stdout/stderr object
+//  * @returns Resolves to stdout string, or { stdout, stderr } if fullOutput is true
+//  */
+// export async function run(
+//   cmd: string,
+//   cwdOverride?: string,
+//   fullOutput: boolean = false
+// ): Promise<string | { stdout: string; stderr: string }> {
+//   const cwdToUse = cwdOverride || $.cwd;
+
+//   try {
+//     const { stdout, stderr } = await execAsync(cmd, { cwd: cwdToUse });
+
+//     if (stderr?.trim()) {
+//       console.warn(`[cmd.util] Stderr from "${cmd}":`, stderr.trim());
+//     }
+
+//     return fullOutput ? { stdout: stdout.trim(), stderr: stderr.trim() } : stdout.trim();
+//   } catch (error: any) {
+//     const err = new Error(`[cmd.util] Failed: ${cmd}`);
+//     (err as any).stderr = error.stderr;
+//     (err as any).code = error.code;
+//     throw err;
+//   }
+// }
+
+// /**
+//  * Executes a shell command and returns the result.
+//  *
+//  * @param cmd The command to execute
+//  * @param cwdOverride Optional override for the current working directory
+//  * @param fullOutput Optional flag to include stderr
+//  * @returns A promise that resolves with stdout or { stdout, stderr }
+//  */
+// export async function executeCommand(
+//   cmd: string,
+//   cwdOverride?: string,
+//   fullOutput: boolean = false
+// ): Promise<string | { stdout: string; stderr: string }> {
+//   try {
+//     return await run(cmd, cwdOverride, fullOutput);
+//   } catch (error: any) {
+//     console.error(`[cmd.util] Error executing command "${cmd}":`, error);
+//     throw error;
+//   }
+// }
+
+// /**
+//  * Alias for `executeCommand()` to maintain legacy support.
+//  */
+// export const execute = executeCommand;

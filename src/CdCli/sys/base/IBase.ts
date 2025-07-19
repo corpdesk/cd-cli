@@ -949,3 +949,32 @@ export class ColumnNumericTransformer {
     return parseFloat(data);
   }
 }
+
+// prettier-config.ts
+
+export interface FormatterConfigEntry {
+  parser: import('prettier').BuiltInParserName;
+  // Add more properties if needed, e.g., printWidth, tabWidth, etc.
+}
+
+export type FormatterConfigMap = Record<string, FormatterConfigEntry>;
+
+/**
+ * File extension to Prettier parser map
+ */
+export const formatterConfig: FormatterConfigMap = {
+  '.ts': { parser: 'typescript' },
+  '.cts': { parser: 'typescript' },
+  '.mts': { parser: 'typescript' },
+  '.js': { parser: 'babel' },
+  '.cjs': { parser: 'babel' },
+  '.mjs': { parser: 'babel' },
+  '.json': { parser: 'json' },
+  '.html': { parser: 'html' },
+  '.md': { parser: 'markdown' },
+  '.css': { parser: 'css' },
+  '.scss': { parser: 'scss' },
+  '.yml': { parser: 'yaml' },
+  '.yaml': { parser: 'yaml' }
+};
+

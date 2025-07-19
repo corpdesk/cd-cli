@@ -12,6 +12,7 @@ import {
   envTestBed,
   envWorkshop,
 } from './environment.model.js';
+import { CICdPipeline, CICdTask } from '../index.js';
 // Example Usage
 
 /**
@@ -23,19 +24,47 @@ import {
 export interface VersionControlDescriptor extends BaseDescriptor {
   repository: RepoDescriptor; // Repository details
   versionControlBranch?: VersionControlBranch; // Branch details
-  versionControlWorkflow?: VersionControlWorkflow; // Workflow details
+  devRoadmap?: CICdPipeline; // Roadmap/Workflow process
+  devChangeLog?: ChangeLogDescriptor; // Change log entries
   sourceContributors?: SourceContributor[]; // List of contributors
   versionControlTags?: VersionControlTag[]; // List of tags
   versionControlMetadata?: VersionControlMetadata; // Metadata information
 }
 
 // Interface for Tags
+// export interface VersionControlTag extends BaseDescriptor {
+//   name: string; // Tag name (e.g., "v1.0.0")
+//   commitHash?: string; // Hash of the commit the tag points to
+//   description?: string; // Description of the tag
+//   date?: string; // Date of tagging
+// }
+
 export interface VersionControlTag extends BaseDescriptor {
-  name: string; // Tag name (e.g., "v1.0.0")
-  commitHash?: string; // Hash of the commit the tag points to
-  description?: string; // Description of the tag
-  date?: string; // Date of tagging
+  name: string; // e.g., "v1.2.3"
+  commitHash?: string;
+  description?: string;
+  date?: string;
+  roadmapRef?: string; // CICdPipeline.id
+  milestoneRef?: string; // CICdStage.id
 }
+
+// Updated SemanticVersionMap for flexible parsing and introspection
+export interface SemanticVersionMap {
+  version: string;                         // e.g., "1.2.3-beta"
+  roadmapId: string;                       // maps to CICdPipeline
+  milestoneId: string;                     // maps to CICdStage
+  versionObject?: SemanticVersionObject;   // optional structured interpretation
+}
+
+// New structured representation of a semantic version
+export interface SemanticVersionObject {
+  major: number;
+  minor: number;
+  patch?: number;
+  label?: string; // e.g., 'alpha', 'beta', 'rc', etc.
+}
+
+
 
 // Interface for Metadata
 export interface VersionControlMetadata extends BaseDescriptor {
@@ -55,7 +84,6 @@ export interface RepoDescriptor extends BaseDescriptor {
   isPrivate?: boolean;
   remote?: string;
   service?: BaseServiceDescriptor;
-  // directory?: string; // NEW: Local directory where the repo should be cloned
   directories?: RepoDirectoryDescriptor[]; // List of directories associated with the repository
   credentials: RepoCredentials;
 }
@@ -84,11 +112,12 @@ export interface VersionControlBranch extends BaseDescriptor {
 }
 
 // Interface for Workflow
-export interface VersionControlWorkflow extends BaseDescriptor {
-  strategy: 'trunk-based' | 'gitflow' | 'forking' | 'other'; // Version control workflow strategy
-  mergeMethod: 'merge' | 'rebase' | 'squash'; // Preferred merge method
-  policies?: WorkflowPolicies; // Workflow policies
-}
+// export interface VersionControlWorkflow extends BaseDescriptor {
+//   strategy: 'trunk-based' | 'gitflow' | 'forking' | 'other'; // Version control workflow strategy
+//   mergeMethod: 'merge' | 'rebase' | 'squash'; // Preferred merge method
+//   policies?: WorkflowPolicies; // Workflow policies
+//   roadmap?: CICdPipeline
+// }
 
 // Interface for Contributors
 export interface SourceContributor extends BaseDescriptor {
@@ -117,19 +146,6 @@ export interface WorkflowPolicies extends BaseDescriptor {
   ciChecksRequired: boolean; // Whether CI checks are required
 }
 
-// export interface RepoDescriptor extends BaseDescriptor {
-//   name: string;
-//   description?: string;
-//   url: string;
-//   type: 'git' | 'svn' | 'mercurial' | 'other';
-//   enabled?: boolean;
-//   isPrivate?: boolean;
-//   remote?: string;
-//   service?: BaseServiceDescriptor;
-//   directory?: string; // NEW: Local directory where the repo should be cloned
-//   credentials: RepoCredentials;
-// }
-
 export interface DeveloperDescriptor extends BaseDescriptor {
   name: string; // Developer or group name
   role?: string; // Role in the project (e.g., 'Lead Developer', 'Contributor')
@@ -149,6 +165,30 @@ export interface CommunityDescriptor extends BaseDescriptor {
   link: string; // URL to the community
 }
 
+export interface ChangeLogDescriptor extends BaseDescriptor {
+  version: string;
+  date: string;
+  author: string;
+  changes: ChangeLogItem[];
+}
+
+export interface ChangeLogItem {
+  type: 'added' | 'fixed' | 'changed' | 'deprecated' | 'removed';
+  description: string;
+  tagRef?: string; // optional Git tag
+  file?: string; // affected file
+}
+
+export interface DocumentationDescriptor extends BaseDescriptor {
+  version: string;
+  url?: string; // link to external doc
+  path?: string; // path in repo
+  status: 'draft' | 'stable' | 'archived';
+  summary?: string;
+  updatedOn?: string;
+}
+
+
 // export const cdAiVersionControl: VersionControlDescriptor = {
 //   name: 'CdAi',
 //   repository: {
@@ -165,7 +205,7 @@ export interface CommunityDescriptor extends BaseDescriptor {
 //     directories: [
 //       {
 //         environment: envWorkshop,
-//         path: '/home/emp-12/cd-cli/dist/CdCli/app/mod-craft/workshop/cd-api/output/cd-ai',
+//         path: '/home/emp-12/cd-cli/dist/CdCli/app/app-craft/workshop/cd-api/output/cd-ai',
 //         purpose: 'Auto-generated source files',
 //         isDefault: true,
 //       },
@@ -206,10 +246,10 @@ export const versionControlRepositories: VersionControlDescriptor[] = [
       name: 'main',
       type: 'main',
     },
-    versionControlWorkflow: {
-      strategy: 'trunk-based',
-      mergeMethod: 'merge',
-    },
+    // devRoadmap: {
+    //   strategy: 'trunk-based',
+    //   mergeMethod: 'merge',
+    // },
     sourceContributors: [
       {
         name: 'George Oremo',
@@ -235,10 +275,10 @@ export const versionControlRepositories: VersionControlDescriptor[] = [
       name: 'main',
       type: 'main',
     },
-    versionControlWorkflow: {
-      strategy: 'trunk-based',
-      mergeMethod: 'merge',
-    },
+    // devRoadmap: {
+    //   strategy: 'trunk-based',
+    //   mergeMethod: 'merge',
+    // },
   },
   {
     repository: {

@@ -10,21 +10,19 @@ import CdLog from "../../cd-comm/controllers/cd-logger.controller.js";
 import { EnvironmentService } from "../services/environment.service.js";
 import { CdVaultItem } from "../../cd-cli/models/cd-cli-vault.model.js";
 import { CdSchedulerTask, WorkflowTask } from "../../cd-scheduler/models/cd-scheduler.model.js";
+import { ChangeLogDescriptor, DocumentationDescriptor, SourceContributor } from "../index.js";
 
 
 // /////////////////////////////////////////////////////////////////////////////////////////
 
-// ─── Task Interface ─────────────────────────────────────────
-export interface CICdTask<T = any> extends CdSchedulerTask<T> {
-  type: 'script-inline' | 'script-file' | 'method' | 'cdRequest';
-  status: 'pending' | 'running' | 'completed' | 'failed';
-}
-
-// ─── Stage ──────────────────────────────────────────────────
-export interface CICdStage extends BaseDescriptor {
-  name: string;
-  description?: string;
-  tasks: CICdTask[];
+// ─── Main Entry ─────────────────────────────────────────────
+export interface CiCdDescriptor extends BaseDescriptor {
+  dsFormart?: 'json' | 'csv' | 'sql-db';
+  cICdPipeline?: CICdPipeline;
+  cICdTriggers?: CICdTrigger;
+  cICdEnvironment?: CICdEnvironment;
+  cICdNotifications?: CICdNotification;
+  cICdMetadata?: CICdMetadata;
 }
 
 // ─── Pipeline ───────────────────────────────────────────────
@@ -35,8 +33,50 @@ export interface CICdPipeline extends BaseDescriptor {
     | 'delivery'
     | 'deployment'
     | 'dev-env-setup'
-    | 'cd-module-development';
+    | 'cd-module-development'
+    | 'dev-roadmap';
   stages: CICdStage[];
+  versionTag?: string; // e.g., "1.2"
+  completionRef?: string; // e.g., "abc123" for the last commit hash
+  mergePolicy?: 'merge' | 'rebase' | 'squash' | 'converge'; // ← NEW
+  devHistory?: CICdHistory;     // ← NEW (Parent for changelog)
+  devDocumentation?: DocumentationDescriptor[]; // ← NEW
+}
+
+export interface CICdHistory extends BaseDescriptor {
+  changelogs?: ChangeLogDescriptor[];
+  contributors?: SourceContributor[];
+  events?: CICdHistoryEvent[];
+}
+
+export interface CICdHistory extends BaseDescriptor {
+  changelogs?: ChangeLogDescriptor[];
+  contributors?: SourceContributor[];
+  events?: CICdHistoryEvent[];
+}
+
+export interface CICdHistoryEvent extends BaseDescriptor {
+  type: 'commit' | 'merge' | 'tag' | 'release';
+  actor: string;
+  description?: string;
+  date: string;
+  ref?: string;
+}
+
+// ─── Stage ──────────────────────────────────────────────────
+export interface CICdStage extends BaseDescriptor {
+  name: string;
+  description?: string;
+  tasks: CICdTask[];
+  patchNumber?: number; // e.g., 3 from 1.2.3
+  completionRef?: string; // e.g., "abc123" for the last commit hash
+}
+
+// ─── Task Interface ─────────────────────────────────────────
+export interface CICdTask<T = any> extends CdSchedulerTask<T> {
+  type: 'script-inline' | 'script-file' | 'method' | 'cdRequest';
+  status: 'pending' | 'running' | 'completed' | 'failed';
+  completionRef?: string
 }
 
 // ─── Triggers ───────────────────────────────────────────────
@@ -90,280 +130,8 @@ export interface BashScriptDescriptor extends BaseDescriptor {
   environmentVariables?: Record<string, string>;
 }
 
-// ─── Main Entry ─────────────────────────────────────────────
-export interface CiCdDescriptor extends BaseDescriptor {
-  dsFormart?: 'json' | 'csv' | 'sql-db';
-  cICdPipeline?: CICdPipeline;
-  cICdTriggers?: CICdTrigger;
-  cICdEnvironment?: CICdEnvironment;
-  cICdNotifications?: CICdNotification;
-  cICdMetadata?: CICdMetadata;
-}
 
 
-// /////////////////////////////////////////////////////////////////////////////////////////
-
-// // Main CiCdDescriptor Interface
-// export interface CiCdDescriptor extends BaseDescriptor {
-//   dsFormart?: "json" | "csv" | "sql-db";
-//   cICdPipeline?: CICdPipeline; // Details of the pipeline
-//   cICdTriggers?: CICdTrigger; // Details of the triggers
-//   cICdEnvironment?: CICdEnvironment; // Details of the environment
-//   cICdNotifications?: CICdNotification; // Details of the notifications
-//   cICdMetadata?: CICdMetadata; // Metadata information
-// }
-
-// // Interface for Pipeline
-// export interface CICdPipeline extends BaseDescriptor {
-//   name: string; // Name of the pipeline (e.g., "Build and Deploy Pipeline")
-//   type:
-//     | "integration"
-//     | "delivery"
-//     | "deployment"
-//     | "dev-env-setup"
-//     | "cd-module-development"; // Type of pipeline
-//   stages: CICdStage[]; // List of stages in the pipeline
-// }
-
-// // Interface for Triggers
-// export interface CICdTrigger extends BaseDescriptor {
-//   type: "push" | "pull_request" | "schedule" | "manual" | "other"; // Trigger type
-//   schedule?: string; // Cron-like schedule (e.g., "0 0 * * *")
-//   branchFilters?: string[]; // Branches that trigger the pipeline
-//   conditions?: CICdTriggerConditions; // Conditions for triggering the pipeline
-// }
-
-// // Interface for Environment
-// export interface CICdEnvironment extends BaseDescriptor {
-//   name: string; // Name of the environment (e.g., "staging", "production")
-//   url: string; // Environment URL
-//   type: "staging" | "production" | "testing" | "custom"; // Environment type
-//   deploymentStrategy: "blue-green" | "canary" | "rolling" | "recreate"; // Deployment strategy
-// }
-
-// export interface CICdStage extends BaseDescriptor {
-//   name: string; // Name of the stage (e.g., "Build", "Test", "Deploy")
-//   description?: string; // Description of the stage
-//   tasks: CICdTask[]; // List of tasks in the stage
-// }
-
-// export interface CICdTask<T = any> extends BaseDescriptor {
-//   name: string;
-//   type: 'script-inline' | 'script-file' | 'method' | 'cdRequest';
-//   executor: ExecutionEnvironmentType; // Defines the execution environment
-//   script?: string; // Used for inline scripts
-//   cdRequest?: ICdRequest; // Optionally ICdRequest json can be used to invoke a given action
-//   scriptFile?: string; // Used when the script is a file
-//   className?: string; // Used when calling a cd-cli method
-//   methodName?: string; // The method to be executed
-//   input?: T; // Optional input for the method
-//   status: 'pending' | 'running' | 'completed' | 'failed'; // Task execution status
-//   cdVault?: CdVaultItem[];
-//   onResult?: TransitionRule[]; // Optional: Define next steps based on the result of the task
-//   onError?: TransitionRule[]; // Optional: Define next steps on error
-//   onSuccess?: TransitionRule[]; // Optional: Define next steps on success
-//   onStart?: TransitionRule[]; // Optional: Define next steps on start
-//   onEnd?: TransitionRule[]; // Optional: Define next steps on end
-//   onCancel?: TransitionRule[]; // Optional: Define next steps on cancel
-//   onTimeout?: TransitionRule[]; // Optional: Define next steps on timeout
-//   onRetry?: TransitionRule[]; // Optional: Define next steps on retry
-//   retryCount?: number; // Number of retries allowed for the task
-//   retryDelay?: number; // Delay in milliseconds before retrying the task
-//   timeout?: number; // Timeout in milliseconds for the task
-// }
-
-// export interface GenericTask<T = any> extends BaseDescriptor {
-//   id: string;
-//   name: string;
-//   type: "script-inline" | "script-file" | "method" | "cdRequest";
-
-//   executor: ExecutionEnvironmentType;
-//   execute?: {
-//     className?: string;
-//     methodName?: string;
-//     script?: string;
-//     scriptFile?: string;
-//     cdRequest?: ICdRequest;
-//   };
-
-//   input?: T;
-//   metadata?: Record<string, any>;
-//   cdVault?: CdVaultItem[];
-
-//   transitions?: {
-//     [stateLevel in keyof typeof CdFxStateLevel]?: TransitionRule[];
-//   };
-
-//   retryCount?: number;
-//   retryDelay?: number;
-//   timeout?: number;
-// }
-
-// export interface WorkflowTask<T = any> {
-//   name: string;
-//   type: 'script-inline' | 'script-file' | 'method' | 'cdRequest';
-//   executor: ExecutionEnvironmentType;
-//   input?: T;
-//   script?: string;
-//   scriptFile?: string;
-//   className?: string;
-//   methodName?: string;
-//   cdRequest?: ICdRequest;
-//   cdVault?: CdVaultItem[];
-
-//   status?: 'pending' | 'running' | 'completed' | 'failed';
-//   transitions?: Record<string, TransitionRule[]>; // E.g. 'onSuccess', 'onError', etc.
-
-//   schedule?: ScheduleConfig;
-//   retry?: RetryConfig;
-//   timeout?: number;
-// }
-
-// export interface ScheduleConfig {
-//   isRecurring?: boolean;
-//   cron?: string;                // e.g. "0 0 * * *"
-//   intervalMs?: number;          // e.g. 3600000 for 1h
-//   runOnceAt?: string;           // ISO timestamp
-//   window?: ExecutionWindow;     // Define when it can run (optional)
-//   repeatUntil?: string;         // End date (ISO) for recurrence
-//   skipIfMissed?: boolean;
-//   catchUp?: boolean;
-// }
-
-// export interface ExecutionWindow {
-//   start: string;  // e.g. "09:00"
-//   end: string;    // e.g. "17:00"
-//   timezone?: string; // e.g. "Africa/Nairobi"
-// }
-
-// export interface RetryConfig {
-//   retryCount?: number;
-//   retryDelayMs?: number;
-//   backoff?: 'fixed' | 'exponential';
-// }
-
-// export interface WorkflowDefinition {
-//   id: string;
-//   name: string;
-//   description?: string;
-//   tasks: Record<string, WorkflowTask>;
-//   startTask: string;
-//   globalTransitions?: TransitionRule[];
-// }
-
-// /**
-//  * GUI-Ready Flow Model
-//  * All tasks are treated as nodes, and transitions as edges — GUI tools can generate diagrams on the fly.
-//  * Transition edges can be interpreted like this:
-//  * 
-//  function extractEdgesFromTask(task: GenericTask): WorkflowEdge[] {
-//     return Object.entries(task.transitions || {}).flatMap(([state, rules]) => {
-//       return rules.map(rule => ({
-//         from: task.id,
-//         to: rule.targetTaskId,
-//         onState: state,
-//         condition: rule.condition
-//       }));
-//     });
-//   }
-//  */
-// export interface GenericWorkflow {
-//   id: string;
-//   name: string;
-//   description?: string;
-//   semantics?: FxStateSemantics; // Associated with CdFxReturn (Corpdesk tupule Function Return)
-//   tasks: GenericTask[];
-// }
-
-// // export interface ConditionalNext {
-// //   condition: 'always' | 'never' | 'success' | 'failure';
-// //   next: WFNext;
-// // }
-
-// export type WFNextRef = string | WFNext;
-
-// // export interface TransitionRule {
-// //   condition: "always" | "never" | "success" | "failure"; // if you expand this later
-// //   next: WFNextRef;
-// // }
-
-// export interface TransitionRule {
-//   toTask: string;                // Target task ID
-//   ifState?: CdFxStateLevel;     // Optional state condition
-//   ifExpr?: string;              // Optional JS-like expression (data context)
-//   delayMs?: number;             // Optional delay before transitioning
-//   window?: ExecutionWindow;     // Optional time window constraint
-// }
-
-// export interface WFNext {
-//   pipelineName?: string;
-//   stageName?: string;
-//   taskName: string;
-// }
-
-// export type ExecutionEnvironmentType = "bash" | "cd-cli" | "runner";
-
-
-
-// // Task type now allows structured descriptors
-// export type CICdTaskType =
-//   | BuildDescriptor
-//   | TestingFrameworkDescriptor
-//   | DeploymentDescriptor
-//   | MigrationDescriptor
-//   | BashScriptDescriptor // ✅ Added support for Bash scripts
-//   | CICdNotification;
-
-// export interface BuildDescriptor extends BaseDescriptor {
-//   name: "build";
-//   buildTool: "webpack" | "babel" | "vite" | "other";
-//   sourceDirectory: string; // Directory containing the source files
-//   outputDirectory: string; // Directory where the build files are stored
-//   options?: Record<string, any>; // Optional configurations
-// }
-
-// export interface DeploymentDescriptor extends BaseDescriptor {
-//   name: "deploy";
-//   strategy: "blue-green" | "rolling" | "recreate" | "canary";
-//   targetEnvironment: string; // E.g., "staging", "production"
-//   rollback?: boolean; // Whether rollback is enabled
-//   deploymentScript?: string; // Optional script for deployment
-// }
-
-// // Interface for Trigger Conditions
-// export interface CICdTriggerConditions extends BaseDescriptor {
-//   includeTags: boolean; // Whether to include tags in triggers
-//   excludeBranches?: string[]; // Branches to exclude
-// }
-
-// // Interface for Notification Channels
-// export interface CICdNotificationChannel extends BaseDescriptor {
-//   name: string; // Name of the channel (e.g., "Slack", "Email")
-//   type: "slack" | "email" | "webhook" | "custom"; // Notification channel type
-//   recipients?: string[]; // List of recipients
-//   messageFormat?: "text" | "json"; // Format of the message
-// }
-
-// // Interface for Notifications
-// export interface CICdNotification extends BaseDescriptor {
-//   channels: CICdNotificationChannel[]; // List of notification channels
-//   onEvents: ("success" | "failure" | "start" | "end")[]; // Events that trigger notifications
-// }
-
-// // Interface for Metadata
-// export interface CICdMetadata extends BaseDescriptor {
-//   createdBy?: string; // Person or team who created the pipeline
-//   lastModified?: string; // Last modification date
-//   version?: string; // Version of the pipeline configuration
-//   repository?: string; // Associated repository
-// }
-
-// export interface BashScriptDescriptor extends BaseDescriptor {
-//   name: "bash";
-//   scriptPath?: string; // Path to the Bash script
-//   inlineScript?: string; // Inline script content
-//   environmentVariables?: Record<string, string>; // Env vars to pass to the script
-// }
 
 // /////////////////////////////////////////////////////////////////////////////////////////
 // ─── Environment Service ────────────────────────────────────

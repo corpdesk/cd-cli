@@ -69,8 +69,8 @@ export class GenericService<T extends ObjectLiteral> {
   async update(
     req,
     res,
-    serviceInput: IServiceInput<T>,
-  ): Promise<CdFxReturn<ObjectLiteral[] | unknown>> {
+    serviceInput: any,
+  ): Promise<CdFxReturn<T | ObjectLiteral | null>> {
     // const serviceInput = {
     //   serviceModel: this.model,
     //   docName: `Update ${this.model.name}`,

@@ -1,6 +1,7 @@
 import type { CdFxReturn, CdRequest, IQuery } from '../../base/IBase.js';
 import type { CdDescriptor } from '../models/dev-descriptor.model.js';
 import { CdAppService } from '../services/cd-app.service.js';
+import { CdAppDescriptor } from '../models/cd-app.model.js';
 
 export class CdAppController {
   svCdApp;
@@ -49,5 +50,10 @@ export class CdAppController {
   // Get a single app by name
   async getAppByName(name: string): Promise<CdFxReturn<CdDescriptor[]>> {
     return this.svCdApp.getAppByName(name);
+  }
+
+  async upgrade(appDescriptor: CdAppDescriptor, version: string): Promise<CdFxReturn<null>> {
+    const svApp = new CdAppService();
+    return await svApp.upgrade(appDescriptor, version);
   }
 }

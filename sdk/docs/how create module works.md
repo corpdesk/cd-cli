@@ -104,7 +104,7 @@ The service avoids DI to prevent circular dependency complexity. Initialization 
 
 ## 📁 Project Structure
 
-* `src/CdCli/app/mod-craft` → Main CLI engine
+* `src/CdCli/app/app-craft` → Main CLI engine
 * `src/CdCli/sys/dev-descriptor/services/cd-ci-runner.service.ts` → Responsible for executing workflows
 * `mode-craft/workshop` → Location for generated modules under development
 

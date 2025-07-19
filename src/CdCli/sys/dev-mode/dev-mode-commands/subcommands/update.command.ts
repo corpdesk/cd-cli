@@ -1,17 +1,11 @@
 // src/CdCli/sys/dev-mode/dev-mode-commands/subcommands/update.command.ts
-import { DevModeAction } from '../../models/dev-mode.model.js';
+import { DevModeAction, SHARED_OPTIONS } from '../../models/dev-mode.model.js';
 import { DevModeService } from '../../services/dev-mode.service.js';
 
 export const updateCommand = {
   name: 'update',
   description: 'Update environments, modules, controllers, or models.',
-  options: [
-    { flags: 'name', description: 'Name of the item to update' },
-    { flags: 'type', description: 'Type of the module (e.g. cd-api, cd-ui)' },
-    { flags: 'json-file', description: 'Path to JSON module descriptor file' },
-    { flags: 'model-file', description: 'Path to JSON workflow model file' },
-    { flags: 'workstation', description: 'Target workstation' },
-  ],
+  options: SHARED_OPTIONS,
   action: {
     execute: async (options: any) => {
       const svDevMode = new DevModeService();

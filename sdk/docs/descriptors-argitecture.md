@@ -110,7 +110,7 @@ This class diagram shows how all high-level automation metadata in Corpdesk desc
 
 🧪 Usage in Practice
 
-This abstraction allows the Corpdesk tooling (cd-cli, mod-craft, cd-shell, etc.) to:
+This abstraction allows the Corpdesk tooling (cd-cli, app-craft, cd-shell, etc.) to:
 
     Generate class-based files (controller, service, model) dynamically.
 

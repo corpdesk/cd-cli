@@ -294,6 +294,7 @@ export const DEV_MODE_COMMANDS = {
     getSubcommand('delete'),
     getSubcommand('upgrade'),
     getSubcommand('migrate'),
+    getSubcommand('derive'),
   ],
 };
 

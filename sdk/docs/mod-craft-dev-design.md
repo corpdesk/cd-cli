@@ -1,9 +1,9 @@
 
-# Developer Design Document: `mod-craft`
+# Developer Design Document: `app-craft`
 
 ## Overview
 
-This document outlines the design and structure of the `mod-craft` module within the `cd-cli` tool. The purpose of `mod-craft` is to enable developers to create and manage software modules dynamically through a structured development workflow called **dev mode**.
+This document outlines the design and structure of the `app-craft` module within the `cd-cli` tool. The purpose of `app-craft` is to enable developers to create and manage software modules dynamically through a structured development workflow called **dev mode**.
 
 ---
 
@@ -21,19 +21,19 @@ This document outlines the design and structure of the `mod-craft` module within
 
 ## Directory Structure
 
-### `mod-craft` Directory
+### `app-craft` Directory
 
 ```
-src/CdCli/app/mod-craft/
+src/CdCli/app/app-craft/
 ├── controllers
 │   ├── cd-controller.controller.ts       # Manages controller creation/modification
 │   ├── cd-model.controller.ts            # Manages model creation/modification
 │   ├── cd-module.controller.ts           # Manages module-level tasks
-│   ├── mod-craft.controller.spec.ts
-│   └── mod-craft.controller.ts           # Main entrypoint controller for mod-craft operations
+│   ├── app-craft.controller.spec.ts
+│   └── app-craft.controller.ts           # Main entrypoint controller for app-craft operations
 ├── models
-│   ├── mod-craft.model.spec.ts
-│   └── mod-craft.model.ts                # Defines the data structure for CLI input and logic
+│   ├── app-craft.model.spec.ts
+│   └── app-craft.model.ts                # Defines the data structure for CLI input and logic
 ├── services
 │   ├── cd-controller.service.ts          # Business logic for managing controllers
 │   ├── cd-model.service.ts               # Business logic for managing models
@@ -110,9 +110,9 @@ cd-cli dev
 
 ## Development Tasks
 
-- ✅ Initialize `mod-craft` module and controllers/services
+- ✅ Initialize `app-craft` module and controllers/services
 - ✅ Set up `workshop` directory structure
-- 🔲 Implement CLI parsing and routing in `mod-craft.controller.ts`
+- 🔲 Implement CLI parsing and routing in `app-craft.controller.ts`
 - 🔲 Add support for JSON-based module and controller generation
 - 🔲 Add interactive wizard logic
 - 🔲 Integrate AI-based templating and suggestion system

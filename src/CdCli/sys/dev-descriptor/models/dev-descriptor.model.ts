@@ -1,6 +1,11 @@
-import { resolve } from 'path';
+import { dirname, resolve } from 'path';
 import { CdObjModel } from '../../moduleman/models/cd-obj.model.js';
 import type { BaseDescriptor } from './base-descriptor.model.js';
+import { fileURLToPath } from 'url';
+import { HOME } from '../../utilities/fs.util.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 export interface CdDescriptor extends CdObjModel {
   jDetails?: TypeDescriptor[];
@@ -24,7 +29,9 @@ export interface TypeDetails extends BaseDescriptor {
 }
 
 export const DEV_DESCRIPTORS_SERVICE_DIR = resolve(
-  process.cwd(),
+  // process.cwd(),
+  HOME,
+  'cd-cli',
   "dist/CdCli/sys/dev-descriptor/services"
 );
 

@@ -235,6 +235,8 @@ export class BaseService<T extends ObjectLiteral> extends AbstractBaseService<T>
       }
 
       const result = await controllerInstance[a](...(args ? Object.values(args) : []), dat);
+      // const { _, ...cleanArgs } = args || {};
+      // const result = await controllerInstance[a](...Object.values(cleanArgs), dat);
 
       if (!result?.state) {
         this.logger.logError(`BaseService::invokeCdRequest() → Task failed: ${result.message}`);
@@ -251,8 +253,6 @@ export class BaseService<T extends ObjectLiteral> extends AbstractBaseService<T>
       };
     }
   }
-
-  
 
   /**
    * 1. create new doc

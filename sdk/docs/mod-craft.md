@@ -1,8 +1,8 @@
 # Mod-Craft Overview
 
-The mod-craft module is part of the cd-cli (CorpDesk Command Line Interface) tool, specifically within the moduleman component. It provides functionality for automating the scaffolding of new modules, including both local template initialization and remote repository setup via SSH.
+The app-craft module is part of the cd-cli (CorpDesk Command Line Interface) tool, specifically within the moduleman component. It provides functionality for automating the scaffolding of new modules, including both local template initialization and remote repository setup via SSH.
 ## Key Components
-### 1. Data Models (mod-craft.model.ts)
+### 1. Data Models (app-craft.model.ts)
 
     Prompt Data Structures:
 
@@ -18,7 +18,7 @@ The mod-craft module is part of the cd-cli (CorpDesk Command Line Interface) too
 
         TEMPLATE_CMD: Configuration for the template init command
 
-### 2. Controller Logic (mod-craft.controller.ts)
+### 2. Controller Logic (app-craft.controller.ts)
 
     Core Functionality:
 
@@ -177,4 +177,4 @@ Typical ssh profile for managing remote project:
 
         Document all possible error conditions
 
-The mod-craft module provides a solid foundation for module scaffolding automation, with particular strength in its flexible configuration options. With some enhancements around security and error handling, it could become a robust component of the cd-cli toolchain.
+The app-craft module provides a solid foundation for module scaffolding automation, with particular strength in its flexible configuration options. With some enhancements around security and error handling, it could become a robust component of the cd-cli toolchain.

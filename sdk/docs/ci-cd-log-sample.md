@@ -42,8 +42,8 @@ cd dev  > create --module true --name cd-ai --type cd-api;
 [2025-06-16 10:44:45] 🛠️ createCommand::execute() → initializing session and model...
 [2025-06-16 10:44:45] 🛠️ createCommand::execute() → loading descriptor and workflow for module: cd-ai, type: cd-api
 [2025-06-16 10:44:45] 🛠️ Starting CICdRunnerService::loadModuleDescriptorAndWorkflow()
-[2025-06-16 10:44:45] 🛠️ Model Path: /home/emp-12/cd-cli/dist/CdCli/app/mod-craft/workshop/cd-api/model/cd-ai-module.model.js
-[2025-06-16 10:44:45] 🛠️ Workflow Path: /home/emp-12/cd-cli/dist/CdCli/app/mod-craft/workshop/cd-api/workflow/cd-ai.create.workflow.js
+[2025-06-16 10:44:45] 🛠️ Model Path: /home/emp-12/cd-cli/dist/CdCli/app/app-craft/workshop/cd-api/model/cd-ai-module.model.js
+[2025-06-16 10:44:45] 🛠️ Workflow Path: /home/emp-12/cd-cli/dist/CdCli/app/app-craft/workshop/cd-api/workflow/cd-ai.create.workflow.js
 [2025-06-16 10:44:45] 🛠️ Starting CdAiWorkFlow::createWorkFlow()
 [2025-06-16 10:44:45] 🛠️ Starting function workshopConfig()
 [2025-06-16 10:44:45] 🛠️ Starting function workshopConfig()

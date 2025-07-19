@@ -4,32 +4,27 @@ import type { CdModuleDescriptor } from './cd-module-descriptor.model.js';
 import type { CiCdDescriptor } from './cicd-descriptor.model.js';
 import type { EnvironmentDescriptor } from './environment.model.js';
 import CdLog from '../../cd-comm/controllers/cd-logger.controller.js';
-// import type { CdModuleDescriptor } from './cd-module-descriptor.model.js';
-// import type { EnvironmentDescriptor } from './environment.model.js';
+import { LanguageDescriptor } from './language.model.js';
+import { LicenseDescriptor } from './license.model.js';
+import {
+  CdControllerDescriptor,
+  CdModelDescriptor,
+  CdServiceDescriptor,
+  ContributorDescriptor,
+  VersionControlDescriptor,
+} from '../index.js';
 
-// export interface CdAppDescriptor {
-//   $schema?: string; // Optional schema URL for future use. For now versioning will be managed by the host package.json of cd-cli
-//   name: string; // Name of the application
-//   typeName: AppType | AppType[];
-//   projectGuid?: string;
-//   parentProjectGuid: string;
-//   modules: CdModuleDescriptor[]; // Array of module descriptors
-//   environment?: EnvironmentDescriptor; // Development environment settings
-//   productionEnvironment?: EnvironmentDescriptor; // Production environment settings
-//   cdCi?: CiCdDescriptor; // Coninous Integration / Continous Delivery // getCiCd(names: string[],cIcDs: CiCdDescriptor[],)
-// }
-
-// CdAppDescriptor<T = BaseDescriptor> extends CdDescriptor
-export interface CdAppDescriptor<T extends BaseDescriptor = BaseDescriptor> {
+export interface CdAppDescriptor extends BaseDescriptor {
   $schema?: string;
   name: string;
   projectGuid?: string;
-  parentProjectGuid: string;
+  parentProjectGuid: string | null;
   modules: CdModuleDescriptor[];
-  environment?: EnvironmentDescriptor;
-  productionEnvironment?: EnvironmentDescriptor;
   cdCi?: CiCdDescriptor;
-  appDetails: T; // Dynamic linking to app type descriptor
+  description?: string;
+  language?: LanguageDescriptor; // getLanguageByName(name: string,languages: LanguageDescriptor[],)
+  environments?: EnvironmentDescriptor[]; // Development environment settings
+  versionControl?: VersionControlDescriptor; // Version control details
 }
 
 export enum AppType {
@@ -51,6 +46,8 @@ export enum AppType {
   Robotics = 'robotics', // Robotics and mechatronics
   Plugin = 'plugin', // Plugins or extensions
   Microservice = 'microservice', // Small, modular backend services
+  SDN = 'sdn', // Software-Defined Networking applications
+  CbO = 'cbo', // CloudBrix Orchestrator
 }
 
 export interface AppFrontendDescriptor extends BaseDescriptor {
@@ -60,7 +57,7 @@ export interface AppFrontendDescriptor extends BaseDescriptor {
 }
 
 export interface AppApiDescriptor extends BaseDescriptor {
-  requestProcessing: { protocol: string; rateLimit?: number }; // REST, GraphQL, gRPC, etc.
+  requestProcessing: { protocol: string; rateLimit?: number }; // CdWire, REST, GraphQL, gRPC etc.
   security?: { authentication: string; authorization?: string }; // e.g., JWT, OAuth
   dataSources: { database?: string; cache?: string; messageQueue?: string[] }; // Dependencies
   externalServices?: string[]; // APIs the backend depends on
@@ -142,7 +139,7 @@ export interface AppPluginDescriptor extends CdAppDescriptor {
 }
 
 export interface AppMicroserviceDescriptor extends CdAppDescriptor {
-  interServiceCommunication?: 'REST' | 'gRPC' | 'Message Queue' | 'unknown'; // How it talks to other services
-  scalingMethod?: 'Kubernetes' | 'Serverless'; // How it scales
+  interServiceCommunication?: 'CdWire' | 'REST' | 'gRPC' | 'Message Queue' | 'unknown'; // How it talks to other services
+  scalingMethod?:  'CloudBix'| 'Kubernetes' | 'Serverless'; // How it scales
   dependencies?: { databases?: string[]; messageQueues?: string[] }; // Services it relies on
 }
