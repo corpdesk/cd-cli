@@ -21,7 +21,7 @@ import { toCamelCase, toPascalCase } from '../../utilities/cd-naming.util.js';
 import { VersionService } from './version.service.js';
 import { inspect } from 'util';
 import { writePrettyFile } from '../../utilities/fs.util.js';
-import { CdAutoGitService } from '~/CdCli/app/cd-auto-git/services/cd-auto-git.service.js';
+import { CdAutoGitService } from '../../../app/cd-auto-git/services/cd-auto-git.service.js';
 
 export class CiCdService extends GenericService<CdObjModel> {
   svCdAutoGit = new CdAutoGitService()

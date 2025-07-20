@@ -276,10 +276,19 @@ export class VersionService {
       );
     }
 
+    // const currentTagRes = await this.svCdAutoGit.getCurrentVersionTag(repoPath);
+    // CdLog.debug(`VersionService::beforeUpgrade()/currentTagRes:${JSON.stringify(currentTagRes)}`);
+
+    // if (!currentTagRes.state) {
+    //   return { ...currentTagRes, data: currentTagRes.data ?? '' };
+    // }
     const currentTagRes = await this.svCdAutoGit.getCurrentVersionTag(repoPath);
     CdLog.debug(`VersionService::beforeUpgrade()/currentTagRes:${JSON.stringify(currentTagRes)}`);
 
-    if (!currentTagRes.state) {
+    if (
+      currentTagRes.state === CdFxStateLevel.SystemError ||
+      currentTagRes.state === CdFxStateLevel.Fatal
+    ) {
       return { ...currentTagRes, data: currentTagRes.data ?? '' };
     }
 
