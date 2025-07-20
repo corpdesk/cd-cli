@@ -37,7 +37,7 @@ This relationship allows for seamless lookup, mapping, and automation:
 | Semantic Part | Maps To     | Descriptor Field          |
 | ------------- | ----------- | ------------------------- |
 | MAJOR         | Roadmap     | `CICdPipeline.versionTag` |
-| MINOR         | Milestone   | `CICdStage.name`          |
+| MINOR         | Milestone   | `CICdStage.orderId`       |
 | PATCH         | Patch Level | `CICdStage.patchNumber`   |
 
 SemVer enables both upgrade and downgrade workflows by standardizing version labels that relate directly to CI/CD pipeline structure.

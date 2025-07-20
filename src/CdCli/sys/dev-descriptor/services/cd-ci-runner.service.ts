@@ -40,7 +40,7 @@ export class CICdRunnerService {
     CdLog.debug('Starting CICdRunnerService::loadModuleDescriptorAndWorkflow()');
 
     CdLog.debug(
-      `CICdRunnerService::loadModuleDescriptorAndWorkflow()/actiion:${action}, actionTargetName: ${extraParams.actionTargetName} cdObjName:${cdObjName}, cdObjTypeName:${cdObjTypeName}, extraParams:${inspect(extraParams, { depth: 2 })}`,
+      `CICdRunnerService::loadModuleDescriptorAndWorkflow()/actiion:${action}, cdObjType: ${cdObjType}, actionTargetName: ${extraParams.actionTargetName} cdObjName:${cdObjName}, cdObjTypeName:${cdObjTypeName}, extraParams:${inspect(extraParams, { depth: 2 })}`,
     );
 
     const dashedName = cdObjName.toLowerCase();

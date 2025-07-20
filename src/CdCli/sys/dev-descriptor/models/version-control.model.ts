@@ -22,6 +22,7 @@ import { CICdPipeline, CICdTask } from '../index.js';
 
 // Main VersionControlDescriptor Interface
 export interface VersionControlDescriptor extends BaseDescriptor {
+  patchLevel?: number; // serialized patch number for the version data
   repository: RepoDescriptor; // Repository details
   versionControlBranch?: VersionControlBranch; // Branch details
   devRoadmap?: CICdPipeline; // Roadmap/Workflow process
@@ -62,6 +63,15 @@ export interface SemanticVersionObject {
   minor: number;
   patch?: number;
   label?: string; // e.g., 'alpha', 'beta', 'rc', etc.
+}
+
+export interface VersionParts {
+  versionString: string;
+  roadmap: string;
+  milestone: string;
+  patchLevel: string;
+  pipelineStage: string;
+  tagComponents: string[];
 }
 
 

@@ -36,7 +36,7 @@ export interface CICdPipeline extends BaseDescriptor {
     | 'cd-module-development'
     | 'dev-roadmap';
   stages: CICdStage[];
-  versionTag?: string; // e.g., "1.2"
+  versionTag?: number; // e.g., "1.2"
   completionRef?: string; // e.g., "abc123" for the last commit hash
   mergePolicy?: 'merge' | 'rebase' | 'squash' | 'converge'; // ← NEW
   devHistory?: CICdHistory;     // ← NEW (Parent for changelog)
@@ -68,7 +68,7 @@ export interface CICdStage extends BaseDescriptor {
   name: string;
   description?: string;
   tasks: CICdTask[];
-  patchNumber?: number; // e.g., 3 from 1.2.3
+  orderId?: number; // represent minor version e.g., 1 for the first stage, 2 for the second
   completionRef?: string; // e.g., "abc123" for the last commit hash
 }
 
