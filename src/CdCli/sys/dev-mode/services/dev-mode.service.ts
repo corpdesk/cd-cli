@@ -222,6 +222,9 @@ export class DevModeService {
 
       // Generic + dynamic argument handling
       const args = this.buildCdRequestArgs({actionTargetName, name, type }, options, selectedItem);
+      CdLog.debug(
+        `DevModeService::executeCrudCommand()/cleaned args: ${inspect(args, { depth: 2 })}`,
+      );
 
       const request: ICdRequest = {
         ...selectedItem.cdRequest,

@@ -1,9 +1,14 @@
 import path, { join } from 'path';
 import { pathToFileURL } from 'url';
-import { CdFxReturn, CdFxStateLevel, ICdRequest } from '../../base/IBase.js';
+import { CdAssertReturn, CdFxReturn, CdFxStateLevel, ICdRequest } from '../../base/IBase.js';
 import CdLog from '../../cd-comm/controllers/cd-logger.controller.js';
-import { CdModuleDescriptor } from '../models/cd-module-descriptor.model.js';
-import { CiCdDescriptor, CICdPipeline, CICdTask } from '../models/cicd-descriptor.model.js';
+import { CdCtx, CdModuleDescriptor } from '../models/cd-module-descriptor.model.js';
+import {
+  CiCdDescriptor,
+  CICdPipeline,
+  CICdTask,
+  isCdFxReturnPipeline,
+} from '../models/cicd-descriptor.model.js';
 import { toDashedFileName } from '../../utilities/request-helper.js';
 import { inspect } from 'util';
 import {
@@ -19,8 +24,15 @@ import { BaseService } from '../../base/base.service.js';
 import { DevModeAction, getActionString } from '../../dev-mode/index.js';
 import { MOD_CRAFT_WORKSHOP_DIR } from '../../../app/app-craft/models/app-craft.model.js';
 import { CdAppService } from './cd-app.service.js';
-import { AppType } from '../index.js';
+import { AppType, VersionControlDescriptor } from '../index.js';
 import { executeCommand } from '../../utilities/cmd.util.js';
+import { checkIfRepoExists } from '~/CdCli/app/cd-auto-git/tests/cd-auto-git.test.js';
+import {
+  isAssertSuccessful,
+  isCdFxReturnBoolean,
+  runAssert,
+} from '../../utilities/cd-assert-utils.js';
+import { VersionService } from './version.service.js';
 
 /** Runner responsible for executing CICdTask logic */
 export class CICdRunnerService {
@@ -36,6 +48,7 @@ export class CICdRunnerService {
   ): Promise<{
     descriptor: any;
     workflowModel: CiCdDescriptor;
+    extraParams?: any;
   }> {
     CdLog.debug('Starting CICdRunnerService::loadModuleDescriptorAndWorkflow()');
 
@@ -210,17 +223,111 @@ export class CICdRunnerService {
     return {
       descriptor,
       workflowModel,
+      extraParams,
     };
   }
 
+  // async run(
+  //   moduleDescriptor: CdModuleDescriptor,
+  //   descriptor: CiCdDescriptor,
+  // ): Promise<CdFxReturn<null>> {
+  //   CdLog.debug('Starting CICdRunnerService::run()');
+  //   CdLog.debug('CICdRunnerService::run()/01');
+
+  //   const pipeline = descriptor?.cICdPipeline;
+  //   this.currentPipelineName = pipeline?.name ?? '';
+
+  //   if (!pipeline?.stages?.length) {
+  //     CdLog.debug('CICdRunnerService::run()/02');
+  //     return { state: false, message: 'No pipeline stages defined.' };
+  //   }
+
+  //   // 1. Flatten and index all tasks with a unique key: stageName/taskName
+  //   const taskMap = new Map<string, CICdTask>();
+  //   for (const stage of pipeline.stages) {
+  //     CdLog.debug('CICdRunnerService::run()/03');
+  //     for (const task of stage.tasks) {
+  //       CdLog.debug('CICdRunnerService::run()/04');
+  //       const key = `${stage.name}/${task.name}`; // unique key
+  //       taskMap.set(key, task);
+  //     }
+  //   }
+
+  //   // 2. Start execution from the first task in the first stage
+  //   let currentStage = pipeline.stages[0];
+  //   let currentTask = currentStage.tasks[0];
+  //   this.currentStageName = currentStage.name;
+
+  //   const visited = new Set<string>();
+
+  //   while (currentTask) {
+  //     CdLog.debug('CICdRunnerService::run()/05');
+  //     const taskKey = `${this.currentStageName}/${currentTask.name}`;
+  //     if (visited.has(taskKey)) {
+  //       CdLog.debug('CICdRunnerService::run()/06');
+  //       return {
+  //         state: false,
+  //         message: `Loop detected at task: ${currentTask.name}`,
+  //       };
+  //     }
+  //     CdLog.debug('CICdRunnerService::run()/07');
+  //     visited.add(taskKey);
+
+  //     currentTask.status = 'running';
+  //     const result = await this.executeTaskWithPolicies(currentTask, moduleDescriptor);
+  //     CdLog.debug('CICdRunnerService::run()/result:' + inspect(result, { depth: 2 }));
+  //     CdLog.debug('CICdRunnerService::run()/08');
+  //     currentTask.status = result.state ? 'completed' : 'failed';
+
+  //     // 3. Determine next task
+  //     const nextRef = this.resolveNextTask(currentTask, result.state as CdFxStateLevel);
+  //     CdLog.debug(`CICdRunnerService::run()/nextRef:${inspect(nextRef, { depth: 2 })}`);
+  //     if (!nextRef) break;
+
+  //     CdLog.debug('CICdRunnerService::run()/09');
+  //     // Normalize for lookup key
+  //     const pipelineName = nextRef.pipelineName ?? this.currentPipelineName;
+  //     const stageName = nextRef.stageName ?? this.currentStageName;
+  //     const taskName = nextRef.taskName;
+
+  //     // 🚨 Optional: support only current pipeline for now
+  //     if (pipelineName !== this.currentPipelineName) {
+  //       CdLog.debug('CICdRunnerService::run()/10');
+  //       return {
+  //         state: false,
+  //         message: `Cross-pipeline transition not supported: ${pipelineName}`,
+  //       };
+  //     }
+
+  //     const nextKey = `${stageName}/${taskName}`;
+  //     const nextTask = taskMap.get(nextKey);
+
+  //     if (!nextTask) {
+  //       CdLog.debug('CICdRunnerService::run()/11');
+  //       return {
+  //         state: false,
+  //         message: `Next task "${taskName}" in stage "${stageName}" not found.`,
+  //       };
+  //     }
+
+  //     // Set new context
+  //     this.currentStageName = stageName;
+  //     currentTask = nextTask;
+  //   }
+
+  //   CdLog.debug('CICdRunnerService::run()/12');
+  //   return { state: true, message: 'Pipeline executed successfully.' };
+  // }
+
   async run(
-    moduleDescriptor: CdModuleDescriptor,
-    descriptor: CiCdDescriptor,
-  ): Promise<CdFxReturn<null>> {
+    descriptor: any, // CdModuleDescriptor or CdAppDescriptor or other descriptor type
+    workflowData: CiCdDescriptor,
+    extraParams?: any,
+  ): Promise<CdFxReturn<null | CdAssertReturn[]>> {
     CdLog.debug('Starting CICdRunnerService::run()');
     CdLog.debug('CICdRunnerService::run()/01');
 
-    const pipeline = descriptor?.cICdPipeline;
+    const pipeline = workflowData?.cICdPipeline;
     this.currentPipelineName = pipeline?.name ?? '';
 
     if (!pipeline?.stages?.length) {
@@ -228,18 +335,16 @@ export class CICdRunnerService {
       return { state: false, message: 'No pipeline stages defined.' };
     }
 
-    // 1. Flatten and index all tasks with a unique key: stageName/taskName
     const taskMap = new Map<string, CICdTask>();
     for (const stage of pipeline.stages) {
       CdLog.debug('CICdRunnerService::run()/03');
       for (const task of stage.tasks) {
         CdLog.debug('CICdRunnerService::run()/04');
-        const key = `${stage.name}/${task.name}`; // unique key
+        const key = `${stage.name}/${task.name}`;
         taskMap.set(key, task);
       }
     }
 
-    // 2. Start execution from the first task in the first stage
     let currentStage = pipeline.stages[0];
     let currentTask = currentStage.tasks[0];
     this.currentStageName = currentStage.name;
@@ -260,23 +365,20 @@ export class CICdRunnerService {
       visited.add(taskKey);
 
       currentTask.status = 'running';
-      const result = await this.executeTaskWithPolicies(currentTask, moduleDescriptor);
+      const result = await this.executeTaskWithPolicies(currentTask, descriptor);
       CdLog.debug('CICdRunnerService::run()/result:' + inspect(result, { depth: 2 }));
       CdLog.debug('CICdRunnerService::run()/08');
       currentTask.status = result.state ? 'completed' : 'failed';
 
-      // 3. Determine next task
       const nextRef = this.resolveNextTask(currentTask, result.state as CdFxStateLevel);
       CdLog.debug(`CICdRunnerService::run()/nextRef:${inspect(nextRef, { depth: 2 })}`);
       if (!nextRef) break;
 
       CdLog.debug('CICdRunnerService::run()/09');
-      // Normalize for lookup key
       const pipelineName = nextRef.pipelineName ?? this.currentPipelineName;
       const stageName = nextRef.stageName ?? this.currentStageName;
       const taskName = nextRef.taskName;
 
-      // 🚨 Optional: support only current pipeline for now
       if (pipelineName !== this.currentPipelineName) {
         CdLog.debug('CICdRunnerService::run()/10');
         return {
@@ -296,13 +398,230 @@ export class CICdRunnerService {
         };
       }
 
-      // Set new context
       this.currentStageName = stageName;
       currentTask = nextTask;
     }
 
     CdLog.debug('CICdRunnerService::run()/12');
+
+    if (extraParams.testTasks) {
+      CdLog.debug('🔍 testTasks=true — Initiating CICdRunnerService::test()');
+      const testResult = await this.test(descriptor, extraParams);
+      return {
+        state: testResult.state === CdFxStateLevel.Success,
+        message: `Run complete. ${testResult.message}`,
+        data: testResult.data,
+      };
+    }
+
     return { state: true, message: 'Pipeline executed successfully.' };
+  }
+
+  // async test(
+  //   descriptor: any,
+  //   workflowData: CiCdDescriptor,
+  // ): Promise<CdFxReturn<CdAssertReturn[]>> {
+  //   const results: CdAssertReturn[] = [];
+
+  //   try {
+  //     CdLog.debug(`🔍 CICdRunnerService::test() called`);
+  //     // CdLog.debug(`→ Module: ${moduleDescriptor.name}`);
+  //     CdLog.debug(`→ Descriptor: ${workflowData.name}`);
+
+  //     const pipeline = workflowData?.cICdPipeline;
+  //     if (!pipeline?.stages?.length) {
+  //       CdLog.warning(`⚠️ No pipeline stages found in descriptor '${workflowData.name}'`);
+  //       return {
+  //         state: CdFxStateLevel.NotFound,
+  //         message: 'No pipeline stages found.',
+  //         data: results,
+  //       };
+  //     }
+
+  //     CdLog.debug(`🛠 Total Stages: ${pipeline.stages.length}`);
+
+  //     for (const stage of pipeline.stages) {
+  //       CdLog.debug(`🔄 Executing Stage: ${stage.name}, Tasks: ${stage.tasks.length}`);
+
+  //       for (const task of stage.tasks) {
+  //         CdLog.debug(`➡️ Task: ${task.name}`);
+
+  //         if (!task.assert) {
+  //           CdLog.debug(`⏭ Task skipped (no assertion defined)`);
+  //           continue;
+  //         }
+
+  //         CdLog.debug(`⚙️ Running assertion for task: ${task.name}`);
+  //         const result = await this.executeAssertTest(task.assert, task);
+
+  //         if (!isCdFxReturnBoolean(result)) {
+  //           CdLog.warning(`❌ Invalid result format returned for task '${task.name}'`);
+  //           results.push({
+  //             data: false,
+  //             state: CdFxStateLevel.SystemError,
+  //             message: 'Invalid assertion result format.',
+  //           });
+  //           task.status = 'failed';
+  //           continue;
+  //         }
+
+  //         CdLog.debug(`📥 Assertion result for '${task.name}': ${result.data}`);
+  //         results.push(result);
+  //         task.status = isAssertSuccessful(result) ? 'completed' : 'failed';
+  //         CdLog.debug(`📌 Task '${task.name}' marked as '${task.status}'`);
+  //       }
+  //     }
+
+  //     const failedCount = results.filter((r) => !isAssertSuccessful(r)).length;
+  //     const passedCount = results.length - failedCount;
+  //     const state = failedCount === 0 ? CdFxStateLevel.Success : CdFxStateLevel.PartialSuccess;
+
+  //     CdLog.debug(`✅ All assertions completed → Passed: ${passedCount}, Failed: ${failedCount}`);
+
+  //     return {
+  //       state,
+  //       message: `Test assertions complete: ${passedCount} passed, ${failedCount} failed.`,
+  //       data: results,
+  //     };
+  //   } catch (error: any) {
+  //     CdLog.warning(`💥 Fatal error during test(): ${error.message}`);
+  //     return {
+  //       state: CdFxStateLevel.Fatal,
+  //       message: `Assertion test error: ${error.message}`,
+  //       data: results,
+  //     };
+  //   }
+  // }
+  async test(
+    descriptor: { versionControl?: VersionControlDescriptor; ctx: CdCtx; moduleName?: string },
+    // appType: AppType,
+    extraParams?: any,
+  ): Promise<CdFxReturn<CdAssertReturn[]>> {
+    const results: CdAssertReturn[] = [];
+
+    try {
+      CdLog.debug(`🔍 CICdRunnerService::test() called`);
+
+      if (!descriptor.versionControl) {
+        CdLog.warning(`⚠️ Descriptor missing 'versionControl' property.`);
+        return {
+          state: CdFxStateLevel.LogicalFailure,
+          message: `Descriptor missing versionControl`,
+          data: results,
+        };
+      }
+
+      let roadmapResult: any = null;
+      const svVersion = new VersionService();
+      CdLog.debug(`ICdRunnerService::test()/descriptor: ${inspect(descriptor, { depth: 2 })}`);
+      CdLog.debug(`ICdRunnerService::test()/extraParams: ${inspect(extraParams, { depth: 2 })}`);
+      switch (extraParams.descriptor) {
+        case 'CdModuleDescriptor':
+          CdLog.debug(`CICdRunnerService::test()/case:CdModuleDescriptor`);
+          /**
+           * If module descriptor is provided, ctx and moduleName are used to fetch roadmap data.
+           */
+          roadmapResult = await svVersion.getRoadMapData(
+            descriptor.versionControl,
+            extraParams.appType,
+            {
+              ctx: descriptor.ctx,
+              moduleName: descriptor.moduleName || '',
+            },
+          );
+          break;
+        case 'CdAppDescriptor':
+          CdLog.debug(`CICdRunnerService::test()/case:CdAppDescriptor`);
+          /**
+           * If app descriptor is provided, ctx and moduleName are NOT required to fetch roadmap data.
+           */
+          roadmapResult = await svVersion.getRoadMapData(
+            descriptor.versionControl,
+            extraParams.appType,
+          );
+          break;
+        default:
+          CdLog.warning(`⚠️ Unsupported descriptor type: ${extraParams.descriptor}`);
+          return {
+            state: CdFxStateLevel.LogicalFailure,
+            message: `Unsupported descriptor type: ${extraParams.descriptor}`,
+            data: results,
+          };
+      }
+
+      if (!isCdFxReturnPipeline(roadmapResult)) {
+        CdLog.warning(`⚠️ Roadmap result is not a valid CICdPipeline response`);
+        return {
+          state: CdFxStateLevel.SystemError,
+          message: `Invalid roadmap result format`,
+          data: results,
+        };
+      }
+
+      const pipeline = roadmapResult.data;
+
+      if (!pipeline?.stages?.length) {
+        CdLog.warning(`⚠️ No pipeline stages found in roadmap`);
+        return {
+          state: CdFxStateLevel.NotFound,
+          message: `No pipeline stages found in roadmap`,
+          data: results,
+        };
+      }
+
+      CdLog.debug(`🛠 Total Stages: ${pipeline.stages.length}`);
+
+      for (const stage of pipeline.stages) {
+        CdLog.debug(`🔄 Executing Stage: ${stage.name}, Tasks: ${stage.tasks.length}`);
+
+        for (const task of stage.tasks) {
+          CdLog.debug(`➡️ Task: ${task.name}`);
+
+          if (!task.assert) {
+            CdLog.debug(`⏭ Task skipped (no assertion defined)`);
+            continue;
+          }
+
+          CdLog.debug(`⚙️ Running assertion for task: ${task.name}`);
+          const result = await this.executeAssertTest(task.assert, task);
+
+          if (!isCdFxReturnBoolean(result)) {
+            CdLog.warning(`❌ Invalid result format returned for task '${task.name}'`);
+            results.push({
+              data: false,
+              state: CdFxStateLevel.SystemError,
+              message: 'Invalid assertion result format.',
+            });
+            task.status = 'failed';
+            continue;
+          }
+
+          CdLog.debug(`📥 Assertion result for '${task.name}': ${result.data}`);
+          results.push(result);
+          task.status = isAssertSuccessful(result) ? 'completed' : 'failed';
+          CdLog.debug(`📌 Task '${task.name}' marked as '${task.status}'`);
+        }
+      }
+
+      const failedCount = results.filter((r) => !isAssertSuccessful(r)).length;
+      const passedCount = results.length - failedCount;
+      const state = failedCount === 0 ? CdFxStateLevel.Success : CdFxStateLevel.PartialSuccess;
+
+      CdLog.debug(`✅ All assertions completed → Passed: ${passedCount}, Failed: ${failedCount}`);
+
+      return {
+        state,
+        message: `Test assertions complete: ${passedCount} passed, ${failedCount} failed.`,
+        data: results,
+      };
+    } catch (error: any) {
+      CdLog.warning(`💥 Fatal error during test(): ${error.message}`);
+      return {
+        state: CdFxStateLevel.Fatal,
+        message: `Assertion test error: ${error.message}`,
+        data: results,
+      };
+    }
   }
 
   private async executeTaskWithPolicies(
@@ -350,6 +669,70 @@ export class CICdRunnerService {
       state: false,
       message: `Task ${task.name} failed after ${maxAttempts} attempts.`,
     };
+  }
+
+  public async executeAssertTest(
+    assertRequest: ICdRequest,
+    // moduleDescriptor: CdModuleDescriptor,
+    task: CICdTask,
+  ): Promise<CdAssertReturn> {
+    CdLog.debug(`CICdRunnerService::executeAssertTest() → ${task.name}`);
+
+    const maxAttempts = task.retryCount ?? 1;
+    const delay = task.retryDelay ?? 0;
+    const timeout = task.timeout ?? 30000;
+
+    CdLog.debug(`→ Config: maxAttempts=${maxAttempts}, delay=${delay}ms, timeout=${timeout}ms`);
+    CdLog.debug(`→ AssertRequest: ${JSON.stringify(assertRequest)}`);
+    // CdLog.debug(`→ ModuleDescriptor: ${JSON.stringify(moduleDescriptor)}`);
+
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        CdLog.debug(`→ Starting attempt ${attempt} of ${maxAttempts}`);
+
+        const result: CdAssertReturn = await Promise.race([
+          this.runAssert(assertRequest),
+          new Promise<CdAssertReturn>((_, reject) =>
+            setTimeout(() => {
+              CdLog.debug(`⏱️ Timeout reached after ${timeout}ms`);
+              reject(new Error('Timeout'));
+            }, timeout),
+          ),
+        ]);
+
+        CdLog.debug(`→ Result from runAssert(): ${JSON.stringify(result)}`);
+
+        if (result.data === true) {
+          CdLog.debug(`✅ Assertion succeeded on attempt ${attempt}`);
+          return {
+            data: true,
+            state: CdFxStateLevel.Success,
+            message: `Assertion passed on attempt ${attempt} for task '${task.name}'`,
+          };
+        } else {
+          CdLog.warning(`❌ Assert attempt ${attempt} returned false.`);
+        }
+      } catch (err) {
+        CdLog.warning(`❌ Assert attempt ${attempt} failed: ${(err as Error).message}`);
+      }
+
+      if (attempt < maxAttempts && delay > 0) {
+        CdLog.debug(`⏳ Waiting for ${delay}ms before next attempt...`);
+        await this.sleep(delay);
+      }
+    }
+
+    CdLog.debug(`❌ All ${maxAttempts} attempts failed for task '${task.name}'`);
+    return {
+      data: false,
+      state: CdFxStateLevel.Error,
+      message: `Assertion failed after ${maxAttempts} attempts for task '${task.name}'`,
+    };
+  }
+
+  private async runAssert(assertRequest: ICdRequest): Promise<CdAssertReturn> {
+    const baseService = new BaseService();
+    return await baseService.invokeCdRequest<boolean>(assertRequest);
   }
 
   private sleep(ms: number): Promise<void> {

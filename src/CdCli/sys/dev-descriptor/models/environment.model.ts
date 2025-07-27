@@ -44,6 +44,9 @@ export enum CdEnvName {
   LOCAL_CD_API_APP = 'local-cd-api-app',
   LOCAL_CD_API_SYS = 'local-cd-api-sys',
   LOCAL_CD_API = 'local-cd-api',
+  LOCAL_CD_CLI = 'local-cd-cli',
+  LOCAL_FRONTEND = 'local-frontend',
+  LOCAL_PWA = 'local-pwa',
 }
 
 export interface EnvironmentVariablesDescriptor extends BaseDescriptor {
@@ -87,6 +90,24 @@ export const envProduction: EnvironmentDescriptor = {
   name: CdEnvName.PRODUCTION,
   type: 'deployment',
   workstation: workstations.find((w) => w.name === 'emp-07') || defaultWorkstation,
+};
+
+export const envCdCli: EnvironmentDescriptor = {
+  name: CdEnvName.LOCAL_CD_CLI,
+  type: 'local-cd-cli',
+  workstation: workstations.find((w) => w.name === 'emp-12') || defaultWorkstation,
+};
+
+export const envFrontend: EnvironmentDescriptor = {
+  name: CdEnvName.LOCAL_FRONTEND,
+  type: 'local-cd-cli',
+  workstation: workstations.find((w) => w.name === 'emp-12') || defaultWorkstation,
+};
+
+export const envPwa: EnvironmentDescriptor = {
+  name: CdEnvName.LOCAL_PWA,
+  type: 'local-cd-cli',
+  workstation: workstations.find((w) => w.name === 'emp-12') || defaultWorkstation,
 };
 
 

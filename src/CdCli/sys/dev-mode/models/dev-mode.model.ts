@@ -88,7 +88,8 @@ export const SHARED_OPTIONS = [
 export const UPGRADE_EXTRA_OPTIONS = [
   { flags: 'version', description: 'semantic version or git sha to upgrade to' },
   { flags: 'roadmap', description: 'optional override of roadmap id' },
-  { flags: 'milestone', description: 'optional override of milestone id' }
+  { flags: 'milestone', description: 'optional override of milestone id' },
+  { flags: 'test', description: 'optional for running task tests and version update' }
 ];
 
 /**

@@ -10,7 +10,7 @@ const UPGRADE_OPTIONS = [...SHARED_OPTIONS, ...UPGRADE_EXTRA_OPTIONS];
 
 export const upgradeCommand = {
   name: 'upgrade',
-  description: 'Upgrade environments, modules, controllers, or models.',
+  description: 'Upgrade cd-apps, modules, controllers, or models.',
   options: UPGRADE_OPTIONS,
   action: {
     execute: async (options: any) => {

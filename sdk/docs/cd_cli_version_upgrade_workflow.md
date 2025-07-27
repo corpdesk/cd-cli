@@ -121,7 +121,7 @@ This step carries out the upgrade changes in all relevant files and systems.
 
 ```ts
 export interface VersionControlDescriptor extends BaseDescriptor {
-  patchNo?: number; // serialized patch number for versioning
+  patchLevel?: number; // serialized patch number for versioning
   repository: RepoDescriptor;
   versionControlBranch?: VersionControlBranch;
   devRoadmap?: CICdPipeline;

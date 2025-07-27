@@ -98,6 +98,9 @@ export enum CdFxStateLevel {
   Unknown = 13,
 }
 
+// ─── Assertion Return Type ────────────────────────
+export type CdAssertReturn = CdFxReturn<boolean>;
+
 export interface FxStateMeta {
   key: string;
   label: string;

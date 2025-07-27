@@ -134,7 +134,16 @@ export interface BaseSchedulerTask<T = any> extends BaseDescriptor {
   scriptFile?: string;
   className?: string;
   methodName?: string;
+  /**
+   * Executable request that can be used to invoke a given action.
+   */
   cdRequest?: ICdRequest;
+  /**
+   * Executable request that checks/asserts if the outcome of this task is valid.
+   * If provided, the result can be used to validate or gate the transition of the task.
+   */
+  assert?: ICdRequest; // ← NEW: Executable assertion/test for this task
+
 
   retryCount?: number;
   retryDelay?: number;

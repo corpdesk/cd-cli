@@ -26,4 +26,12 @@ export class VersionController {
   async AfterUpgrade(repoPath: string, version: SemanticVersionObject): Promise<CdFxReturn<null>> {
     return this.svVersion.afterUpgrade(repoPath, version);
   }
+
+  async IncrementPatch(
+    repoPath: string,
+    version: SemanticVersionObject,
+    opts: { dryRun?: boolean; commitMessage?: string } = {},
+  ): Promise<CdFxReturn<SemanticVersionObject>> {
+    return this.svVersion.incrementPatch(repoPath, version, opts);
+  }
 }

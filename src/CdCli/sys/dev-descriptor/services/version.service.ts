@@ -8,12 +8,17 @@ import {
 } from '../models/version-control.model.js';
 import { CD_FX_FAIL, CdFxReturn, CdFxStateLevel } from '../../base/IBase.js';
 import CdLog from '../../cd-comm/controllers/cd-logger.controller.js';
-import { toCamelCase } from '../../utilities/cd-naming.util.js';
+import { toCamelCase, toPascalCase } from '../../utilities/cd-naming.util.js';
 import { join, resolve } from 'path';
 import { pathToFileURL } from 'url';
 import { MOD_CRAFT_WORKSHOP_DIR } from '../../../app/app-craft/models/app-craft.model.js';
 import { inspect } from 'util';
 import { cdFx } from '../../base/cd-fx-return.util.js';
+import { envCdApi, envCdCli, envFrontend, envPwa } from '../models/environment.model.js';
+import { AppType } from '../models/cd-app.model.js';
+import { CdCtx } from '../models/cd-module-descriptor.model.js';
+import { CICdPipeline } from '../models/cicd-descriptor.model.js';
+import { existsSync, readFileSync } from 'fs';
 
 export class VersionService {
   versionDescriptor?: VersionControlDescriptor;
@@ -241,6 +246,300 @@ export class VersionService {
     return { state: true, data: matched };
   }
 
+  // getAppRoadMapData(
+  //   versionControl: VersionControlDescriptor,
+  //   appType: AppType,
+  //   module?: { ctx: CdCtx; moduleName: string },
+  // ): CdFxReturn<any> {
+  //   if (!versionControl?.repository.directories) {
+  //     return cdFx(CdFxStateLevel.NotFound, 'No directories data found in version control.');
+  //   }
+
+  //   try {
+  //     let appDir = '';
+  //     switch (appType) {
+  //       case AppType.CdCli:
+  //         CdLog.debug('VersionService::getRoadMapData()/appType:CdCli');
+  //         appDir =
+  //           versionControl.repository.directories.find((d) => d.environment === envCdCli)?.path ??
+  //           '';
+  //         break;
+  //       case AppType.Frontend:
+  //         CdLog.debug('VersionService::getRoadMapData()/appType:Frontend');
+  //         appDir =
+  //           versionControl.repository.directories.find((d) => d.environment === envFrontend)
+  //             ?.path ?? '';
+  //         break;
+  //       case AppType.Pwa:
+  //         CdLog.debug('VersionService::getRoadMapData()/appType:Pwa');
+  //         appDir =
+  //           versionControl.repository.directories.find((d) => d.environment === envPwa)?.path ?? '';
+  //         break;
+  //       case AppType.CdApi:
+  //         CdLog.debug('VersionService::getRoadMapData()/appType:CdApi');
+  //         appDir =
+  //           versionControl.repository.directories.find((d) => d.environment === envCdApi)?.path ??
+  //           '';
+  //         break;
+  //       // Add other appTypes here as needed
+  //       default:
+  //         return cdFx(CdFxStateLevel.LogicalFailure, 'Invalid app type specified.');
+  //     }
+
+  //     CdLog.debug(`VersionService::getRoadMapData()/baseAppDir: ${appDir}`);
+  //     if (!appDir) {
+  //       return cdFx(CdFxStateLevel.NotFound, 'No app directory found in version control.');
+  //     }
+
+  //     let roadmapPath = '';
+  //     if (module?.ctx && module?.moduleName) {
+  //       // Compose module directory path from ctx and PascalCased appType
+  //       const appTypeDir = toPascalCase(appType); // Ensure this utility exists
+  //       const modulePath = join(appDir, 'src', appTypeDir, module.ctx, module.moduleName);
+  //       roadmapPath = join(modulePath, '.cd', 'roadmap.json');
+  //       CdLog.debug(`VersionService::getRoadMapData()/moduleRoadmapPath: ${roadmapPath}`);
+  //     } else {
+  //       roadmapPath = join(appDir, '.cd', 'roadmap.json');
+  //       CdLog.debug(`VersionService::getRoadMapData()/appRoadmapPath: ${roadmapPath}`);
+  //     }
+
+  //     return cdFx(CdFxStateLevel.Success, 'Roadmap data path resolved successfully.', roadmapPath);
+  //   } catch (err: any) {
+  //     CdLog.error(`VersionService::getRoadMapData()/error: ${err.message}`);
+  //     return cdFx(
+  //       CdFxStateLevel.SystemError,
+  //       `Failed to resolve roadmap data path: ${err.message}`,
+  //     );
+  //   }
+  // }
+
+  // async getRoadMapData(
+  //   versionControl: VersionControlDescriptor,
+  //   appType: AppType,
+  //   /**
+  //    * moduleMeta is optional and used to provide context for the module.
+  //    * Otherwise, for CdApp, it is not required
+  //    * */
+  //   moduleMeta?: { ctx: CdCtx; moduleName: string },
+  // ): Promise<CdFxReturn<CICdPipeline>> {
+  //   if (!versionControl?.repository.directories) {
+  //     return cdFx(CdFxStateLevel.NotFound, 'No directories data found in version control.');
+  //   }
+
+  //   try {
+  //     let appDir = '';
+  //     switch (appType) {
+  //       case AppType.CdCli:
+  //         appDir =
+  //           versionControl.repository.directories.find((d) => d.environment === envCdCli)?.path ??
+  //           '';
+  //         break;
+  //       case AppType.Frontend:
+  //         appDir =
+  //           versionControl.repository.directories.find((d) => d.environment === envFrontend)
+  //             ?.path ?? '';
+  //         break;
+  //       case AppType.Pwa:
+  //         appDir =
+  //           versionControl.repository.directories.find((d) => d.environment === envPwa)?.path ?? '';
+  //         break;
+  //       case AppType.CdApi:
+  //         appDir =
+  //           versionControl.repository.directories.find((d) => d.environment === envCdApi)?.path ??
+  //           '';
+  //         break;
+  //       default:
+  //         return cdFx(CdFxStateLevel.LogicalFailure, 'Invalid app type specified.');
+  //     }
+
+  //     if (!appDir) {
+  //       return cdFx(CdFxStateLevel.NotFound, 'No app directory found for the given app type.');
+  //     }
+
+  //     let roadmapPath,
+  //       baseDir = '';
+
+  //     /**
+  //      * if moduleMeta is NOT provided, assume it is a CdApp, else use moduleMeta to compose the path
+  //      */
+  //     if (!moduleMeta || !moduleMeta.ctx || !moduleMeta.moduleName) {
+  //       roadmapPath = join(baseDir, '.cd', 'roadmap.json');
+  //     } else {
+  //       // Compose module directory path from ctx and PascalCased appType
+  //       baseDir = join(appDir, 'src', toPascalCase(appType), moduleMeta.ctx, moduleMeta.moduleName);
+  //     }
+
+  //     if (!existsSync(roadmapPath)) {
+  //       return cdFx(CdFxStateLevel.NotFound, `Roadmap file not found at path: ${roadmapPath}`);
+  //     }
+
+  //     const fileContent = readFileSync(roadmapPath, 'utf-8');
+  //     const roadmapData = JSON.parse(fileContent) as CICdPipeline;
+
+  //     return cdFx(CdFxStateLevel.Success, 'Roadmap data loaded successfully.', roadmapData);
+  //   } catch (err: any) {
+  //     return cdFx(CdFxStateLevel.SystemError, `Failed to load roadmap data: ${err.message}`);
+  //   }
+  // }
+  // async getRoadMapData(
+  //   versionControl: VersionControlDescriptor,
+  //   appType: AppType,
+  //   /**
+  //    * moduleMeta is optional and used to provide context for the module.
+  //    * Otherwise, for CdApp, it is not required
+  //    */
+  //   moduleMeta?: { ctx: CdCtx; moduleName: string },
+  // ): Promise<CdFxReturn<CICdPipeline>> {
+  //   if (!versionControl?.repository.directories) {
+  //     return cdFx(CdFxStateLevel.NotFound, 'No directories data found in version control.');
+  //   }
+
+  //   try {
+  //     let appDir = '';
+  //     switch (appType) {
+  //       case AppType.CdCli:
+  //         appDir =
+  //           versionControl.repository.directories.find((d) => d.environment === envCdCli)?.path ??
+  //           '';
+  //         break;
+  //       case AppType.Frontend:
+  //         appDir =
+  //           versionControl.repository.directories.find((d) => d.environment === envFrontend)
+  //             ?.path ?? '';
+  //         break;
+  //       case AppType.Pwa:
+  //         appDir =
+  //           versionControl.repository.directories.find((d) => d.environment === envPwa)?.path ?? '';
+  //         break;
+  //       case AppType.CdApi:
+  //         appDir =
+  //           versionControl.repository.directories.find((d) => d.environment === envCdApi)?.path ??
+  //           '';
+  //         break;
+  //       default:
+  //         return cdFx(CdFxStateLevel.LogicalFailure, 'Invalid app type specified.');
+  //     }
+
+  //     if (!appDir) {
+  //       return cdFx(CdFxStateLevel.NotFound, 'No app directory found for the given app type.');
+  //     }
+
+  //     let roadmapPath = '';
+
+  //     /**
+  //      * If moduleMeta is NOT provided, assume it is a CdApp,
+  //      * so look in the root of the appDir for the roadmap
+  //      */
+  //     if (!moduleMeta || !moduleMeta.ctx || !moduleMeta.moduleName) {
+  //       roadmapPath = join(appDir, '.cd', 'roadmap.json');
+  //     } else {
+  //       const moduleDir = join(
+  //         appDir,
+  //         'src',
+  //         toPascalCase(appType),
+  //         moduleMeta.ctx,
+  //         moduleMeta.moduleName,
+  //       );
+  //       roadmapPath = join(moduleDir, '.cd', 'roadmap.json');
+  //     }
+
+  //     if (!existsSync(roadmapPath)) {
+  //       return cdFx(CdFxStateLevel.NotFound, `Roadmap file not found at path: ${roadmapPath}`);
+  //     }
+
+  //     const fileContent = readFileSync(roadmapPath, 'utf-8');
+  //     const roadmapData = JSON.parse(fileContent) as CICdPipeline;
+
+  //     return cdFx(CdFxStateLevel.Success, 'Roadmap data loaded successfully.', roadmapData);
+  //   } catch (err: any) {
+  //     return cdFx(CdFxStateLevel.SystemError, `Failed to load roadmap data: ${err.message}`);
+  //   }
+  // }
+  async getRoadMapData(
+    versionControl: VersionControlDescriptor,
+    appType: AppType,
+    moduleMeta?: { ctx: CdCtx; moduleName: string },
+  ): Promise<CdFxReturn<CICdPipeline>> {
+    CdLog.debug('getRoadMapData(): Starting...');
+
+    if (!versionControl?.repository.directories) {
+      CdLog.debug('getRoadMapData(): No directories found in version control.');
+      return cdFx(CdFxStateLevel.NotFound, 'No directories data found in version control.');
+    }
+
+    try {
+      let appDir = '';
+      CdLog.debug(`getRoadMapData(): appType received: ${appType}`);
+
+      switch (appType) {
+        case AppType.CdCli:
+          appDir =
+            versionControl.repository.directories.find((d) => d.environment === envCdCli)?.path ??
+            '';
+          break;
+        case AppType.Frontend:
+          appDir =
+            versionControl.repository.directories.find((d) => d.environment === envFrontend)
+              ?.path ?? '';
+          break;
+        case AppType.Pwa:
+          appDir =
+            versionControl.repository.directories.find((d) => d.environment === envPwa)?.path ?? '';
+          break;
+        case AppType.CdApi:
+          appDir =
+            versionControl.repository.directories.find((d) => d.environment === envCdApi)?.path ??
+            '';
+          break;
+        default:
+          CdLog.debug(`getRoadMapData(): Invalid app type: ${appType}`);
+          return cdFx(CdFxStateLevel.LogicalFailure, 'Invalid app type specified.');
+      }
+
+      CdLog.debug(`getRoadMapData(): Resolved appDir: ${appDir}`);
+
+      if (!appDir) {
+        CdLog.debug(`getRoadMapData(): No directory found for appType: ${appType}`);
+        return cdFx(CdFxStateLevel.NotFound, 'No app directory found for the given app type.');
+      }
+
+      let roadmapPath = '';
+
+      if (!moduleMeta || !moduleMeta.ctx || !moduleMeta.moduleName) {
+        CdLog.debug(`getRoadMapData(): moduleMeta not provided — using root roadmap`);
+        roadmapPath = join(appDir, '.cd', 'roadmap.json');
+      } else {
+        const moduleDir = join(
+          appDir,
+          'src',
+          toPascalCase(appType),
+          moduleMeta.ctx,
+          moduleMeta.moduleName,
+        );
+        roadmapPath = join(moduleDir, '.cd', 'roadmap.json');
+        CdLog.debug(`getRoadMapData(): Constructed moduleDir: ${moduleDir}`);
+      }
+
+      CdLog.debug(`getRoadMapData(): Final roadmapPath: ${roadmapPath}`);
+
+      if (!existsSync(roadmapPath)) {
+        CdLog.debug(`getRoadMapData(): File does not exist at path: ${roadmapPath}`);
+        return cdFx(CdFxStateLevel.NotFound, `Roadmap file not found at path: ${roadmapPath}`);
+      }
+
+      const fileContent = readFileSync(roadmapPath, 'utf-8');
+      CdLog.debug(`getRoadMapData(): File read successfully.`);
+
+      const roadmapData = JSON.parse(fileContent) as CICdPipeline;
+      CdLog.debug(`getRoadMapData(): File parsed into CICdPipeline.`);
+
+      return cdFx(CdFxStateLevel.Success, 'Roadmap data loaded successfully.', roadmapData);
+    } catch (err: any) {
+      CdLog.debug(`getRoadMapData(): Exception caught: ${err.message}`);
+      return cdFx(CdFxStateLevel.SystemError, `Failed to load roadmap data: ${err.message}`);
+    }
+  }
+
   /**
    * Start upgrade set of operations.
    * Following methods, beforeUpgrade, upgrade, afterUpgrade
@@ -337,9 +636,28 @@ export class VersionService {
     CdLog.debug(`VersionService::upgrade()/upgradeRes:${JSON.stringify(upgradeRes)}`);
     if (!upgradeRes.state) return upgradeRes;
 
+    // const tagRes = await this.svCdAutoGit.tagProject(repoPath, versionStrRes.data);
+    // CdLog.debug(`VersionService::upgrade()/tagRes:${JSON.stringify(tagRes)}`);
+    // if (!tagRes.state) return tagRes;
+
     const tagRes = await this.svCdAutoGit.tagProject(repoPath, versionStrRes.data);
     CdLog.debug(`VersionService::upgrade()/tagRes:${JSON.stringify(tagRes)}`);
-    if (!tagRes.state) return tagRes;
+
+    if (!tagRes.state) {
+      const alreadyExists =
+        tagRes.message?.includes('tag') && tagRes.message?.includes('already exists');
+      if (alreadyExists) {
+        CdLog.debug(
+          'VersionService::upgrade()/warning: Tag already exists, skipping tagging phase.',
+        );
+        return cdFx(
+          CdFxStateLevel.Warning,
+          `⚠️ Tag '${versionStrRes.data}' already exists. Upgrade proceeded but tag step skipped.`,
+        );
+      }
+    }
+
+    // return cdFx(CdFxStateLevel.SystemError, tagRes.message ?? '❌ Unknown tagging error.');
 
     const pushRes = await this.svCdAutoGit.pushChangesWithTags(repoPath);
     CdLog.debug(`VersionService::upgrade()/pushRes:${JSON.stringify(pushRes)}`);
@@ -400,6 +718,157 @@ export class VersionService {
         CdFxStateLevel.SystemError,
         `VersionService::afterUpgrade()/error ❗ ${err.message}`,
       );
+    }
+  }
+
+  /**
+   *
+   * In order to apply auto-increment patch level, you have to place increamentPatch() method
+   * in the workflow as a task.
+   * See the document: <proj-root>/sdk/doc/cd_cli_patch_level_auto_increment.md
+   *
+   * @param repoPath
+   * @param version
+   * @param opts
+   * @returns
+   */
+  async incrementPatch(
+    repoPath: string,
+    version: SemanticVersionObject,
+    opts: { dryRun?: boolean; commitMessage?: string } = {},
+  ): Promise<CdFxReturn<SemanticVersionObject>> {
+    CdLog.debug(`VersionService::incrementPatch()/version:${JSON.stringify(version)}`);
+
+    const currentTagRes = await this.svCdAutoGit.getCurrentVersionTag(repoPath);
+    CdLog.debug(`VersionService::incrementPatch()/currentTagRes:${JSON.stringify(currentTagRes)}`);
+
+    if (!currentTagRes.state || !currentTagRes.data) {
+      return cdFx(
+        CdFxStateLevel.Warning,
+        'VersionService::incrementPatch() ❗ No current tag found. Using base version.',
+        version,
+      );
+    }
+
+    const currentSemanticRes = VersionService.toSemanticObject(currentTagRes.data);
+    CdLog.debug(
+      `VersionService::incrementPatch()/currentSemanticRes:${JSON.stringify(currentSemanticRes)}`,
+    );
+
+    if (!currentSemanticRes.state || !currentSemanticRes.data) {
+      return cdFx(CdFxStateLevel.LogicalFailure, '❗ Could not parse current semantic version.');
+    }
+
+    const current = currentSemanticRes.data;
+    const newVersion: SemanticVersionObject = {
+      major: current.major,
+      minor: current.minor,
+      patch: (current.patch ?? 0) + 1,
+    };
+
+    CdLog.debug(`VersionService::incrementPatch()/newVersion:${JSON.stringify(newVersion)}`);
+
+    if (opts.dryRun) {
+      return cdFx(CdFxStateLevel.Success, '✅ Dry run completed successfully.', newVersion);
+    }
+
+    // Format version string
+    const versionStrRes = VersionService.toSemantic(newVersion);
+    CdLog.debug(
+      `VersionService::incrementPatch()/versionStrRes: ${inspect(versionStrRes, { depth: 2 })}`,
+    );
+    if (!versionStrRes.state || !versionStrRes.data) {
+      return cdFx(
+        CdFxStateLevel.LogicalFailure,
+        '❗ Failed to convert semantic version to string.',
+      );
+    }
+
+    const versionStr = versionStrRes.data;
+    const commitMessage = opts.commitMessage ?? `🔧 Patch auto-incremented to ${versionStr}`;
+    CdLog.debug(`VersionService::incrementPatch()/commitMessage:${commitMessage}`);
+    CdLog.debug(`VersionService::incrementPatch()/versionStr:${versionStr}`);
+
+    // Step 1: Update package.json
+    const pkgPath = path.join(repoPath, 'package.json');
+    try {
+      const pkgRaw = await fs.promises.readFile(pkgPath, 'utf-8');
+      const pkg = JSON.parse(pkgRaw);
+      pkg.version = versionStr;
+      await fs.promises.writeFile(pkgPath, JSON.stringify(pkg, null, 2));
+      CdLog.debug(`VersionService::incrementPatch()/package.json updated.`);
+    } catch (err: any) {
+      return cdFx(CdFxStateLevel.SystemError, `❗ Failed to update package.json: ${err.message}`);
+    }
+
+    // Step 2: Update changelog.json
+    await this.appendChangeLogEntry(repoPath, versionStr, 'Patch increment auto-applied');
+
+    // Step 3: Update docs.json
+    await this.appendDocUpdateEntry(repoPath, versionStr, 'Patch version updated');
+
+    // Step 4: Commit and tag in Git
+    const commitRes = await this.svCdAutoGit.commitAndTag(
+      repoPath,
+      commitMessage,
+      `v${versionStr}`,
+    );
+    if (!commitRes.state) {
+      return cdFx(
+        commitRes.state as CdFxStateLevel,
+        commitRes.message ?? '❗ Commit and tag failed.',
+      );
+    }
+
+    return cdFx(CdFxStateLevel.Success, `✅ Patch incremented to ${versionStr}`, newVersion);
+  }
+
+  private async appendChangeLogEntry(repoPath: string, version: string, summary: string) {
+    try {
+      const filePath = path.join(repoPath, '.cd/changelog.json');
+      const exists = await fs.promises
+        .stat(filePath)
+        .then(() => true)
+        .catch(() => false);
+      if (!exists) return;
+
+      const changelog = JSON.parse(await fs.promises.readFile(filePath, 'utf-8'));
+      changelog.entries = changelog.entries || [];
+
+      changelog.entries.push({
+        version,
+        summary,
+        date: new Date().toISOString(),
+      });
+
+      await fs.promises.writeFile(filePath, JSON.stringify(changelog, null, 2), 'utf-8');
+    } catch (err: any) {
+      CdLog.debug(`VersionService::appendChangeLogEntry()/error:${err.message}`);
+    }
+  }
+
+  private async appendDocUpdateEntry(repoPath: string, version: string, summary: string) {
+    try {
+      const filePath = path.join(repoPath, '.cd/docs.json');
+      const exists = await fs.promises
+        .stat(filePath)
+        .then(() => true)
+        .catch(() => false);
+      if (!exists) return;
+
+      const docs = JSON.parse(await fs.promises.readFile(filePath, 'utf-8'));
+      docs.entries = docs.entries || [];
+
+      docs.entries.push({
+        version,
+        status: 'draft',
+        updatedOn: new Date().toISOString(),
+        summary,
+      });
+
+      await fs.promises.writeFile(filePath, JSON.stringify(docs, null, 2), 'utf-8');
+    } catch (err: any) {
+      CdLog.debug(`VersionService::appendDocUpdateEntry()/error:${err.message}`);
     }
   }
 

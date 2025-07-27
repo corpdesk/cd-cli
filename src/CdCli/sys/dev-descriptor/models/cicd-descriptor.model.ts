@@ -41,6 +41,7 @@ export interface CICdPipeline extends BaseDescriptor {
   mergePolicy?: 'merge' | 'rebase' | 'squash' | 'converge'; // ← NEW
   devHistory?: CICdHistory;     // ← NEW (Parent for changelog)
   devDocumentation?: DocumentationDescriptor[]; // ← NEW
+  lastUpdated?: string; // ISO date string
 }
 
 export interface CICdHistory extends BaseDescriptor {
@@ -131,7 +132,18 @@ export interface BashScriptDescriptor extends BaseDescriptor {
 }
 
 
-
+export function isCdFxReturnPipeline(obj: any): obj is CdFxReturn<CICdPipeline> {
+  return (
+    obj &&
+    typeof obj === 'object' &&
+    'state' in obj &&
+    'message' in obj &&
+    'data' in obj &&
+    obj.data &&
+    typeof obj.data === 'object' &&
+    Array.isArray(obj.data.stages)
+  );
+}
 
 // /////////////////////////////////////////////////////////////////////////////////////////
 // ─── Environment Service ────────────────────────────────────

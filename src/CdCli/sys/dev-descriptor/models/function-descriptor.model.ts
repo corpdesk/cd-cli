@@ -1,3 +1,4 @@
+import { ICdRequest } from '../../base/IBase.js';
 import type { BaseDescriptor } from './base-descriptor.model.js';
 
 export interface FunctionDescriptor extends BaseDescriptor {
@@ -11,6 +12,7 @@ export interface FunctionDescriptor extends BaseDescriptor {
   documentation?: DocumentationDescriptor; // Documentation details
   miscellaneous?: MiscellaneousDescriptor; // Overloads and tags
   isDefault: boolean; // Indicates if the function is a default export
+  assert?: ICdRequest; // Optional assertion for testing purposes
 }
 
 // Scope Descriptor
