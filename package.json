@@ -47,6 +47,7 @@
     "cli-table3": "^0.6.5",
     "cloudmailin": "^0.1.0",
     "commander": "^12.1.0",
+    "date-fns": "^4.1.0",
     "dayjs": "^1.11.13",
     "device-detector-js": "^3.0.3",
     "dotenv": "^16.4.7",

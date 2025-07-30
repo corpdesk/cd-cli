@@ -10,10 +10,10 @@ import { CdAutoGitService } from '../../../app/cd-auto-git/services/cd-auto-git.
 import { AppType, CdAppDescriptor } from '../models/cd-app.model.js';
 import { VersionService } from './version.service.js';
 import { join } from 'path';
-import {
-  MOD_CRAFT_WORKFLOW_DIR,
-  MOD_CRAFT_WORKSHOP_DIR,
-} from '../../../app/app-craft/workshop/cd-api/workflow/default.model.js';
+// import {
+//   MOD_CRAFT_WORKFLOW_DIR,
+//   MOD_CRAFT_WORKSHOP_DIR,
+// } from '../../../app/app-craft/workshop/cd-api/workflow/default.model.js';
 import { readdirSync, readFileSync, statSync } from 'fs';
 import { toCamelCase, toPascalCase } from '../../utilities/cd-naming.util.js';
 import { CdCtx, CdModuleDescriptor } from '../models/cd-module-descriptor.model.js';
@@ -28,6 +28,7 @@ import {
 import { CdModuleDescriptorService } from './cd-module-descriptor.service.js';
 import { actionTargets, DevModeAction } from '../../dev-mode/index.js';
 import { App } from '~/app.js';
+import { MOD_CRAFT_WORKFLOW_APP_DIR } from '../../../app/app-craft/models/default.model.js';
 
 export class CdAppService extends GenericService<CdObjModel> {
   cdToken;
@@ -46,7 +47,7 @@ export class CdAppService extends GenericService<CdObjModel> {
     try {
       CdLog.debug('CdModuleDescritorService::cdAppData()/01');
       // Build full path to the JSON descriptor
-      const workflowPath = join(MOD_CRAFT_WORKFLOW_DIR, `${cdObjName}.create.module.json`);
+      const workflowPath = join(MOD_CRAFT_WORKFLOW_APP_DIR, `${cdObjName}.create.module.json`);
 
       // Read and parse custom module descriptor
       const fileContents = readFileSync(workflowPath, 'utf-8');
@@ -102,7 +103,7 @@ export class CdAppService extends GenericService<CdObjModel> {
     const cdObjTypeName = customCdAppData.cdObjTypeName ?? '';
     const modulesResult = await this.getAppModules(cdObjName, cdObjTypeName);
     const modules = modulesResult.state && modulesResult.data ? modulesResult.data : [];
-    const workflowFile = join(MOD_CRAFT_WORKFLOW_DIR, `${cdObjName}.create.module.json`);
+    const workflowFile = join(MOD_CRAFT_WORKFLOW_APP_DIR, `${cdObjName}.create.module.json`);
     const workFlowResult = await this.svDevDescriptors.getCiCdDescriptor(cdObjName, cdObjTypeName, {
       descriptor: 'CiCdDescriptor',
       cdToken: this.cdToken, // Pass the cdToken if needed
@@ -287,7 +288,7 @@ export class CdAppService extends GenericService<CdObjModel> {
       // /home/emp-12/cd-cli/src/CdCli/app/app-craft/workshop/cd-api/workflow/cd-app/cd-api-workshop.model.ts
       // /home/emp-12/cd-cli/src/CdCli/app/app-craft/workshop/cd-app/workflow/cd-app/cd-app-workshop.model.ts
       const cdAppWorkshopModelPath = join(
-        MOD_CRAFT_WORKSHOP_DIR,
+        MOD_CRAFT_WORKFLOW_APP_DIR,
         'cd-app',
         'workflow',
         'cd-app',
@@ -351,7 +352,7 @@ export class CdAppService extends GenericService<CdObjModel> {
         `CdAppService::deriveCdAppDescriptor()/cdObjType:${inspect(cdObjType, { depth: 2 })}`,
       );
       // Create the CdAppDescriptor
-      const basePath = join(MOD_CRAFT_WORKSHOP_DIR, appType);
+      const basePath = join(MOD_CRAFT_WORKFLOW_APP_DIR, appType);
       CdLog.debug(`CdAppService::deriveCdAppDescriptor()/basePath:${basePath}`);
       
       

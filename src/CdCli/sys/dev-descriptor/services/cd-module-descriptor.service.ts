@@ -20,12 +20,13 @@ import {
 } from '../index.js';
 import { basename, join, resolve } from 'path';
 import { readFileSync } from 'fs';
-import { MOD_CRAFT_WORKFLOW_DIR } from '../../../app/app-craft/workshop/cd-api/workflow/default.model.js';
+// import { MOD_CRAFT_WORKFLOW_DIR } from '../../../app/app-craft/workshop/cd-api/workflow/default.model.js';
 import CdLog from '../../cd-comm/controllers/cd-logger.controller.js';
 import { inspect } from 'util';
 import { pathToFileURL } from 'url';
 import { VersionService } from './version.service.js';
 import { getParentDirectory } from '../../utilities/fs.util.js';
+import { MOD_CRAFT_WORKFLOW_MODULE_DIR } from '../../../app/app-craft/models/default.model.js';
 
 export class CdModuleDescriptorService {
   // This service is responsible for managing module descriptors in the system.
@@ -380,7 +381,7 @@ export class CdModuleDescriptorService {
     try {
       CdLog.debug('CdModuleDescritorService::cdApiModuleData()/01');
       // Build full path to the JSON descriptor
-      const workflowPath = join(MOD_CRAFT_WORKFLOW_DIR, `${cdObjName}.create.module.json`);
+      const workflowPath = join(MOD_CRAFT_WORKFLOW_MODULE_DIR, `${cdObjName}.create.module.json`);
 
       // Read and parse custom module descriptor
       const fileContents = readFileSync(workflowPath, 'utf-8');

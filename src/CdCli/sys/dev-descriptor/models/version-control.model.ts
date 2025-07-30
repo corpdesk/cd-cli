@@ -12,7 +12,7 @@ import {
   envTestBed,
   envWorkshop,
 } from './environment.model.js';
-import { CICdPipeline, CICdTask } from '../index.js';
+import { CdAppDescriptor, CICdHistory, CICdPipeline, CICdTask } from '../index.js';
 // Example Usage
 
 /**
@@ -26,7 +26,7 @@ export interface VersionControlDescriptor extends BaseDescriptor {
   repository: RepoDescriptor; // Repository details
   versionControlBranch?: VersionControlBranch; // Branch details
   devRoadmap?: CICdPipeline; // Roadmap/Workflow process
-  devChangeLog?: ChangeLogDescriptor; // Change log entries
+  devChangeLog?: CICdHistory; // Change log entries
   sourceContributors?: SourceContributor[]; // List of contributors
   versionControlTags?: VersionControlTag[]; // List of tags
   versionControlMetadata?: VersionControlMetadata; // Metadata information
@@ -51,10 +51,10 @@ export interface VersionControlTag extends BaseDescriptor {
 
 // Updated SemanticVersionMap for flexible parsing and introspection
 export interface SemanticVersionMap {
-  version: string;                         // e.g., "1.2.3-beta"
-  roadmapId: string;                       // maps to CICdPipeline
-  milestoneId: string;                     // maps to CICdStage
-  versionObject?: SemanticVersionObject;   // optional structured interpretation
+  version: string; // e.g., "1.2.3-beta"
+  roadmapId: string; // maps to CICdPipeline
+  milestoneId: string; // maps to CICdStage
+  versionObject?: SemanticVersionObject; // optional structured interpretation
 }
 
 // New structured representation of a semantic version
@@ -73,8 +73,6 @@ export interface VersionParts {
   pipelineStage: string;
   tagComponents: string[];
 }
-
-
 
 // Interface for Metadata
 export interface VersionControlMetadata extends BaseDescriptor {
@@ -175,27 +173,63 @@ export interface CommunityDescriptor extends BaseDescriptor {
   link: string; // URL to the community
 }
 
-export interface ChangeLogDescriptor extends BaseDescriptor {
-  version: string;
-  date: string;
-  author: string;
-  changes: ChangeLogItem[];
-}
+// export interface ChangeLogDescriptor extends BaseDescriptor {
+//   version: string;
+//   date: string;
+//   author: string;
+//   changes: ChangeLogItem[];
+// }
 
-export interface ChangeLogItem {
-  type: 'added' | 'fixed' | 'changed' | 'deprecated' | 'removed';
-  description: string;
-  tagRef?: string; // optional Git tag
-  file?: string; // affected file
-}
+// export interface ChangeLogItem {
+//   type: 'added' | 'fixed' | 'changed' | 'deprecated' | 'removed';
+//   description: string;
+//   tagRef?: string; // optional Git tag
+//   file?: string; // affected file
+// }
 
-export interface DocumentationDescriptor extends BaseDescriptor {
+// export interface DocumentationDescriptor extends BaseDescriptor {
+//   version: string;
+//   url?: string; // link to external doc
+//   path?: string; // path in repo
+//   status: 'draft' | 'stable' | 'archived';
+//   summary?: string;
+//   updatedOn?: string;
+// }
+
+export interface CdDocDescriptor extends BaseDescriptor {
   version: string;
-  url?: string; // link to external doc
-  path?: string; // path in repo
+  url?: string;                  // External doc link (e.g., GitBook)
+  path?: string;                 // Relative path to markdown file or doc file
   status: 'draft' | 'stable' | 'archived';
   summary?: string;
-  updatedOn?: string;
+
+  targetApp?: CdAppDescriptor;  // The app or project this doc describes
+  linkedPipeline?: CICdPipeline; // Optional: CICD context this doc belongs to
+
+  fileMeta?: CdFileDescriptor;  // Standardized metadata (createdAt, updatedBy, etc.)
+}
+
+
+// export interface CdFileDescriptor {
+//   createdAt?: string; // ISO timestamp
+//   lastUpdated?: string; // ISO timestamp
+//   createdBy?: string; // Optional: identifier of creator (username, tool, etc.)
+//   updatedBy?: string; // Optional: identifier of last modifier
+//   version?: string; // Optional: semantic version of the data in the file
+//   origin?: string; // Optional: what tool or process created this file
+// }
+export interface CdFileDescriptor {
+  createdAt?: string;         // ISO timestamp (e.g., "2025-07-29T15:30:25.651Z")
+  lastUpdated?: string;       // ISO timestamp
+  createdBy?: string;         // Optional: username, tool, or agent that created the file
+  updatedBy?: string;         // Optional: username, tool, or agent that last modified the file
+  version?: string;           // Optional: semantic version (e.g., "1.0.0")
+  origin?: string;            // Optional: source tool or service (e.g., "cd-cli", "cd-doc-bot")
+}
+
+export interface CdFileWrapper<T> {
+  descriptor: T;
+  fileMeta: CdFileDescriptor;
 }
 
 

@@ -1,3 +1,5 @@
+import { CdFileDescriptor } from "./version-control.model.js";
+
 // Base Descriptor for General Use
 export interface BaseDescriptor {
   name?: string; // Unique identifier
@@ -9,4 +11,7 @@ export interface BaseDescriptor {
   context?: string[]; // array of context assigned to a descriptor to group set associated descriptors and properties.
   // Could be name of application or profile name
   version?: string;
+  fileMeta?: CdFileDescriptor;
+  baseId?: string;         // Unique identifier, e.g., "mod-abc:doc"
+
 }

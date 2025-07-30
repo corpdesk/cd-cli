@@ -666,57 +666,195 @@ export class VersionService {
     return cdFx(CdFxStateLevel.Success, `✅ Upgrade to version ${versionStrRes.data} completed.`);
   }
 
+  // async afterUpgrade(repoPath: string, version: SemanticVersionObject): Promise<CdFxReturn<null>> {
+  //   try {
+  //     CdLog.debug(`VersionService::afterUpgrade()/version:${JSON.stringify(version)}`);
+
+  //     const versionStrRes = VersionService.toSemantic(version);
+  //     CdLog.debug(`VersionService::afterUpgrade()/versionStrRes:${JSON.stringify(versionStrRes)}`);
+
+  //     if (!versionStrRes.state || !versionStrRes.data) {
+  //       return cdFx(
+  //         CdFxStateLevel.LogicalFailure,
+  //         'VersionService::afterUpgrade()/error ❗ Failed to generate version string for file update.',
+  //       );
+  //     }
+
+  //     const versionStr = versionStrRes.data;
+  //     CdLog.debug(`VersionService::afterUpgrade()/versionStr:${versionStr}`);
+
+  //     const filesToUpdate = [
+  //       '.cd/roadmap.json',
+  //       '.cd/changelog.json',
+  //       '.cd/docs.json',
+  //       'package.json',
+  //     ];
+  //     CdLog.debug(`VersionService::afterUpgrade()/filesToUpdate:${JSON.stringify(filesToUpdate)}`);
+
+  //     for (const file of filesToUpdate) {
+  //       const filePath = path.join(repoPath, file);
+  //       CdLog.debug(`VersionService::afterUpgrade()/filePath:${filePath}`);
+
+  //       const exists = await fs.promises
+  //         .stat(filePath)
+  //         .then(() => true)
+  //         .catch(() => false);
+  //       CdLog.debug(`VersionService::afterUpgrade()/exists:${exists}`);
+  //       if (!exists) continue;
+
+  //       const jsonData = JSON.parse(await fs.promises.readFile(filePath, 'utf-8'));
+  //       CdLog.debug(`VersionService::afterUpgrade()/jsonDataBefore:${JSON.stringify(jsonData)}`);
+
+  //       jsonData.version = versionStr;
+  //       jsonData.lastUpdated = new Date().toISOString();
+
+  //       await fs.promises.writeFile(filePath, JSON.stringify(jsonData, null, 2), 'utf-8');
+  //       CdLog.debug(`VersionService::afterUpgrade()/jsonDataAfter:${JSON.stringify(jsonData)}`);
+  //     }
+
+  //     return cdFx(CdFxStateLevel.Success, '✅ Post-upgrade file updates completed.');
+  //   } catch (err: any) {
+  //     return cdFx(
+  //       CdFxStateLevel.SystemError,
+  //       `VersionService::afterUpgrade()/error ❗ ${err.message}`,
+  //     );
+  //   }
+  // }
+
+  /**
+   * Performs post-upgrade maintenance by updating version information across essential metadata files.
+   *
+   * ## Purpose
+   * This method ensures that after a semantic version upgrade, key project metadata files are
+   * synchronized with the new version. These files include:
+   * - `.cd/roadmap.json`
+   * - `.cd/changelog.json`
+   * - `.cd/docs.json`
+   * - `package.json`
+   *
+   * ## Policy
+   * - This method works for both CdApps and CdModules assuming the `repoPath` is
+   *   correctly resolved via version control metadata.
+   * - If any of the above files do **not** exist at the time of execution, they are silently skipped.
+   * - In the future, support for **auto-creation** of missing `.cd` files is expected, including
+   *   developer notification and use of helper templates for initializing file content.
+   * - Each existing file will have:
+   *   - Its `version` field updated with the semantic version string.
+   *   - A `lastUpdated` field set to the current ISO timestamp.
+   *
+   * ## Notes
+   * - Debug logs are available at every stage of the operation for detailed tracing.
+   * - Failures during version parsing or file I/O are reported with appropriate CdFxReturn values.
+   *
+   * @param repoPath Absolute path to the application or module root directory.
+   * @param version Semantic version object representing the new version to be applied.
+   * @returns A `CdFxReturn<null>` indicating success or the specific failure encountered.
+   */
   async afterUpgrade(repoPath: string, version: SemanticVersionObject): Promise<CdFxReturn<null>> {
     try {
-      CdLog.debug(`VersionService::afterUpgrade()/version:${JSON.stringify(version)}`);
+      CdLog.debug(`VersionService::afterUpgrade()/version: ${JSON.stringify(version)}`);
 
       const versionStrRes = VersionService.toSemantic(version);
-      CdLog.debug(`VersionService::afterUpgrade()/versionStrRes:${JSON.stringify(versionStrRes)}`);
-
       if (!versionStrRes.state || !versionStrRes.data) {
         return cdFx(
           CdFxStateLevel.LogicalFailure,
-          'VersionService::afterUpgrade()/error ❗ Failed to generate version string for file update.',
+          '❗ Failed to generate version string for file update.',
         );
       }
-
       const versionStr = versionStrRes.data;
-      CdLog.debug(`VersionService::afterUpgrade()/versionStr:${versionStr}`);
 
-      const filesToUpdate = [
-        '.cd/roadmap.json',
-        '.cd/changelog.json',
-        '.cd/docs.json',
-        'package.json',
-      ];
-      CdLog.debug(`VersionService::afterUpgrade()/filesToUpdate:${JSON.stringify(filesToUpdate)}`);
+      const cdDirPath = path.join(repoPath, '.cd');
+      const defaultFiles: Record<string, any> = {
+        'roadmap.json': {
+          version: versionStr,
+          lastUpdated: new Date().toISOString(),
+          steps: [],
+          meta: {
+            generatedBy: 'afterUpgrade',
+            type: 'auto-generated roadmap',
+          },
+        },
+        'changelog.json': {
+          version: versionStr,
+          lastUpdated: new Date().toISOString(),
+          changes: [],
+          meta: {
+            generatedBy: 'afterUpgrade',
+            type: 'auto-generated changelog',
+          },
+        },
+        'docs.json': {
+          version: versionStr,
+          lastUpdated: new Date().toISOString(),
+          documentation: [],
+          meta: {
+            generatedBy: 'afterUpgrade',
+            type: 'auto-generated docs',
+          },
+        },
+      };
 
-      for (const file of filesToUpdate) {
-        const filePath = path.join(repoPath, file);
-        CdLog.debug(`VersionService::afterUpgrade()/filePath:${filePath}`);
+      const createdFiles: string[] = [];
+
+      // Ensure .cd directory exists
+      const cdDirExists = await fs.promises
+        .stat(cdDirPath)
+        .then(() => true)
+        .catch(() => false);
+      if (!cdDirExists) {
+        await fs.promises.mkdir(cdDirPath, { recursive: true });
+        CdLog.info(`📁 Created missing directory: ${cdDirPath}`);
+      }
+
+      // Handle .cd files
+      for (const [filename, defaultData] of Object.entries(defaultFiles)) {
+        const filePath = path.join(cdDirPath, filename);
+        let fileData: any;
 
         const exists = await fs.promises
           .stat(filePath)
           .then(() => true)
           .catch(() => false);
-        CdLog.debug(`VersionService::afterUpgrade()/exists:${exists}`);
-        if (!exists) continue;
 
-        const jsonData = JSON.parse(await fs.promises.readFile(filePath, 'utf-8'));
-        CdLog.debug(`VersionService::afterUpgrade()/jsonDataBefore:${JSON.stringify(jsonData)}`);
+        if (exists) {
+          fileData = JSON.parse(await fs.promises.readFile(filePath, 'utf-8'));
+          fileData.version = versionStr;
+          fileData.lastUpdated = new Date().toISOString();
+        } else {
+          fileData = defaultData;
+          createdFiles.push(`.cd/${filename}`);
+        }
 
-        jsonData.version = versionStr;
-        jsonData.lastUpdated = new Date().toISOString();
-
-        await fs.promises.writeFile(filePath, JSON.stringify(jsonData, null, 2), 'utf-8');
-        CdLog.debug(`VersionService::afterUpgrade()/jsonDataAfter:${JSON.stringify(jsonData)}`);
+        await fs.promises.writeFile(filePath, JSON.stringify(fileData, null, 2), 'utf-8');
+        CdLog.debug(`🔧 Updated: ${filePath}`);
       }
 
-      return cdFx(CdFxStateLevel.Success, '✅ Post-upgrade file updates completed.');
+      // Handle package.json
+      const pkgPath = path.join(repoPath, 'package.json');
+      const pkgExists = await fs.promises
+        .stat(pkgPath)
+        .then(() => true)
+        .catch(() => false);
+      if (pkgExists) {
+        const pkgJson = JSON.parse(await fs.promises.readFile(pkgPath, 'utf-8'));
+        pkgJson.version = versionStr;
+        pkgJson.lastUpdated = new Date().toISOString();
+        await fs.promises.writeFile(pkgPath, JSON.stringify(pkgJson, null, 2), 'utf-8');
+        CdLog.debug(`🔧 Updated: package.json`);
+      }
+
+      // Developer Notification
+      if (createdFiles.length > 0) {
+        CdLog.info(
+          `🆕 The following files were created during upgrade: ${createdFiles.join(', ')}`,
+        );
+      }
+
+      return cdFx(CdFxStateLevel.Success, '✅ Post-upgrade operations completed successfully.');
     } catch (err: any) {
       return cdFx(
         CdFxStateLevel.SystemError,
-        `VersionService::afterUpgrade()/error ❗ ${err.message}`,
+        `❗ VersionService::afterUpgrade() failed: ${err.message}`,
       );
     }
   }

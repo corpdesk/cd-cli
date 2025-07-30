@@ -10,7 +10,7 @@ import CdLog from "../../cd-comm/controllers/cd-logger.controller.js";
 import { EnvironmentService } from "../services/environment.service.js";
 import { CdVaultItem } from "../../cd-cli/models/cd-cli-vault.model.js";
 import { CdSchedulerTask, WorkflowTask } from "../../cd-scheduler/models/cd-scheduler.model.js";
-import { ChangeLogDescriptor, DocumentationDescriptor, SourceContributor } from "../index.js";
+import {  CdDocDescriptor, CdFileDescriptor, FieldDescriptor, SourceContributor } from "../index.js";
 
 
 // /////////////////////////////////////////////////////////////////////////////////////////
@@ -39,22 +39,28 @@ export interface CICdPipeline extends BaseDescriptor {
   versionTag?: number; // e.g., "1.2"
   completionRef?: string; // e.g., "abc123" for the last commit hash
   mergePolicy?: 'merge' | 'rebase' | 'squash' | 'converge'; // ← NEW
-  devHistory?: CICdHistory;     // ← NEW (Parent for changelog)
-  devDocumentation?: DocumentationDescriptor[]; // ← NEW
-  lastUpdated?: string; // ISO date string
+  changelog?: CdChangeLogDescriptor;  
+  devDoc?: CdDocDescriptor[]; 
+  fileMeta?: CdFileDescriptor
 }
 
-export interface CICdHistory extends BaseDescriptor {
-  changelogs?: ChangeLogDescriptor[];
-  contributors?: SourceContributor[];
-  events?: CICdHistoryEvent[];
-}
+export type CdRoadmapDescriptor = CICdPipeline & { type: 'dev-roadmap' };
+
 
 export interface CICdHistory extends BaseDescriptor {
-  changelogs?: ChangeLogDescriptor[];
+  changelogs?: CICdHistory[];
   contributors?: SourceContributor[];
   events?: CICdHistoryEvent[];
+  fileMeta?: CdFileDescriptor;
 }
+
+export type CdChangeLogDescriptor = CICdHistory;
+
+// export interface CICdHistory extends BaseDescriptor {
+//   changelogs?: CICdHistory[];
+//   contributors?: SourceContributor[];
+//   events?: CICdHistoryEvent[];
+// }
 
 export interface CICdHistoryEvent extends BaseDescriptor {
   type: 'commit' | 'merge' | 'tag' | 'release';
