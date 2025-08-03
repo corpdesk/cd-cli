@@ -6,13 +6,14 @@ import type { BaseDescriptor } from './base-descriptor.model.js';
 // import type { VersionControlDescriptor } from './dev-descriptor.model';
 import { execSync } from 'node:child_process';
 import {
+  envCdApi,
   envCdApiApp,
   envCdApiSys,
   EnvironmentDescriptor,
   envTestBed,
   envWorkshop,
 } from './environment.model.js';
-import { CdAppDescriptor, CICdHistory, CICdPipeline, CICdTask } from '../index.js';
+import { AppType, CdAppDescriptor, CICdHistory, CICdPipeline, CICdTask } from '../index.js';
 // Example Usage
 
 /**
@@ -88,6 +89,7 @@ export interface RepoDescriptor extends BaseDescriptor {
   description?: string;
   url: string;
   type: 'git' | 'svn' | 'mercurial' | 'other';
+  appType?: AppType;
   enabled?: boolean;
   isPrivate?: boolean;
   remote?: string;
@@ -198,17 +200,16 @@ export interface CommunityDescriptor extends BaseDescriptor {
 
 export interface CdDocDescriptor extends BaseDescriptor {
   version: string;
-  url?: string;                  // External doc link (e.g., GitBook)
-  path?: string;                 // Relative path to markdown file or doc file
+  url?: string; // External doc link (e.g., GitBook)
+  path?: string; // Relative path to markdown file or doc file
   status: 'draft' | 'stable' | 'archived';
   summary?: string;
 
-  targetApp?: CdAppDescriptor;  // The app or project this doc describes
+  targetApp?: CdAppDescriptor; // The app or project this doc describes
   linkedPipeline?: CICdPipeline; // Optional: CICD context this doc belongs to
 
-  fileMeta?: CdFileDescriptor;  // Standardized metadata (createdAt, updatedBy, etc.)
+  fileMeta?: CdFileDescriptor; // Standardized metadata (createdAt, updatedBy, etc.)
 }
-
 
 // export interface CdFileDescriptor {
 //   createdAt?: string; // ISO timestamp
@@ -219,12 +220,12 @@ export interface CdDocDescriptor extends BaseDescriptor {
 //   origin?: string; // Optional: what tool or process created this file
 // }
 export interface CdFileDescriptor {
-  createdAt?: string;         // ISO timestamp (e.g., "2025-07-29T15:30:25.651Z")
-  lastUpdated?: string;       // ISO timestamp
-  createdBy?: string;         // Optional: username, tool, or agent that created the file
-  updatedBy?: string;         // Optional: username, tool, or agent that last modified the file
-  version?: string;           // Optional: semantic version (e.g., "1.0.0")
-  origin?: string;            // Optional: source tool or service (e.g., "cd-cli", "cd-doc-bot")
+  createdAt?: string; // ISO timestamp (e.g., "2025-07-29T15:30:25.651Z")
+  lastUpdated?: string; // ISO timestamp
+  createdBy?: string; // Optional: username, tool, or agent that created the file
+  updatedBy?: string; // Optional: username, tool, or agent that last modified the file
+  version?: string; // Optional: semantic version (e.g., "1.0.0")
+  origin?: string; // Optional: source tool or service (e.g., "cd-cli", "cd-doc-bot")
 }
 
 export interface CdFileWrapper<T> {
@@ -233,46 +234,51 @@ export interface CdFileWrapper<T> {
 }
 
 
-// export const cdAiVersionControl: VersionControlDescriptor = {
-//   name: 'CdAi',
-//   repository: {
-//     name: 'cd-ai',
-//     url: 'https://github.com/corpdesk/cd-ai.git',
-//     type: 'git',
-//     enabled: true,
-//     isPrivate: false,
-//     credentials: {
-//       repoHost: 'corpdesk', // Organization or user hosting the repository
-//       // password: "your-password", // Uncomment if needed
-//       // accessToken: "your-access-token", // Uncomment if needed
-//     },
-//     directories: [
-//       {
-//         environment: envWorkshop,
-//         path: '/home/emp-12/cd-cli/dist/CdCli/app/app-craft/workshop/cd-api/output/cd-ai',
-//         purpose: 'Auto-generated source files',
-//         isDefault: true,
-//       },
-//       {
-//         environment: envTestBed,
-//         path: '/home/emp-12/cd-projects/cd-api/src/CdApi/app/cd-ai',
-//         purpose: 'Integration and live testing',
-//       },
-//       {
-//         environment: envCdApiApp,
-//         path: '/home/emp-12/cd-projects/cd-api/src/CdApi/app',
-//         purpose: 'cd-api apps directory',
-//       },
-//       {
-//         environment: envCdApiSys,
-//         path: '/home/emp-12/cd-projects/cd-api/src/CdApi/sys',
-//         purpose: 'cd-api core directory',
-//       },
-//     ],
-//   },
-// };
 
-export const versionControlRepositories: VersionControlDescriptor[] = [
+export const repoRegistry: VersionControlDescriptor[] = [
+  {
+    name: 'cd-ai',
+    repository: {
+      name: 'cd-ai',
+      appType: AppType.CdApiModule,
+      url: 'https://github.com/corpdesk/cd-ai.git',
+      type: 'git',
+      enabled: true,
+      isPrivate: false,
+      credentials: {
+        repoHost: 'corpdesk',
+      },
+      directories: [
+        {
+          environment: envWorkshop,
+          // path: '/home/emp-12/cd-cli/dist/CdCli/app/app-craft/workshop/cd-api/output/cd-ai',
+          path: '/home/emp-12/cd-cli/src/CdCli/app/app-craft/workshop/cd-module/output/cd-ai',
+          purpose: 'Auto-generated source files',
+          isDefault: true,
+        },
+        {
+          environment: envTestBed,
+          path: '/home/emp-12/cd-projects/cd-api/src/CdApi/app/cd-ai',
+          purpose: 'Integration and live testing',
+        },
+        {
+          environment: envCdApiApp,
+          path: '/home/emp-12/cd-projects/cd-api/src/CdApi/app',
+          purpose: 'cd-api apps directory',
+        },
+        {
+          environment: envCdApiSys,
+          path: '/home/emp-12/cd-projects/cd-api/src/CdApi/sys',
+          purpose: 'cd-api system directory',
+        },
+        {
+          environment: envCdApi,
+          path: '/home/emp-12/cd-projects/cd-api',
+          purpose: 'cd-api root directory',
+        },
+      ],
+    },
+  },
   {
     repository: {
       name: 'cd-cli',
@@ -303,26 +309,40 @@ export const versionControlRepositories: VersionControlDescriptor[] = [
     ],
   },
   {
+    name: 'cd-api',
     repository: {
       name: 'cd-api',
-      description: 'Node.js backend for Corpdesk',
-      url: 'https://github.com/corpdesk/cd-api/',
+      appType: AppType.CdApi,
+      url: 'https://github.com/corpdesk/cd-api.git',
       type: 'git',
       enabled: true,
       isPrivate: false,
       credentials: {
-        repoHost: 'github.com',
+        repoHost: 'corpdesk',
       },
+      directories: [
+        {
+          environment: envTestBed,
+          path: '/home/emp-12/cd-projects/cd-api',
+          purpose: 'Integration and live testing',
+        },
+        {
+          environment: envCdApiApp,
+          path: '/home/emp-12/cd-projects/cd-api/src/CdApi/app',
+          purpose: 'cd-api apps directory',
+        },
+        {
+          environment: envCdApiSys,
+          path: '/home/emp-12/cd-projects/cd-api/src/CdApi/sys',
+          purpose: 'cd-api system directory',
+        },
+        {
+          environment: envCdApi,
+          path: '/home/emp-12/cd-projects/cd-api',
+          purpose: 'cd-api root directory',
+        },
+      ],
     },
-    context: ['cd-api', 'cd-api-dev-env'],
-    versionControlBranch: {
-      name: 'main',
-      type: 'main',
-    },
-    // devRoadmap: {
-    //   strategy: 'trunk-based',
-    //   mergeMethod: 'merge',
-    // },
   },
   {
     repository: {

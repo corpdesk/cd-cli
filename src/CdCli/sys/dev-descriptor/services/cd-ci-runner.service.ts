@@ -1,4 +1,5 @@
 import path, { join } from 'path';
+import ora from 'ora';
 import { pathToFileURL } from 'url';
 import { CdAssertReturn, CdFxReturn, CdFxStateLevel, ICdRequest } from '../../base/IBase.js';
 import CdLog from '../../cd-comm/controllers/cd-logger.controller.js';
@@ -24,7 +25,7 @@ import { BaseService } from '../../base/base.service.js';
 import { DevModeAction, getActionString } from '../../dev-mode/index.js';
 import { MOD_CRAFT_WORKSHOP_DIR } from '../../../app/app-craft/models/app-craft.model.js';
 import { CdAppService } from './cd-app.service.js';
-import { AppType, VersionControlDescriptor } from '../index.js';
+import { AppType, repoRegistry, VersionControlDescriptor } from '../index.js';
 import { executeCommand } from '../../utilities/cmd.util.js';
 import { checkIfRepoExists } from '../../../app/cd-auto-git/tests/cd-auto-git.test.js';
 import {
@@ -39,21 +40,47 @@ export class CICdRunnerService {
   currentPipelineName = '';
   currentStageName = '';
 
+  /**
+   * Sample Input for loadModuleDescriptorAndWorkflow()
+   * DevModeAction.CREATE,
+      cdObjType,
+      moduleName,
+      oEnv,
+      {
+        actionTargetName: actionTargetName,
+        descriptor: 'CdModuleDescriptor',
+        cdToken: '', // Pass the cdToken if needed
+        repoName: repoName,
+      },
+   * 
+      Sample input design for getting workflow file:
+   * input: {
+      cdObjName: 'cd-ai',
+      cdObjType: 'cd-module', // actionTarget
+      oEnv: 'workshop', // 'workshop' or 'test-bed'	
+    }
+   * @param action 
+   * @param cdObjType 
+   * @param cdObjName 
+   * @param oEnv 
+   * @param extraParams 
+   * @returns 
+   */
   async loadModuleDescriptorAndWorkflow(
     action: DevModeAction,
     cdObjType: string,
     cdObjName: string,
-    cdObjTypeName: string,
+    oEnv: string,
     extraParams?: any,
   ): Promise<{
     descriptor: any;
-    workflowModel: CiCdDescriptor;
+    workflowModel: CiCdDescriptor | null;
     extraParams?: any;
   }> {
     CdLog.debug('Starting CICdRunnerService::loadModuleDescriptorAndWorkflow()');
 
     CdLog.debug(
-      `CICdRunnerService::loadModuleDescriptorAndWorkflow()/actiion:${action}, cdObjType: ${cdObjType}, actionTargetName: ${extraParams.actionTargetName} cdObjName:${cdObjName}, cdObjTypeName:${cdObjTypeName}, extraParams:${inspect(extraParams, { depth: 2 })}`,
+      `CICdRunnerService::loadModuleDescriptorAndWorkflow()/actiion:${action}, cdObjType: ${cdObjType}, actionTargetName: ${extraParams.actionTargetName} cdObjName:${cdObjName}, oEnv:${oEnv}, extraParams:${inspect(extraParams, { depth: 2 })}`,
     );
 
     const dashedName = cdObjName.toLowerCase();
@@ -68,123 +95,51 @@ export class CICdRunnerService {
     CdLog.debug(
       `CICdRunnerService::loadModuleDescriptorAndWorkflow()/DEV_DESCRIPTORS_SERVICE_DIR:${DEV_DESCRIPTORS_SERVICE_DIR}`,
     );
-    // const modelFile = join(
-    //   DEV_DESCRIPTORS_SERVICE_DIR,
-    //   cdObjTypeName,
-    //   'model',
-    //   `${dashedName}-module.model.js`,
-    // );
 
-    // Construct absolute file paths using MOD_CRAFT_WORKSHOP_DIR
-    // /home/emp-12/cd-cli/src/CdCli/sys/dev-descriptor/services/cd-module-descriptor.service.ts
-    const workflowFile = join(
-      MOD_CRAFT_WORKSHOP_DIR,
-      cdObjTypeName,
-      'workflow',
-      extraParams.actionTargetName,
-      `${dashedName}.workflow.js`,
+    CdLog.debug(`CICdRunnerService::loadModuleDescriptorAndWorkflow()/gwf-01`);
+    const workflowFileResult = await this.getWorkFlow(
+      action,
+      cdObjType,
+      cdObjName,
+      oEnv,
+      extraParams,
     );
 
-    // CdLog.debug(`Model Path: ${modelFile}`);
-    CdLog.debug(`Workflow Path: ${workflowFile}`);
-
-    let descriptor: any;
-    let result: CdFxReturn<any>;
-
-    /**
-     * Load module descriptor based on type
-     * - CdModuleDescriptor
-     * - CdAppDescriptor
-     */
-    CdLog.debug(
-      `CICdRunnerService::loadModuleDescriptorAndWorkflow()/Loading descriptor for type: ${extraParams?.descriptor}`,
-    );
-    switch (extraParams.descriptor) {
-      case 'CdModuleDescriptor':
-        CdLog.debug(
-          `CICdRunnerService::loadModuleDescriptorAndWorkflow()/case:CdModuleDescriptor-01`,
-        );
-        const svCdModuleDescriptor = new CdModuleDescriptorService();
-        CdLog.debug(
-          `CICdRunnerService::loadModuleDescriptorAndWorkflow()/case:CdModuleDescriptor-02`,
-        );
-        result = await svCdModuleDescriptor.cdApiModuleData(
-          cdObjName,
-          cdObjType,
-          extraParams.cdToken,
-        );
-        CdLog.debug(
-          `CICdRunnerService::loadModuleDescriptorAndWorkflow()/moduleDescriptor1:${inspect(
-            result,
-            {
-              depth: 2,
-            },
-          )}`,
-        );
-        if (!result || !result.state) {
-          CdLog.debug(
-            `CICdRunnerService::loadModuleDescriptorAndWorkflow()/Failed to load module descriptor: ${result.message}`,
-          );
-          throw new Error(`Failed to load module descriptor: ${result.message}`);
-        }
-
-        if (!result.data) {
-          CdLog.debug(
-            `CICdRunnerService::loadModuleDescriptorAndWorkflow()/No module descriptor data returned.`,
-          );
-          throw new Error(`No module descriptor data returned.`);
-        }
-
-        CdLog.debug(
-          `CICdRunnerService::loadModuleDescriptorAndWorkflow()/moduleDescriptor2:${inspect(result.data.controllers, { depth: 2 })}`,
-        );
-        descriptor = result.data;
-        CdLog.debug(
-          `CICdRunnerService::loadModuleDescriptorAndWorkflow()/descriptor:${inspect(descriptor, { depth: 2 })}`,
-        );
-        break;
-      case 'CdAppDescriptor':
-        const svCdAppDescriptor = new CdAppService();
-        result = await svCdAppDescriptor.deriveCdAppDescriptor(
-          DevModeAction.DERIVE,
-          cdObjName,
-          AppType.CdApi,
-        );
-        CdLog.debug(
-          `CICdRunnerService::loadModuleDescriptorAndWorkflow()/moduleDescriptor3:${inspect(
-            result,
-            {
-              depth: 2,
-            },
-          )}`,
-        );
-        if (!result || !result.state) {
-          CdLog.debug(
-            `CICdRunnerService::loadModuleDescriptorAndWorkflow()/Failed to load module descriptor: ${result.message}`,
-          );
-          throw new Error(`Failed to load module descriptor: ${result.message}`);
-        }
-
-        if (!result.data) {
-          CdLog.debug(
-            `CICdRunnerService::loadModuleDescriptorAndWorkflow()/No module descriptor data returned.`,
-          );
-          throw new Error(`No module descriptor data returned.`);
-        }
-
-        CdLog.debug(
-          `CICdRunnerService::loadModuleDescriptorAndWorkflow()/moduleDescriptor4:${inspect(result.data.controllers, { depth: 2 })}`,
-        );
-        descriptor = result.data;
-        CdLog.debug(
-          `CICdRunnerService::loadModuleDescriptorAndWorkflow()/descriptor:${inspect(descriptor, { depth: 2 })}`,
-        );
-        break;
+    if (!workflowFileResult || !workflowFileResult.state) {
+      CdLog.debug(`CICdRunnerService::loadModuleDescriptorAndWorkflow()/gwf-01`);
+      return {
+        descriptor: null,
+        workflowModel: null,
+        extraParams: null,
+      };
     }
+
+    if (!workflowFileResult.data) {
+      CdLog.debug(`CICdRunnerService::loadModuleDescriptorAndWorkflow()/gwf-02`);
+      return {
+        descriptor: null,
+        workflowModel: null,
+        extraParams: null,
+      };
+    }
+    CdLog.debug(`CICdRunnerService::loadModuleDescriptorAndWorkflow()/gwf-03`);
+    const workflowFile = workflowFileResult.data.path;
+    const descriptor = workflowFileResult.data.descriptor;
 
     // descriptor = result.data;
 
+    CdLog.debug(
+      `CICdRunnerService::loadModuleDescriptorAndWorkflow()/workflowFile:${workflowFile}`,
+    );
+
+    CdLog.debug(`CICdRunnerService::loadModuleDescriptorAndWorkflow()/descriptor:${descriptor}`);
+
+    CdLog.debug(`CICdRunnerService::loadModuleDescriptorAndWorkflow()/pascalName:${pascalName}`);
     // Dynamically import workflow module and instantiate
+    if (!workflowFile || typeof workflowFile !== 'string') {
+      throw new Error('Workflow file path is not defined or not a string.');
+    }
+
     const workflowModule = await import(pathToFileURL(workflowFile).href);
     const WorkflowClass = workflowModule[`${pascalName}WorkFlow`];
     const workflowInstance = new WorkflowClass();
@@ -192,31 +147,31 @@ export class CICdRunnerService {
     switch (action) {
       case DevModeAction.CREATE:
         CdLog.debug(`CICdRunnerService::loadModuleDescriptorAndWorkflow()/switch/case:create`);
-        workflowModel = workflowInstance.createWorkFlow(descriptor, cdObjTypeName, extraParams);
+        workflowModel = workflowInstance.createWorkFlow(descriptor, oEnv, extraParams);
         break;
       case DevModeAction.READ:
         CdLog.debug(`CICdRunnerService::loadModuleDescriptorAndWorkflow()/switch/case:read`);
-        workflowModel = workflowInstance.readWorkFlow(descriptor, cdObjTypeName, extraParams);
+        workflowModel = workflowInstance.readWorkFlow(descriptor, oEnv, extraParams);
         break;
       case DevModeAction.UPDATE:
         CdLog.debug(`CICdRunnerService::loadModuleDescriptorAndWorkflow()/switch/case:update`);
-        workflowModel = workflowInstance.updateWorkFlow(descriptor, cdObjTypeName, extraParams);
+        workflowModel = workflowInstance.updateWorkFlow(descriptor, oEnv, extraParams);
         break;
       case DevModeAction.DELETE:
         CdLog.debug(`CICdRunnerService::loadModuleDescriptorAndWorkflow()/switch/case:delete`);
-        workflowModel = workflowInstance.deleteWorkFlow(descriptor, cdObjTypeName, extraParams);
+        workflowModel = workflowInstance.deleteWorkFlow(descriptor, oEnv, extraParams);
         break;
       case DevModeAction.DERIVE:
         CdLog.debug(`CICdRunnerService::loadModuleDescriptorAndWorkflow()/switch/case:derive`);
-        workflowModel = workflowInstance.deriveWorkFlow(descriptor, cdObjTypeName, extraParams);
+        workflowModel = workflowInstance.deriveWorkFlow(descriptor, oEnv, extraParams);
         break;
       case DevModeAction.UPGRADE:
         CdLog.debug(`CICdRunnerService::loadModuleDescriptorAndWorkflow()/switch/case:upgrade`);
-        workflowModel = workflowInstance.upgradeWorkFlow(descriptor, cdObjTypeName, extraParams);
+        workflowModel = workflowInstance.upgradeWorkFlow(descriptor, oEnv, extraParams);
         break;
       case DevModeAction.MIGRATE:
         CdLog.debug(`CICdRunnerService::loadModuleDescriptorAndWorkflow()/switch/case:migrate`);
-        workflowModel = workflowInstance.migrateWorkFlow(descriptor, cdObjTypeName, extraParams);
+        workflowModel = workflowInstance.migrateWorkFlow(descriptor, oEnv, extraParams);
         break;
     }
 
@@ -227,7 +182,162 @@ export class CICdRunnerService {
     };
   }
 
-  
+  /**
+   * 
+   * 
+   * expected input: {
+      cdObjName: 'cd-ai',
+      cdObjType: 'cd-module', // actionTarget
+      oEnv: 'workshop', // 'workshop' or 'test-bed'	
+    }
+      
+    cd-cli/dist/CdCli/app/app-craft/workshop/<cdObjType>/workflow/<oEnv>/<cdObjName>.workflow.js
+
+   * @param action 
+   * @param cdObjType 
+   * @param cdObjName 
+   * @param oEnv 
+   * @param extraParams 
+   * @returns 
+   */
+  async getWorkFlow(
+    action: DevModeAction,
+    cdObjType: string,
+    cdObjName: string,
+    oEnv: string,
+    extraParams?: any,
+  ): Promise<CdFxReturn<{ path: string; descriptor: any }>> {
+    CdLog.debug(
+      `CICdRunnerService::getWorkFlow()/actiion:${action}, cdObjType: ${cdObjType}, actionTargetName: ${extraParams.actionTargetName} cdObjName:${cdObjName}, oEnv:${oEnv}, extraParams:${inspect(extraParams, { depth: 2 })}`,
+    );
+    try {
+      const dashedName = cdObjName.toLowerCase();
+      const svVersion = new VersionService();
+      const appType = svVersion.getAppTypeFromRepoName(extraParams.repoName, repoRegistry) ?? '';
+      // Construct absolute file paths using MOD_CRAFT_WORKSHOP_DIR
+      // /home/emp-12/cd-cli/src/CdCli/sys/dev-descriptor/services/cd-module-descriptor.service.ts
+      const workflowFile = join(
+        MOD_CRAFT_WORKSHOP_DIR,
+        appType,
+        'workflow',
+        oEnv,
+        `${dashedName}.workflow.js`,
+      );
+
+      // CdLog.debug(`Model Path: ${modelFile}`);
+      CdLog.debug(
+        `CICdRunnerService::loadModuleDescriptorAndWorkflow()/workflowFile: ${workflowFile}`,
+      );
+
+      let descriptor: any;
+      let result: CdFxReturn<any>;
+
+      /**
+       * Load module descriptor based on type
+       * - CdModuleDescriptor
+       * - CdAppDescriptor
+       */
+      CdLog.debug(
+        `CICdRunnerService::loadModuleDescriptorAndWorkflow()/Loading descriptor for type: ${extraParams?.descriptor}`,
+      );
+      switch (extraParams.descriptor) {
+        case 'CdModuleDescriptor':
+          CdLog.debug(
+            `CICdRunnerService::loadModuleDescriptorAndWorkflow()/case:CdModuleDescriptor-01`,
+          );
+          const svCdModuleDescriptor = new CdModuleDescriptorService();
+          CdLog.debug(
+            `CICdRunnerService::loadModuleDescriptorAndWorkflow()/case:CdModuleDescriptor-02`,
+          );
+          result = await svCdModuleDescriptor.cdApiModuleData(cdObjName, cdObjType, extraParams);
+          CdLog.debug(
+            `CICdRunnerService::loadModuleDescriptorAndWorkflow()/moduleDescriptor1:${inspect(
+              result,
+              {
+                depth: 2,
+              },
+            )}`,
+          );
+          if (!result || !result.state) {
+            CdLog.debug(
+              `CICdRunnerService::loadModuleDescriptorAndWorkflow()/Failed to load module descriptor: ${result.message}`,
+            );
+            throw new Error(`Failed to load module descriptor: ${result.message}`);
+          }
+
+          if (!result.data) {
+            CdLog.debug(
+              `CICdRunnerService::loadModuleDescriptorAndWorkflow()/No module descriptor data returned.`,
+            );
+            throw new Error(`No module descriptor data returned.`);
+          }
+
+          CdLog.debug(
+            `CICdRunnerService::loadModuleDescriptorAndWorkflow()/moduleDescriptor2:${inspect(result.data.controllers, { depth: 2 })}`,
+          );
+          descriptor = result.data;
+          CdLog.debug(
+            `CICdRunnerService::loadModuleDescriptorAndWorkflow()/descriptor:${inspect(descriptor, { depth: 2 })}`,
+          );
+          break;
+        case 'CdAppDescriptor':
+          const svCdAppDescriptor = new CdAppService();
+          result = await svCdAppDescriptor.deriveCdAppDescriptor(
+            DevModeAction.DERIVE,
+            cdObjName,
+            AppType.CdApi,
+          );
+          CdLog.debug(
+            `CICdRunnerService::loadModuleDescriptorAndWorkflow()/moduleDescriptor3:${inspect(
+              result,
+              {
+                depth: 2,
+              },
+            )}`,
+          );
+          if (!result || !result.state) {
+            CdLog.debug(
+              `CICdRunnerService::loadModuleDescriptorAndWorkflow()/Failed to load module descriptor: ${result.message}`,
+            );
+            throw new Error(`Failed to load module descriptor: ${result.message}`);
+          }
+
+          if (!result.data) {
+            CdLog.debug(
+              `CICdRunnerService::loadModuleDescriptorAndWorkflow()/No module descriptor data returned.`,
+            );
+            throw new Error(`No module descriptor data returned.`);
+          }
+
+          CdLog.debug(
+            `CICdRunnerService::loadModuleDescriptorAndWorkflow()/moduleDescriptor4:${inspect(result.data.controllers, { depth: 2 })}`,
+          );
+          descriptor = result.data;
+          CdLog.debug(
+            `CICdRunnerService::loadModuleDescriptorAndWorkflow()/descriptor:${inspect(descriptor, { depth: 2 })}`,
+          );
+          break;
+      }
+      if (!workflowFile) {
+        return {
+          state: false,
+          data: null,
+          message: `CiCdRunnerService::getWorkFlowPath: could not resolve the location of the workflow file.`,
+        };
+      }
+      return {
+        state: true,
+        data: { path: workflowFile, descriptor: descriptor },
+      };
+    } catch (e) {
+      return {
+        state: false,
+        data: null,
+        message: `CiCdRunnerService::getWorkFlowPath: Error:${(e as Error).message}`,
+      };
+    }
+  }
+
   async run(
     descriptor: any, // CdModuleDescriptor or CdAppDescriptor or other descriptor type
     workflowData: CiCdDescriptor,
@@ -325,7 +435,6 @@ export class CICdRunnerService {
     return { state: true, message: 'Pipeline executed successfully.' };
   }
 
-  
   async test(
     descriptor: { versionControl?: VersionControlDescriptor; ctx: CdCtx; moduleName?: string },
     // appType: AppType,
@@ -458,50 +567,100 @@ export class CICdRunnerService {
     }
   }
 
+  // private async executeTaskWithPolicies(
+  //   task: CICdTask,
+  //   moduleDescriptor: CdModuleDescriptor,
+  // ): Promise<CdFxReturn<null>> {
+  //   CdLog.debug('Starting CICdRunnerService::executeTaskWithPolicies()');
+  //   CdLog.debug('CICdRunnerService::executeTaskWithPolicies()/01');
+  //   let attempts = 0;
+  //   const maxAttempts = task.retryCount ?? 1;
+
+  //   while (attempts < maxAttempts) {
+  //     try {
+  //       const timeout = task.timeout ?? 60000; // default 60s
+  //       const result = await Promise.race([
+  //         this.executeTask(task, moduleDescriptor),
+  //         new Promise<CdFxReturn<null>>((_, reject) =>
+  //           setTimeout(() => reject(new Error('Timeout')), timeout),
+  //         ),
+  //       ]);
+
+  //       CdLog.debug(
+  //         `CICdRunnerService::executeTaskWithPolicies()/result:${inspect(result, { depth: 2 })}`,
+  //       );
+  //       CdLog.debug('CICdRunnerService::executeTaskWithPolicies()/02');
+
+  //       if (result.state as CdFxStateLevel) return result;
+  //       attempts++;
+  //       if (attempts < maxAttempts && task.retryDelay) {
+  //         CdLog.debug('CICdRunnerService::executeTaskWithPolicies()/03');
+  //         await this.sleep(task.retryDelay);
+  //       }
+  //     } catch (e) {
+  //       CdLog.debug('CICdRunnerService::executeTaskWithPolicies()/04');
+  //       CdLog.debug(
+  //         `CICdRunnerService::executeTaskWithPolicies()/Task ${
+  //           task.name
+  //         } failed with error: ${(e as Error).message}`,
+  //       );
+  //       attempts++;
+  //     }
+  //   }
+  //   CdLog.debug('CICdRunnerService::executeTaskWithPolicies()/05');
+  //   return {
+  //     state: false,
+  //     message: `Task ${task.name} failed after ${maxAttempts} attempts.`,
+  //   };
+  // }
   private async executeTaskWithPolicies(
     task: CICdTask,
     moduleDescriptor: CdModuleDescriptor,
   ): Promise<CdFxReturn<null>> {
-    CdLog.debug('Starting CICdRunnerService::executeTaskWithPolicies()');
-    CdLog.debug('CICdRunnerService::executeTaskWithPolicies()/01');
+    CdLog.debug('▶️ Starting CICdRunnerService::executeTaskWithPolicies()');
     let attempts = 0;
     const maxAttempts = task.retryCount ?? 1;
+    const timeout = task.timeout ?? 60000;
 
     while (attempts < maxAttempts) {
+      const spinner = ora(
+        `⏳ Running task '${task.name}' (Attempt ${attempts + 1}/${maxAttempts})...`,
+      ).start();
       try {
-        const timeout = task.timeout ?? 60000; // default 60s
         const result = await Promise.race([
           this.executeTask(task, moduleDescriptor),
           new Promise<CdFxReturn<null>>((_, reject) =>
-            setTimeout(() => reject(new Error('Timeout')), timeout),
+            setTimeout(() => reject(new Error('Timeout: Task exceeded allowed time')), timeout),
           ),
         ]);
 
-        CdLog.debug(
-          `CICdRunnerService::executeTaskWithPolicies()/result:${inspect(result, { depth: 2 })}`,
-        );
-        CdLog.debug('CICdRunnerService::executeTaskWithPolicies()/02');
-
+        spinner.succeed(`✅ Task '${task.name}' succeeded.`);
         if (result.state as CdFxStateLevel) return result;
+
         attempts++;
         if (attempts < maxAttempts && task.retryDelay) {
-          CdLog.debug('CICdRunnerService::executeTaskWithPolicies()/03');
+          spinner.info(`🔁 Retrying task '${task.name}' in ${task.retryDelay}ms...`);
           await this.sleep(task.retryDelay);
         }
       } catch (e) {
-        CdLog.debug('CICdRunnerService::executeTaskWithPolicies()/04');
-        CdLog.debug(
-          `CICdRunnerService::executeTaskWithPolicies()/Task ${
-            task.name
-          } failed with error: ${(e as Error).message}`,
+        spinner.fail(`❌ Task '${task.name}' failed: ${(e as Error).message}`);
+        CdLog.error(
+          `Task '${task.name}' failed on attempt ${attempts + 1}: ${(e as Error).message}`,
         );
         attempts++;
+
+        if (attempts < maxAttempts && task.retryDelay) {
+          CdLog.debug(`Waiting ${task.retryDelay}ms before next attempt...`);
+          await this.sleep(task.retryDelay);
+        }
       }
     }
-    CdLog.debug('CICdRunnerService::executeTaskWithPolicies()/05');
+
+    const errorMessage = `🚫 Task '${task.name}' failed after ${maxAttempts} attempt(s).`;
+    CdLog.error(errorMessage);
     return {
-      state: false,
-      message: `Task ${task.name} failed after ${maxAttempts} attempts.`,
+      state: CdFxStateLevel.LogicalFailure,
+      message: errorMessage,
     };
   }
 
@@ -773,5 +932,4 @@ export class CICdRunnerService {
       };
     }
   }
-
 }

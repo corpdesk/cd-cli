@@ -57,7 +57,7 @@ export class CdAppService extends GenericService<CdObjModel> {
       // set version control for the module
       // custom.versionControl = cdAiVersionControl;
       const svVersion = new VersionService();
-      const vcResult = await svVersion.getVersionControl(cdObjName, appType);
+      const vcResult = await svVersion.getVersionControl(cdObjName, extraParams.actionTargetName, extraParams.appType);
       if (!vcResult || !vcResult.state || !vcResult.data) {
         return {
           state: false,

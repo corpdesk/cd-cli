@@ -7,6 +7,7 @@ import {
   toUniversalSnakeCase,
 } from '../../utilities/cd-naming.util.js';
 import {
+  AppType,
   CdControllerDescriptor,
   CdCtx,
   CdModelDescriptor,
@@ -26,7 +27,11 @@ import { inspect } from 'util';
 import { pathToFileURL } from 'url';
 import { VersionService } from './version.service.js';
 import { getParentDirectory } from '../../utilities/fs.util.js';
-import { MOD_CRAFT_WORKFLOW_MODULE_DIR } from '../../../app/app-craft/models/default.model.js';
+import {
+  MOD_CRAFT_WORKFLOW_MODULE_DIR,
+  MOD_CRAFT_WORKSHOP_DIR,
+} from '../../../app/app-craft/models/default.model.js';
+import { DevModeAction } from '../../dev-mode/index.js';
 
 export class CdModuleDescriptorService {
   // This service is responsible for managing module descriptors in the system.
@@ -52,7 +57,6 @@ export class CdModuleDescriptorService {
     // Implementation for retrieving a module descriptor by ID
     return {};
   }
-
 
   async deriveCdModuleDescriptor(basePath: string): Promise<CdFxReturn<CdModuleDescriptor>> {
     CdLog.debug(`CdModuleDescriptorService::deriveCdModuleDescriptor()/01`);
@@ -376,12 +380,22 @@ export class CdModuleDescriptorService {
   async cdApiModuleData(
     cdObjName: string,
     cdObjTypeName: string,
-    cdToken: string, // not used yet
+    extraParams?: any,
   ): Promise<CdFxReturn<CdModuleDescriptor>> {
     try {
       CdLog.debug('CdModuleDescritorService::cdApiModuleData()/01');
+
+      // const pascalName = toPascalCase(cdObjName);
+
       // Build full path to the JSON descriptor
-      const workflowPath = join(MOD_CRAFT_WORKFLOW_MODULE_DIR, `${cdObjName}.create.module.json`);
+      // old verson
+      // const workflowPath = join(MOD_CRAFT_WORKFLOW_MODULE_DIR, `${cdObjName}.create.module.json`);
+
+      // new version
+      // /home/emp-12/cd-cli/src/CdCli/app/app-craft/workshop/cd-module/workflow/cd-ai.create.module.json
+      const workflowPath = `${MOD_CRAFT_WORKSHOP_DIR}/${extraParams.appType}/workflow/cd-ai.create.module.json`;
+
+      
 
       // Read and parse custom module descriptor
       const fileContents = readFileSync(workflowPath, 'utf-8');
@@ -391,7 +405,7 @@ export class CdModuleDescriptorService {
       // set version control for the module
       // custom.versionControl = cdAiVersionControl;
       const svVersion = new VersionService();
-      const vcResult = await svVersion.getVersionControl(cdObjName, cdObjTypeName);
+      const vcResult = await svVersion.getVersionControl(cdObjName, cdObjTypeName, extraParams.appType);
       if (!vcResult || !vcResult.state || !vcResult.data) {
         return {
           state: false,

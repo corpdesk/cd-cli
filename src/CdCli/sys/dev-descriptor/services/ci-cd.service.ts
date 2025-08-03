@@ -223,6 +223,7 @@ export class CiCdService extends GenericService<CdObjModel> {
       const versionDescriptor = await svVersion.getVersionControl(
         cdObjName,
         extraParams.cdObjType.cdObjTypeName,
+        extraParams.appType,
       );
       CdLog.debug(
         `CiCdService::getWorkflow()/versionDescriptor:${inspect(versionDescriptor, { depth: 2 })}`,

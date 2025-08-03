@@ -8,7 +8,7 @@
 import { CdSchedulerDescriptor } from '../../cd-scheduler/models/cd-scheduler.model.js';
 import { CdFxReturn, ICdRequest } from '../../base/index.js';
 import { CdObjTypeModel } from '../../moduleman/index.js';
-import { AppType, BaseDescriptor } from '../../dev-descriptor/index.js';
+import { AppType, BaseDescriptor, CdEnvName } from '../../dev-descriptor/index.js';
 
 export interface DevModeModel {
   method: 'wizard' | 'manual' | 'ai' | 'json' | 'context';
@@ -27,12 +27,18 @@ export interface IDevModeInstructionDescriptor extends BaseDescriptor {
   targetType?: AppType; // e.g., 'cd-api' <-- the specific CdObjType item
   execStrategy?: 'json' | 'context' | 'gui-wizard' | 'ai' | 'cmd'; // action strategy
   requiredOptions: string[];
-  optionalOptions?: string[]; 
+  optionalOptions?: string[];
   cdRequest: ICdRequest;
   enabled?: boolean;
   jsonFile?: string; // optional descriptor file path
   modelFile?: string; // optional model descriptor path
   workstation?: string; // target environment
+}
+
+export interface CdOutputEnvModel {
+  name: CdEnvName;
+  label: string;
+  context: 'local' | 'testing' | 'production' | 'custom';
 }
 
 /**
@@ -50,8 +56,8 @@ export enum DevModeAction {
   DERIVE = 16, // e.g., derive CdObj from an existing source, like a module descriptor or workflow model
 
   /**
-   * workflow-oriented verbs are a class of directional actions in 
-   * system lifecycles, and their semantics can deeply enrich both 
+   * workflow-oriented verbs are a class of directional actions in
+   * system lifecycles, and their semantics can deeply enrich both
    * CLI usability and AI integration later
    */
   // Directional Lifecycle
@@ -72,9 +78,17 @@ export enum DevModeAction {
   PACKAGE = 15,
 }
 
+// export const SHARED_OPTIONS = [
+//   { flags: 'name', description: 'Name of the item to process' },
+//   { flags: 'type', description: 'Type of the module (e.g. cd-api, cd-ui)' },
+//   { flags: 'json-file', description: 'Path to JSON module descriptor file' },
+//   { flags: 'model-file', description: 'Path to JSON workflow model file' },
+//   { flags: 'workstation', description: 'Target workstation' },
+// ];
 export const SHARED_OPTIONS = [
   { flags: 'name', description: 'Name of the item to process' },
-  { flags: 'type', description: 'Type of the module (e.g. cd-api, cd-ui)' },
+  { flags: 'proj', description: 'Name of the registered project' },
+  { flags: 'o-env', description: 'Target output environment (e.g. workshop, test-bed)' },
   { flags: 'json-file', description: 'Path to JSON module descriptor file' },
   { flags: 'model-file', description: 'Path to JSON workflow model file' },
   { flags: 'workstation', description: 'Target workstation' },
@@ -89,7 +103,7 @@ export const UPGRADE_EXTRA_OPTIONS = [
   { flags: 'version', description: 'semantic version or git sha to upgrade to' },
   { flags: 'roadmap', description: 'optional override of roadmap id' },
   { flags: 'milestone', description: 'optional override of milestone id' },
-  { flags: 'test', description: 'optional for running task tests and version update' }
+  { flags: 'test', description: 'optional for running task tests and version update' },
 ];
 
 /**
@@ -186,6 +200,126 @@ export const actionTargets: CdObjTypeModel[] = [
     cdObjTypeGuid: 'c3279848-312d-42fa-91f0-0be2e27052d1',
     modCraftController: 'CdApi',
   },
+  {
+    cdObjTypeId: 200,
+    cdObjTypeName: 'frontend',
+    cdObjTypeGuid: '23efab2b-1f61-40f5-a84d-6f9978b57e57',
+    modCraftController: 'Frontend',
+  },
+  {
+    cdObjTypeId: 201,
+    cdObjTypeName: 'api',
+    cdObjTypeGuid: 'c9677cd1-4e4e-46fd-958c-e60f59f82bd1',
+    modCraftController: 'Api',
+  },
+  {
+    cdObjTypeId: 203,
+    cdObjTypeName: 'cd-module',
+    cdObjTypeGuid: 'f6bc1cf9-bdef-4ad1-837e-1e0ce29eb104',
+    modCraftController: 'CdModule',
+  },
+  {
+    cdObjTypeId: 204,
+    cdObjTypeName: 'push-server',
+    cdObjTypeGuid: '4d1d69de-06f2-41f6-b4f4-6db16091f6f1',
+    modCraftController: 'PushServer',
+  },
+  {
+    cdObjTypeId: 205,
+    cdObjTypeName: 'cli',
+    cdObjTypeGuid: 'f3d9bc12-3cd4-4ac0-a3b4-e6744a6495d6',
+    modCraftController: 'Cli',
+  },
+  {
+    cdObjTypeId: 206,
+    cdObjTypeName: 'cd-cli',
+    cdObjTypeGuid: '9aab01ec-bce7-49c3-a2b5-3e697ac9b20e',
+    modCraftController: 'CdCli',
+  },
+  {
+    cdObjTypeId: 207,
+    cdObjTypeName: 'pwa',
+    cdObjTypeGuid: '6e0b5a1a-08df-476b-8a1f-17d45017d96c',
+    modCraftController: 'Pwa',
+  },
+  {
+    cdObjTypeId: 208,
+    cdObjTypeName: 'desktop-pwa',
+    cdObjTypeGuid: 'c9bce40d-7a98-49ee-a875-3b476a982057',
+    modCraftController: 'DesktopPwa',
+  },
+  {
+    cdObjTypeId: 209,
+    cdObjTypeName: 'mobile',
+    cdObjTypeGuid: '0f6f3342-35dc-47f5-a7d7-3f456f9a83cd',
+    modCraftController: 'Mobile',
+  },
+  {
+    cdObjTypeId: 210,
+    cdObjTypeName: 'mobile-hybrid',
+    cdObjTypeGuid: 'b39bcd3f-1966-4c70-b594-5fd5b09cb8c2',
+    modCraftController: 'MobileHybrid',
+  },
+  {
+    cdObjTypeId: 211,
+    cdObjTypeName: 'mobile-native',
+    cdObjTypeGuid: 'ebfa4828-2e7e-4bde-a2d4-1455d038b59c',
+    modCraftController: 'MobileNative',
+  },
+  {
+    cdObjTypeId: 212,
+    cdObjTypeName: 'desktop',
+    cdObjTypeGuid: '9992f62b-b700-4d00-aab3-dcf236780f57',
+    modCraftController: 'Desktop',
+  },
+  {
+    cdObjTypeId: 213,
+    cdObjTypeName: 'iot',
+    cdObjTypeGuid: '726ea70f-86f5-4657-b75c-607f57dc7ae2',
+    modCraftController: 'Iot',
+  },
+  {
+    cdObjTypeId: 214,
+    cdObjTypeName: 'game',
+    cdObjTypeGuid: '4d53c30b-2249-4c25-aef0-b444dbf26077',
+    modCraftController: 'Game',
+  },
+  {
+    cdObjTypeId: 215,
+    cdObjTypeName: 'embedded',
+    cdObjTypeGuid: '22c94ed7-4b2e-4b21-90cf-fba2c1d83699',
+    modCraftController: 'Embedded',
+  },
+  {
+    cdObjTypeId: 216,
+    cdObjTypeName: 'robotics',
+    cdObjTypeGuid: '6c1e7402-ea47-4dbe-8001-6f1505f46aa6',
+    modCraftController: 'Robotics',
+  },
+  {
+    cdObjTypeId: 217,
+    cdObjTypeName: 'plugin',
+    cdObjTypeGuid: '6c98fc1f-8137-4967-a6bb-c84d89175526',
+    modCraftController: 'Plugin',
+  },
+  {
+    cdObjTypeId: 218,
+    cdObjTypeName: 'microservice',
+    cdObjTypeGuid: '0c1e3f44-126c-4bb1-a1a3-95e9b6d700be',
+    modCraftController: 'Microservice',
+  },
+  {
+    cdObjTypeId: 219,
+    cdObjTypeName: 'sdn',
+    cdObjTypeGuid: '7d63ae7a-60bb-4bfa-82aa-1c8c14269a26',
+    modCraftController: 'Sdn',
+  },
+  {
+    cdObjTypeId: 220,
+    cdObjTypeName: 'cbo',
+    cdObjTypeGuid: '96cf624b-1bd5-4471-9ae2-1dc258e40992',
+    modCraftController: 'Cbo',
+  },
 ];
 
 /**
@@ -250,15 +384,15 @@ export function getActionLabel(action: DevModeAction): string {
 
 export function getRegistry(
   action: DevModeAction,
-  moduleName: string,
-  moduleType: AppType,
+  cdObjName: string,
+  appType: AppType,
 ): CdFxReturn<IDevModeInstructionDescriptor[]> {
-  const actionStr = getActionString(action);    // e.g., 'update'
-  const actionLabel = getActionLabel(action);  // e.g., 'Update'
+  const actionStr = getActionString(action); // e.g., 'update'
+  const actionLabel = getActionLabel(action); // e.g., 'Update'
 
   const devModInstructions: IDevModeInstructionDescriptor[] = [];
 
-  // actionTargets is defined as export const actionTargets: CdObjTypeModel[] in the file: 
+  // actionTargets is defined as export const actionTargets: CdObjTypeModel[] in the file:
   // src/CdCli/sys/dev-mode/models/dev-mode.model.ts
   for (const t of actionTargets) {
     if (!t.modCraftController) {
@@ -273,10 +407,10 @@ export function getRegistry(
       description: `${actionLabel} a developer ${t.cdObjTypeName} environment`,
       action,
       actionTarget: t,
-      requiredOptions: ['name', 'type'],
+      requiredOptions: ['name', 'o-env'],
       // optionalOptions: ['roadmap', 'milestone'],
-      targetName: moduleName,
-      targetType: moduleType,
+      targetName: cdObjName,
+      targetType: appType,
       cdRequest: {
         ctx: 'app',
         m: 'app-craft',
@@ -295,7 +429,8 @@ export function getRegistry(
     return {
       state: false,
       data: null,
-      message: 'No valid DevMode instructions could be generated. Check modCraftController mappings.',
+      message:
+        'No valid DevMode instructions could be generated. Check modCraftController mappings.',
     };
   }
 

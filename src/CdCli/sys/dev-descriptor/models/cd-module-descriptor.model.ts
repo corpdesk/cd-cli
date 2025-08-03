@@ -14,9 +14,11 @@ import type {
   VersionControlDescriptor,
 } from './version-control.model.js';
 import { LicenseDescriptor } from './license.model.js';
+import { AppType } from './cd-app.model.js';
 
 export interface CdModuleDescriptor extends BaseDescriptor {
   name: string;
+  parentAppType?: AppType;
   cdModuleType: CdModuleTypeDescriptor; // Type of module, e.g., frontend, api, etc.
   description?: string;
   ctx: CdCtx;

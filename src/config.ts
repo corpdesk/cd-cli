@@ -9,10 +9,7 @@ import { DataSource, DataSourceOptions } from 'typeorm';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-export const CONFIG_FILE_PATH = join(
-  process.env.HOME || '~/',
-  '.cd-cli/cd-cli.profiles.json',
-);
+export const CONFIG_FILE_PATH = join(process.env.HOME || '~/', '.cd-cli/cd-cli.profiles.json');
 
 export const DEFAULT_SESS: ISessResp = {
   jwt: null,
@@ -35,16 +32,16 @@ export const DEFAULT_SESS: ISessResp = {
 //   __dirname + '/CdApi/app/cd-geo/models/*.model.ts',
 // ];
 
-const entitiesConfigPath = path.join(__dirname, "configs", "module-entities.json");
+const entitiesConfigPath = path.join(__dirname, 'configs', 'module-entities.json');
 
 export function loadEntityPaths(): string[] {
   try {
-    const modules = JSON.parse(fs.readFileSync(entitiesConfigPath, "utf8"));
+    const modules = JSON.parse(fs.readFileSync(entitiesConfigPath, 'utf8'));
     return modules
       .filter((m) => m.enabled)
       .map((m) => path.join(__dirname, `CdApi/${m.ctx}/${m.moduleName}/models/*.model.ts`));
   } catch (err) {
-    console.error("Failed to load entity modules:", err);
+    console.error('Failed to load entity modules:', err);
     return [];
   }
 }
@@ -74,8 +71,6 @@ export const AppDataSource = new DataSource({
     // 'log'
   ],
 });
-
-
 
 const mysqlConfig: DataSourceOptions = {
   name: 'default',
@@ -120,7 +115,7 @@ const sqliteConfig: DataSourceOptions = {
   logging: ['query', 'error', 'warn', 'log'],
 };
 
-export async function sqliteConfigFx(connName:any): Promise<any> {
+export async function sqliteConfigFx(connName: any): Promise<any> {
   return {
     name: connName,
     type: 'sqlite',
@@ -220,6 +215,17 @@ export default {
         { host: 'asdap.net', port: Number(process.env.REDIS_PORT) },
       ],
       name: 'master01',
+    },
+  },
+  modules: {
+    sys: {
+      // optional if needed later
+    },
+    app: {
+      AppCraft: {
+        databaseSyncScript: path.join(process.env.HOME || '', 'cd-cli/dist/sync-db.datasource.js'),
+      },
+      // Add other modules here
     },
   },
 };

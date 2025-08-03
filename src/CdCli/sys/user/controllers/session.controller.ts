@@ -67,10 +67,10 @@ export class SessonController {
       // Load configuration
       const ctlCdCliProfile = new CdCliProfileController();
       const resultCliConfig = await ctlCdCliProfile.loadProfiles();
-      CdLog.debug(
-        'SessionController::getSession()/resultCliConfig:',
-        resultCliConfig,
-      );
+      // CdLog.debug(
+      //   'SessionController::getSession()/resultCliConfig:',
+      //   resultCliConfig,
+      // );
 
       if (!resultCliConfig.state || !resultCliConfig.data) {
         return null;
@@ -81,19 +81,19 @@ export class SessonController {
         (item) => item.cdCliProfileName === profileName,
       );
 
-      CdLog.debug('SessionController::getSession()/profile:', profile);
+      // CdLog.debug('SessionController::getSession()/profile:', profile);
 
       if (!profile || !profile.cdCliProfileData) {
         throw new Error(`Session not found for profile "${profileName}".`);
       }
 
-      CdLog.debug('SessionController::getSession()/profile:', profile);
+      // CdLog.debug('SessionController::getSession()/profile:', profile);
 
       const session = profile.cdCliProfileData.details.session;
       if (!session) {
         throw new Error(`Session not found in profile "${profileName}".`);
       }
-      CdLog.debug('SessionController::getSession()/session1:', session);
+      // CdLog.debug('SessionController::getSession()/session1:', session);
 
       // Resolve session token from `cdVault` if referenced
       // if (session.cd_token?.startsWith('#cdVault[')) {
@@ -112,9 +112,9 @@ export class SessonController {
           profile.cdCliProfileData.details,
           profile.cdCliProfileData.cdVault,
         );
-      CdLog.debug('SessionController::getSession()/resolved:', {
-        r: JSON.stringify(resolved),
-      });
+      // CdLog.debug('SessionController::getSession()/resolved:', {
+      //   r: JSON.stringify(resolved),
+      // });
       // Extract from resolved details after vault substitution
       if (
         resolved.session &&
@@ -123,7 +123,7 @@ export class SessonController {
         session.cd_token = resolved.session.cd_token;
       }
 
-      CdLog.debug('SessionController::getSession()/session2:', session);
+      // CdLog.debug('SessionController::getSession()/session2:', session);
 
       // Ensure session.jwt matches ISessResp type
       if (

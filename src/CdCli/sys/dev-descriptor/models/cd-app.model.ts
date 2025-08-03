@@ -31,6 +31,7 @@ export enum AppType {
   Frontend = 'frontend', // User-facing web or app interfaces
   Api = 'api', // Backend APIs
   CdApi = 'cd-api', // Corpdesk backend APIs
+  CdApiModule = 'cd-module',
   PushServer = 'push-server', // Services for push notifications
   Cli = 'cli', // Command-line interfaces
   CdCli = 'cd-cli', // Corpdesk command-line interfaces

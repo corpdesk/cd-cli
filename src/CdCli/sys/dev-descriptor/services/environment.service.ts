@@ -33,7 +33,7 @@ import {
 } from '../models/testing-framework.model.js';
 import {
   getVersionControlByContext,
-  versionControlRepositories,
+  repoRegistry,
 } from '../models/version-control.model.js';
 import { CiCdService } from './ci-cd.service.js';
 import { DependencyService } from './dependency.service.js';
@@ -672,7 +672,7 @@ export class EnvironmentService extends GenericService<CdObjModel> {
       devEnv.testingFrameworks = resTestingFrameworks;
     }
 
-    const resVersionControl = getVersionControlByContext(name, versionControlRepositories);
+    const resVersionControl = getVersionControlByContext(name, repoRegistry);
     CdLog.debug(
       `EnvironmentService::buildEnvironmentData()/resVersionControl:${resVersionControl}`,
     );

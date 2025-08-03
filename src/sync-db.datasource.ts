@@ -1,6 +1,5 @@
 import { DataSource } from "typeorm";
 import { loadEntityPaths } from "./config.js";
-// import { loadEntityPaths } from "./config";
 
 const AppDataSource = new DataSource({
   name: "conn2",

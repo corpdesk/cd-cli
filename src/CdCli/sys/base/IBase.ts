@@ -96,6 +96,8 @@ export enum CdFxStateLevel {
   SystemError = 11,
   Fatal = 12,
   Unknown = 13,
+  NetworkError = 17,
+  PermissionDenied = 18,
 }
 
 // ─── Assertion Return Type ────────────────────────
@@ -199,6 +201,15 @@ export const CD_FX_UNKNOWN: CdFxReturn<null> = {
   state: CdFxStateLevel.Unknown,
   message: "Unknown state or error.",
 };
+
+/**
+ * For use in utility run() with anticipated errors
+ */
+export interface CdErrorRecognition {
+  pattern: string | RegExp;           // To match against stderr or combined output
+  state: CdFxStateLevel;              // Mapped response level
+  message?: string;                   // Friendly message if match is found
+}
 
 // cd request format
 export interface ICdRequest {

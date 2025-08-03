@@ -2,6 +2,7 @@ import type { BaseDescriptor } from './base-descriptor.model.js';
 import type { DependencyDescriptor } from './dependancy-descriptor.model.js';
 
 export interface CdModelDescriptor extends BaseDescriptor {
+  
   module?: string; // The module to which this model belongs
   parentModule?: string; // Parent module (if part of a hierarchical structure)
   parentController?: string; // Parent model (if part of a hierarchical structure)

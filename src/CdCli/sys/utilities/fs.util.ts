@@ -3,6 +3,7 @@ import path from 'path';
 import prettier from 'prettier';
 import fs, { access } from 'fs/promises';
 import { formatterConfig } from '../base/IBase.js';
+import { constants } from 'fs';
 
 export const HOME = homedir();
 
@@ -40,11 +41,11 @@ export async function getProjectRoot(
  * @returns The parent directory of the input path
  */
 export function getParentDirectory(modulePath: string): string {
-    // Normalize the path to handle different OS path separators
-    const normalizedPath = path.normalize(modulePath);
-    
-    // Get the parent directory by going up one level
-    return path.dirname(normalizedPath);
+  // Normalize the path to handle different OS path separators
+  const normalizedPath = path.normalize(modulePath);
+
+  // Get the parent directory by going up one level
+  return path.dirname(normalizedPath);
 }
 
 export function resolveUserPath(p: string): string {
@@ -203,4 +204,11 @@ export async function writePrettyFileSafely(path: string, content: string): Prom
   await fs.writeFile(path, formatted, 'utf8');
 }
 
-
+export async function fileExists(path: string): Promise<boolean> {
+  try {
+    await access(path, constants.F_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
