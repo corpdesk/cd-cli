@@ -24,7 +24,7 @@ import { writePrettyFile } from '../../utilities/fs.util.js';
 import { CdAutoGitService } from '../../../app/cd-auto-git/services/cd-auto-git.service.js';
 
 export class CiCdService extends GenericService<CdObjModel> {
-  svCdAutoGit = new CdAutoGitService()
+  svCdAutoGit = new CdAutoGitService();
   constructor() {
     super(CdObjModel);
   }
@@ -207,12 +207,12 @@ export class CiCdService extends GenericService<CdObjModel> {
   ): Promise<CdFxReturn<CICdPipeline>> {
     CdLog.debug(`CiCdService::getWorkflow()/cdObjName:${cdObjName}`);
     CdLog.debug(`CiCdService::getWorkflow()/appType:${appType}`);
-    CdLog.debug(`CiCdService::getWorkflow()/extraParams:${JSON.stringify(extraParams)}`);
+    CdLog.debug(`CiCdService::getWorkflow()/extraParams:${inspect(extraParams, { depth: 2 })}`);
     CdLog.debug(
-      `CiCdService::getWorkflow()/extraParams.cdObjType:${JSON.stringify(extraParams.cdObjType)}`,
+      `CiCdService::getWorkflow()/extraParams.cdObjType:${inspect(extraParams.cdObjType, { depth: 2 })}`,
     );
     CdLog.debug(
-      `CiCdService::getWorkflow()/extraParams.cdObjType.cdObjTypeName:${JSON.stringify(extraParams.cdObjType.cdObjTypeName)}`,
+      `CiCdService::getWorkflow()/extraParams.cdObjType.cdObjTypeName: ${extraParams.cdObjType.cdObjTypeName}`,
     );
     // /home/emp-12/cd-cli/src/CdCli/app/app-craft/workshop/cd-api/workflow/cd-app/cd-api.workflow.ts
     //                     src/CdCli/app/app-craft/workshop/cd-api/workflow/cd-module/cd-ai.workflow.ts
@@ -224,15 +224,23 @@ export class CiCdService extends GenericService<CdObjModel> {
         cdObjName,
         extraParams.cdObjType.cdObjTypeName,
         extraParams.appType,
+        extraParams.oEnv,
       );
       CdLog.debug(
         `CiCdService::getWorkflow()/versionDescriptor:${inspect(versionDescriptor, { depth: 2 })}`,
       );
       extraParams.versionDescriptor = versionDescriptor;
       const pascalName = toPascalCase(cdObjName);
+      let aType = '';
+      if (extraParams.actionTargetName === 'cd-app') {
+        aType = 'cd-app';
+      } else {
+        aType = appType;
+      }
+      // /home/emp-12/cd-cli/src/CdCli/app/app-craft/workshop/cd-app/workflow/test-bed/cd-api.workflow.ts
       const workflowPath = join(
         MOD_CRAFT_WORKSHOP_DIR,
-        appType,
+        aType,
         'workflow',
         extraParams.cdObjType.cdObjTypeName,
         `${cdObjName}.workflow.js`,
@@ -329,7 +337,9 @@ export class CiCdService extends GenericService<CdObjModel> {
    * Useful for CI/CD automation workflows.
    */
   async execCmd(cmd: string, cwdOverride?: string): Promise<CdFxReturn<null>> {
-    CdLog.debug(`[CICdRunnerService.execCmd] Running command: ${cmd} in ${cwdOverride || 'default cwd'}`);
+    CdLog.debug(
+      `[CICdRunnerService.execCmd] Running command: ${cmd} in ${cwdOverride || 'default cwd'}`,
+    );
     try {
       const output = await executeCommand(cmd, cwdOverride);
       CdLog.debug(`[CICdRunnerService.execCmd] Command output:\n${output}`);
@@ -339,7 +349,9 @@ export class CiCdService extends GenericService<CdObjModel> {
         data: null,
       };
     } catch (error: any) {
-      CdLog.debug(`[CICdRunnerService.execCmd] Command failed with error: ${error?.message || error}`);
+      CdLog.debug(
+        `[CICdRunnerService.execCmd] Command failed with error: ${error?.message || error}`,
+      );
       return {
         state: CdFxStateLevel.SystemError,
         message: `Failed to execute command: ${error?.message || 'Unknown error'}`,
@@ -356,7 +368,7 @@ export class CiCdService extends GenericService<CdObjModel> {
     CdLog.debug(`[CICdRunnerService.createFile] Writing file at: ${path}`);
     try {
       // await fs.writeFile(path, contents, 'utf-8');
-      await writePrettyFile(path, contents)
+      await writePrettyFile(path, contents);
       CdLog.debug(`[CICdRunnerService.createFile] File written successfully.`);
       return {
         state: CdFxStateLevel.Success,
@@ -364,7 +376,9 @@ export class CiCdService extends GenericService<CdObjModel> {
         data: null,
       };
     } catch (error: any) {
-      CdLog.debug(`[CICdRunnerService.createFile] Failed to write file: ${error?.message || error}`);
+      CdLog.debug(
+        `[CICdRunnerService.createFile] Failed to write file: ${error?.message || error}`,
+      );
       return {
         state: CdFxStateLevel.SystemError,
         message: `Failed to create file: ${error?.message || 'Unknown error'}`,
@@ -372,8 +386,4 @@ export class CiCdService extends GenericService<CdObjModel> {
       };
     }
   }
-
-  
-
-
 }

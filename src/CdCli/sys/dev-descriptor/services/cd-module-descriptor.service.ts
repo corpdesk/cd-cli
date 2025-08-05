@@ -405,7 +405,7 @@ export class CdModuleDescriptorService {
       // set version control for the module
       // custom.versionControl = cdAiVersionControl;
       const svVersion = new VersionService();
-      const vcResult = await svVersion.getVersionControl(cdObjName, cdObjTypeName, extraParams.appType);
+      const vcResult = await svVersion.getVersionControl(cdObjName, cdObjTypeName, extraParams.appType, extraParams.oEnv);
       if (!vcResult || !vcResult.state || !vcResult.data) {
         return {
           state: false,

@@ -33,6 +33,7 @@ export class VersionService {
     cdObjName: string,
     cdObjTypeName: string,
     appType: AppType,
+    oEnv: string,
   ): Promise<CdFxReturn<VersionControlDescriptor>> {
     CdLog.debug(`VersionService::getVersioncontrol()/01`);
     CdLog.debug(`VersionService::getVersioncontrol()/cdObjName:${cdObjName}`);
@@ -49,6 +50,13 @@ export class VersionService {
       //   cdObjTypeName,
       //   `${dashedName}-workshop.model.js`,
       // );
+
+      let aType = '';
+      if (oEnv === 'cd-app') {
+        aType = 'cd-app';
+      } else {
+        aType = appType;
+      }
 
       const modelFilePath = join(
         MOD_CRAFT_WORKSHOP_DIR,
@@ -102,28 +110,26 @@ export class VersionService {
     cdObjName: string,
     repoRegistry: VersionControlDescriptor[],
   ): Promise<CdFxReturn<VersionControlDescriptor>> {
-    try{
+    try {
       const match = repoRegistry.find((r) => r.cdObjName === cdObjName);
-      if(!match){
+      if (!match) {
         return {
           state: false,
           data: null,
-          message: `VersionService:;getVersionControlByName: could not get results for ${cdObjName}`
-        }
+          message: `VersionService:;getVersionControlByName: could not get results for ${cdObjName}`,
+        };
       }
       return {
         state: true,
-        data: match
-      }
-    }
-    catch(e){
+        data: match,
+      };
+    } catch (e) {
       return {
-          state: false,
-          data: null,
-          message: `VersionService:;getVersionControlByName: Error: ${(e as Error).message}`
-        }
+        state: false,
+        data: null,
+        message: `VersionService:;getVersionControlByName: Error: ${(e as Error).message}`,
+      };
     }
-
   }
 
   async parseVersionInput(input: string): Promise<CdFxReturn<SemanticVersionMap>> {
@@ -805,6 +811,45 @@ export class VersionService {
    * @param v Semantic version string, e.g. "1.0.0" or "1.0.0-alpha"
    * @returns
    */
+  // static toSemanticObject(v: string): CdFxReturn<SemanticVersionObject> {
+  //   if (!v || typeof v !== 'string') {
+  //     return cdFx(
+  //       CdFxStateLevel.LogicalFailure,
+  //       '❗ Input must be a non-empty semantic version string',
+  //     );
+  //   }
+
+  //   const versionRegex = /^(\d+)\.(\d+)(?:\.(\d+))?(?:-([a-zA-Z0-9]+))?$/;
+  //   const match = v.match(versionRegex);
+
+  //   if (!match) {
+  //     return cdFx(
+  //       CdFxStateLevel.LogicalFailure,
+  //       '❗ Invalid semantic version format. Expected format: MAJOR.MINOR[.PATCH][-LABEL]',
+  //     );
+  //   }
+
+  //   try {
+  //     const [, majorStr, minorStr, patchStr, label] = match;
+  //     const major = parseInt(majorStr, 10);
+  //     const minor = parseInt(minorStr, 10);
+  //     const patch = patchStr ? parseInt(patchStr, 10) : undefined;
+
+  //     const versionObj: SemanticVersionObject = {
+  //       major,
+  //       minor,
+  //       ...(patch !== undefined ? { patch } : {}),
+  //       ...(label ? { label } : {}),
+  //     };
+
+  //     return cdFx(CdFxStateLevel.Success, '✅ Semantic version parsed successfully', versionObj);
+  //   } catch (e: any) {
+  //     return cdFx(
+  //       CdFxStateLevel.SystemError,
+  //       `❗ Unexpected error while parsing semantic version: ${e.message}`,
+  //     );
+  //   }
+  // }
   static toSemanticObject(v: string): CdFxReturn<SemanticVersionObject> {
     if (!v || typeof v !== 'string') {
       return cdFx(
@@ -813,13 +858,15 @@ export class VersionService {
       );
     }
 
+    const cleaned = this.cleanSemaVer(v);
+
     const versionRegex = /^(\d+)\.(\d+)(?:\.(\d+))?(?:-([a-zA-Z0-9]+))?$/;
-    const match = v.match(versionRegex);
+    const match = cleaned.match(versionRegex);
 
     if (!match) {
       return cdFx(
         CdFxStateLevel.LogicalFailure,
-        '❗ Invalid semantic version format. Expected format: MAJOR.MINOR[.PATCH][-LABEL]',
+        `❗ Invalid semantic version format after cleaning: '${cleaned}'. Expected MAJOR.MINOR[.PATCH][-LABEL]`,
       );
     }
 
@@ -843,6 +890,30 @@ export class VersionService {
         `❗ Unexpected error while parsing semantic version: ${e.message}`,
       );
     }
+  }
+
+  /**
+   * Cleans and normalizes a raw semantic version string.
+   * - Removes leading characters like `v`, `version-`, etc.
+   * - Splits the string by `.` and ensures each part is numeric.
+   * - Trims whitespace and removes any non-digit characters from MAJOR, MINOR, PATCH.
+   */
+  static cleanSemaVer(raw: string): string {
+    if (!raw || typeof raw !== 'string') return '';
+
+    // Remove leading `v`, `version-`, or similar
+    let cleaned = raw
+      .trim()
+      .toLowerCase()
+      .replace(/^v|^version-?/, '');
+
+    // Normalize by splitting on `.`, cleaning each piece
+    const parts = cleaned.split('.').map((part) => {
+      return part.trim().replace(/[^0-9a-zA-Z\-]/g, ''); // Keep alphanumerics and hyphens only
+    });
+
+    // Ensure we only return the first three parts for MAJOR.MINOR.PATCH (label is handled separately)
+    return parts.slice(0, 3).join('.');
   }
 
   static toSemantic(v: SemanticVersionObject): CdFxReturn<string> {

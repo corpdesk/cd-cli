@@ -14,6 +14,8 @@ import {
 } from '../models/dev-mode.model.js';
 import { cdFx } from '../../base/cd-fx-return.util.js';
 import { VersionService } from '../../dev-descriptor/services/version.service.js';
+import { MOD_CRAFT_WORKSHOP_DIR } from '../../../app/app-craft/models/app-craft.model.js';
+import { join } from 'path';
 
 export class DevModeService {
   private validEnvNames = Object.values(CdEnvName);
@@ -279,35 +281,61 @@ export class DevModeService {
      * use repo name to get app type based on registered repos
      */
     const svVersion = new VersionService();
+
     const appType = svVersion.getAppTypeFromRepoName(repoName, repoRegistry);
     CdLog.debug(`DevModeService::getRegistryForCdObj()/appType: ${appType}`);
     // const modTypeStr = cdObjType.toLowerCase();
     // const getAppType(repoName)
     // const filePath = `../../../app/app-craft/workshop/${modTypeStr}/workflow/${actionTargetName}/${cdObjName}-workshop.model.js`;
-    const filePath = `../../../app/app-craft/workshop/${appType}/workflow/${actionTargetName}/${cdObjName}-workshop.model.js`;
+    // let filePath = '';
+    // if (actionTargetName === 'cd-app') {
+    //   filePath = `../../../app/app-craft/workshop/cd-app/workflow/${actionTargetName}/${cdObjName}-workshop.model.js`;
+    // } else {
+    //   filePath = `../../../app/app-craft/workshop/${appType}/workflow/${actionTargetName}/${cdObjName}-workshop.model.js`;
+    // }
+
+    let aType = '';
+    if (actionTargetName === 'cd-app') {
+      aType = 'cd-app';
+    } else {
+      aType = appType ?? '';
+    }
+    const filePath = join(
+      MOD_CRAFT_WORKSHOP_DIR,
+      aType,
+      'workflow',
+      oEnv,
+      `${cdObjName}-workshop.model.js`,
+    );
+
     CdLog.debug(`DevModeService::getRegistryForCdObj()/filePath: ${filePath}`);
     try {
+      CdLog.debug(`DevModeService::getRegistryForCdObj()/02`);
       const module = await import(filePath);
+      CdLog.debug(`DevModeService::getRegistryForCdObj()/03`);
       if (!module.getItemRegistry) {
+        CdLog.debug(`DevModeService::getRegistryForCdObj()/04`);
         return {
           state: false,
           data: null,
           message: `❌ Missing getItemRegistry export in ${filePath}`,
         };
       }
-
+      CdLog.debug(`DevModeService::getRegistryForCdObj()/05`);
       const resultItemRegistry: CdFxReturn<IDevModeInstructionDescriptor[]> =
-        module.getItemRegistry(action, cdObjName, appType);
-
+        module.getItemRegistry(action, cdObjName, appType, actionTargetName);
+      CdLog.debug(`DevModeService::getRegistryForCdObj()/06`);
       CdLog.debug(`DevModeService::getRegistryForCdObj()/resultItemRegistry:${resultItemRegistry}`);
 
       if (!resultItemRegistry?.state) {
+        CdLog.debug(`DevModeService::getRegistryForCdObj()/07`);
         return {
           state: false,
           data: null,
           message: resultItemRegistry.message || '❌ Failed to generate registry instructions.',
         };
       }
+      CdLog.debug(`DevModeService::getRegistryForCdObj()/07`);
 
       return resultItemRegistry;
     } catch (err: any) {
@@ -334,7 +362,12 @@ export class DevModeService {
     );
   }
 
-  async getRegistryByAction(action: DevModeAction, cdObjType: AppType, cdObjName: string) {
-    return getRegistry(action, cdObjName, cdObjType);
+  async getRegistryByAction(
+    action: DevModeAction,
+    cdObjType: AppType,
+    cdObjName: string,
+    actionTargetName: string,
+  ) {
+    return getRegistry(action, cdObjName, cdObjType, actionTargetName);
   }
 }

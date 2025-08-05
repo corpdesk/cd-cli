@@ -1,10 +1,13 @@
 import type { ISessResp } from './CdCli/sys/base/IBase.js';
+import * as dotenv from "dotenv";
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import fs from 'fs';
 /* eslint-disable node/prefer-global/process */
 import path, { join } from 'node:path';
 import { DataSource, DataSourceOptions } from 'typeorm';
+
+dotenv.config();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);

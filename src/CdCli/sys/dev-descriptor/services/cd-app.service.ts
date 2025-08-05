@@ -29,6 +29,7 @@ import { CdModuleDescriptorService } from './cd-module-descriptor.service.js';
 import { actionTargets, DevModeAction } from '../../dev-mode/index.js';
 import { App } from '~/app.js';
 import { MOD_CRAFT_WORKFLOW_APP_DIR } from '../../../app/app-craft/models/default.model.js';
+import { MOD_CRAFT_WORKSHOP_DIR } from '../../../app/app-craft/models/app-craft.model.js';
 
 export class CdAppService extends GenericService<CdObjModel> {
   cdToken;
@@ -42,10 +43,14 @@ export class CdAppService extends GenericService<CdObjModel> {
     action: DevModeAction,
     cdObjName: string,
     appType: AppType,
+    oEnv: string,
     extraParams: any,
   ): Promise<CdFxReturn<CdAppDescriptor>> {
     try {
       CdLog.debug('CdModuleDescritorService::cdAppData()/01');
+      CdLog.debug(
+        `CdModuleDescritorService::cdAppData()/extraParams:${inspect(extraParams, { depth: 2 })}`,
+      );
       // Build full path to the JSON descriptor
       const workflowPath = join(MOD_CRAFT_WORKFLOW_APP_DIR, `${cdObjName}.create.module.json`);
 
@@ -57,7 +62,12 @@ export class CdAppService extends GenericService<CdObjModel> {
       // set version control for the module
       // custom.versionControl = cdAiVersionControl;
       const svVersion = new VersionService();
-      const vcResult = await svVersion.getVersionControl(cdObjName, extraParams.actionTargetName, extraParams.appType);
+      const vcResult = await svVersion.getVersionControl(
+        cdObjName,
+        extraParams.actionTargetName,
+        extraParams.appType,
+        oEnv,
+      );
       if (!vcResult || !vcResult.state || !vcResult.data) {
         return {
           state: false,
@@ -66,7 +76,13 @@ export class CdAppService extends GenericService<CdObjModel> {
         };
       }
       const cdAppVersionControl = vcResult.data;
-      const cdAppDescriptorResult = await this.deriveCdAppDescriptor(action, cdObjName, appType);
+      const cdAppDescriptorResult = await this.deriveCdAppDescriptor(
+        action,
+        cdObjName,
+        appType,
+        oEnv,
+        extraParams,
+      );
       if (!cdAppDescriptorResult || !cdAppDescriptorResult.state || !cdAppDescriptorResult.data) {
         return {
           state: false,
@@ -279,19 +295,20 @@ export class CdAppService extends GenericService<CdObjModel> {
     action: DevModeAction,
     cdObjName: string,
     appType: AppType,
+    oEnv: string,
+    extraParams?: any,
   ): Promise<CdFxReturn<CdAppDescriptor>> {
     try {
       CdLog.debug(`CdAppService::deriveCdAppDescriptor()/action:${action}`);
       CdLog.debug(`CdAppService::deriveCdAppDescriptor()/cdObjName:${cdObjName}`);
       CdLog.debug(`CdAppService::deriveCdAppDescriptor()/appType:${appType}`);
       const appNamePascal = toCamelCase(cdObjName);
-      // /home/emp-12/cd-cli/src/CdCli/app/app-craft/workshop/cd-api/workflow/cd-app/cd-api-workshop.model.ts
-      // /home/emp-12/cd-cli/src/CdCli/app/app-craft/workshop/cd-app/workflow/cd-app/cd-app-workshop.model.ts
+      // /home/emp-12/cd-cli/src/CdCli/app/app-craft/workshop/cd-app/workflow/test-bed/cd-ai-workshop.model.ts
       const cdAppWorkshopModelPath = join(
-        MOD_CRAFT_WORKFLOW_APP_DIR,
-        'cd-app',
+        MOD_CRAFT_WORKSHOP_DIR,
+        extraParams.actionTargetName,
         'workflow',
-        'cd-app',
+        oEnv,
         `${cdObjName}-workshop.model.js`, // For app descriptors, use the cdObjName to point to the very app descriptor.
       );
       CdLog.debug(
@@ -354,8 +371,6 @@ export class CdAppService extends GenericService<CdObjModel> {
       // Create the CdAppDescriptor
       const basePath = join(MOD_CRAFT_WORKFLOW_APP_DIR, appType);
       CdLog.debug(`CdAppService::deriveCdAppDescriptor()/basePath:${basePath}`);
-      
-      
 
       const descriptor: CdAppDescriptor = {
         // $schema?: string;
@@ -368,7 +383,20 @@ export class CdAppService extends GenericService<CdObjModel> {
         versionControl: cdAppVersionControl, // Version control details
       };
 
-      const extraParams = { action: action, cdObjType: cdObjType, descriptor: descriptor };
+      /**
+       * extraParams:{
+          actionTargetName: 'cd-app',
+          descriptor: 'CdAppDescriptor',
+          cdToken: '',
+          repoName: 'cd-api',
+          appType: 'cd-api',
+          version: { major: 0, minor: 8, patch: 0 },
+          testTasks: 'true'
+        }
+       */
+      extraParams.action = action;
+      extraParams.cdObjType = cdObjType;
+      // const extraParams = { action: action, cdObjType: cdObjType, descriptor: descriptor };
 
       /**
        * Get the workflow resonsible for managing the the derivation process:

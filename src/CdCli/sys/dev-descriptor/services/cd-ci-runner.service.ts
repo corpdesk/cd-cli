@@ -96,7 +96,7 @@ export class CICdRunnerService {
       `CICdRunnerService::loadModuleDescriptorAndWorkflow()/DEV_DESCRIPTORS_SERVICE_DIR:${DEV_DESCRIPTORS_SERVICE_DIR}`,
     );
 
-    CdLog.debug(`CICdRunnerService::loadModuleDescriptorAndWorkflow()/gwf-01`);
+    CdLog.debug(`CICdRunnerService::loadModuleDescriptorAndWorkflow()/gwf-01-0`);
     const workflowFileResult = await this.getWorkFlow(
       action,
       cdObjType,
@@ -106,7 +106,7 @@ export class CICdRunnerService {
     );
 
     if (!workflowFileResult || !workflowFileResult.state) {
-      CdLog.debug(`CICdRunnerService::loadModuleDescriptorAndWorkflow()/gwf-01`);
+      CdLog.debug(`CICdRunnerService::loadModuleDescriptorAndWorkflow()/gwf-01-1`);
       return {
         descriptor: null,
         workflowModel: null,
@@ -212,13 +212,23 @@ export class CICdRunnerService {
     );
     try {
       const dashedName = cdObjName.toLowerCase();
+      CdLog.debug(`CICdRunnerService::getWorkFlow()/dashedName:${dashedName}`);
       const svVersion = new VersionService();
-      const appType = svVersion.getAppTypeFromRepoName(extraParams.repoName, repoRegistry) ?? '';
-      // Construct absolute file paths using MOD_CRAFT_WORKSHOP_DIR
-      // /home/emp-12/cd-cli/src/CdCli/sys/dev-descriptor/services/cd-module-descriptor.service.ts
+      const appType = svVersion.getAppTypeFromRepoName(extraParams.repoName, repoRegistry);
+      CdLog.debug(`CICdRunnerService::getWorkFlow()/appType:${appType}`);
+
+      // Examples:
+      // /home/emp-12/cd-cli/src/CdCli/app/app-craft/workshop/cd-module/workflow/test-bed/cd-ai.workflow.ts
+      // /home/emp-12/cd-cli/src/CdCli/app/app-craft/workshop/cd-app/workflow/test-bed/cd-api.workflow.ts
+      let aType = '';
+      if (extraParams.actionTargetName === 'cd-app') {
+        aType = 'cd-app';
+      } else {
+        aType = appType ?? '';
+      }
       const workflowFile = join(
         MOD_CRAFT_WORKSHOP_DIR,
-        appType,
+        aType,
         'workflow',
         oEnv,
         `${dashedName}.workflow.js`,
@@ -281,11 +291,16 @@ export class CICdRunnerService {
           );
           break;
         case 'CdAppDescriptor':
+          if (!appType) {
+            throw new Error('appType is required and must be of type AppType.');
+          }
           const svCdAppDescriptor = new CdAppService();
           result = await svCdAppDescriptor.deriveCdAppDescriptor(
             DevModeAction.DERIVE,
             cdObjName,
-            AppType.CdApi,
+            appType,
+            oEnv,
+            extraParams,
           );
           CdLog.debug(
             `CICdRunnerService::loadModuleDescriptorAndWorkflow()/moduleDescriptor3:${inspect(

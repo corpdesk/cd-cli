@@ -51,6 +51,7 @@
     "dayjs": "^1.11.13",
     "device-detector-js": "^3.0.3",
     "dotenv": "^16.4.7",
+    "execa": "^9.6.0",
     "html-to-text": "^9.0.5",
     "inquirer": "^9.2.12",
     "inquirer-autocomplete-prompt": "^3.0.0",

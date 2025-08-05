@@ -1,6 +1,6 @@
-import { exec } from "child_process";
-import { promisify } from "util";
-import { CdErrorRecognition, CdFxReturn, CdFxStateLevel } from "../base/IBase.js";
+import { exec } from 'child_process';
+import { promisify } from 'util';
+import { CdErrorRecognition, CdFxReturn, CdFxStateLevel } from '../base/IBase.js';
 
 const execAsync = promisify(exec);
 
@@ -8,7 +8,7 @@ const execAsync = promisify(exec);
  * A simple shell utility object to manage current working directory context.
  */
 export const $ = {
-  cwd: process.cwd()
+  cwd: process.cwd(),
 };
 
 /**
@@ -51,7 +51,39 @@ export async function run(cmd: string, cwdOverride?: string): Promise<string> {
   } catch (error: any) {
     const fullMessage = [
       `[cmd.util] Failed: ${cmd}`,
-      error.stderr?.trim() ? `\n\n${error.stderr.trim()}` : ''
+      error.stderr?.trim() ? `\n\n${error.stderr.trim()}` : '',
+    ].join('');
+
+    const err = new Error(fullMessage);
+    (err as any).stderr = error.stderr;
+    (err as any).code = error.code;
+    throw err;
+  }
+}
+
+export async function run2(cmd: string, cwdOverride?: string): Promise<string> {
+  const cwdToUse = cwdOverride || process.cwd();
+
+  try {
+    const { stdout, stderr } = await execAsync(cmd, {
+      cwd: cwdToUse,
+      shell: '/bin/bash', // Ensures bash shell with env expansion
+      env: {
+        ...process.env, // Preserve current env
+        PATH: process.env.PATH || '', // Ensure PATH exists
+        HOME: process.env.HOME || '', // Required for expansion if used in child processes
+      },
+    });
+
+    if (stderr && stderr.trim()) {
+      console.warn(`[cmd.util] Stderr from "${cmd}":`, stderr.trim());
+    }
+
+    return stdout.trim();
+  } catch (error: any) {
+    const fullMessage = [
+      `[cmd.util] Failed: ${cmd}`,
+      error.stderr?.trim() ? `\n\n${error.stderr.trim()}` : '',
     ].join('');
 
     const err = new Error(fullMessage);
@@ -66,7 +98,7 @@ export async function runExt<T>(
   cwd: string,
   options?: {
     knownErrors?: CdErrorRecognition[];
-  }
+  },
 ): Promise<CdFxReturn<T>> {
   try {
     const output = await exec(cmd, { cwd });
@@ -77,10 +109,8 @@ export async function runExt<T>(
     };
   } catch (err: any) {
     const errOutput = `${err.message || ''}\n${err.stderr || ''}`;
-    const knownMatch = options?.knownErrors?.find(e => 
-      typeof e.pattern === 'string' 
-        ? errOutput.includes(e.pattern)
-        : e.pattern.test(errOutput)
+    const knownMatch = options?.knownErrors?.find((e) =>
+      typeof e.pattern === 'string' ? errOutput.includes(e.pattern) : e.pattern.test(errOutput),
     );
 
     if (knownMatch) {
@@ -117,6 +147,18 @@ export async function executeCommand(cmd: string, cwdOverride?: string): Promise
     throw error;
   }
 }
+
+export function executeCommand2(cmd: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    exec(cmd, { env: process.env }, (error, stdout, stderr) => {
+      if (error) {
+        console.log(`❌ ERROR: ${stderr}`);
+        return reject(new Error(stderr || error.message));
+      }
+      resolve(stdout);
+    });
+  });
+}
 /**
  * Executes a shell command and returns the result.
  * This is a wrapper around the `run` function to provide a more convenient interface.
@@ -133,7 +175,7 @@ export async function execute(cmd: string, cwdOverride?: string): Promise<string
     console.error(`[cmd.util] Error executing command "${cmd}":`, error);
     throw error;
   }
-}  
+}
 // ///////////////////////////////////////////////////////////
 
 // import { exec } from "child_process";

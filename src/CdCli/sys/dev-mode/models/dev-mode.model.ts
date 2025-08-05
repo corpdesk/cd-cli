@@ -9,6 +9,7 @@ import { CdSchedulerDescriptor } from '../../cd-scheduler/models/cd-scheduler.mo
 import { CdFxReturn, ICdRequest } from '../../base/index.js';
 import { CdObjTypeModel } from '../../moduleman/index.js';
 import { AppType, BaseDescriptor, CdEnvName } from '../../dev-descriptor/index.js';
+import CdLog from '../../cd-comm/controllers/cd-logger.controller.js';
 
 export interface DevModeModel {
   method: 'wizard' | 'manual' | 'ai' | 'json' | 'context';
@@ -386,10 +387,16 @@ export function getRegistry(
   action: DevModeAction,
   cdObjName: string,
   appType: AppType,
+  actionTargetName: string,
 ): CdFxReturn<IDevModeInstructionDescriptor[]> {
+  CdLog.debug(`DevModeModel::getRegistry()/action:${action}`)
+  CdLog.debug(`DevModeModel::getRegistry()/cdObjName:${cdObjName}`)
+  CdLog.debug(`DevModeModel::getRegistry()/appType:${appType}`)
+  CdLog.debug(`DevModeModel::getRegistry()/actionTargetName:${actionTargetName}`)
   const actionStr = getActionString(action); // e.g., 'update'
+  CdLog.debug(`DevModeModel::getRegistry()/actionStr:${actionStr}`)
   const actionLabel = getActionLabel(action); // e.g., 'Update'
-
+  CdLog.debug(`DevModeModel::getRegistry()/actionLabel:${actionLabel}`)
   const devModInstructions: IDevModeInstructionDescriptor[] = [];
 
   // actionTargets is defined as export const actionTargets: CdObjTypeModel[] in the file:
