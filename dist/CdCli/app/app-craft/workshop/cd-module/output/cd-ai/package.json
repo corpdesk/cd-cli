@@ -1,0 +1,6 @@
+{
+  "name": "cd-ai",
+  "version": "0.0.0",
+  "description": "module for processing ai auto development of corpdesk module at the backend",
+  "scripts": {}
+}

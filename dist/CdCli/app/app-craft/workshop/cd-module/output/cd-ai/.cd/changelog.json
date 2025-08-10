@@ -1,0 +1,21 @@
+{
+  "descriptor": {
+    "baseId": "cd-ai:changelog",
+    "changelogs": [],
+    "contributors": [],
+    "events": [
+      {
+        "baseId": "init-event",
+        "type": "commit",
+        "actor": "system",
+        "description": "Initial commit",
+        "date": "2025-08-10T18:50:43.346Z"
+      }
+    ]
+  },
+  "fileMeta": {
+    "createdAt": "2025-08-10T21:50:43+03:00",
+    "lastUpdated": "2025-08-10T21:50:43+03:00",
+    "origin": "cd-cli"
+  }
+}
