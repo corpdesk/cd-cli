@@ -1,14 +1,15 @@
 import type { BaseDescriptor } from './base-descriptor.model.js';
+import { ComponentDescriptor, ComponentType } from './component-descriptor.model.js';
 import type { DependencyDescriptor } from './dependancy-descriptor.model.js';
 
-export interface CdModelDescriptor extends BaseDescriptor {
-  
+
+export interface CdModelDescriptor  extends ComponentDescriptor  {
   module?: string; // The module to which this model belongs
   parentModule?: string; // Parent module (if part of a hierarchical structure)
+  type: ComponentType.Model | ComponentType.ModelType | ComponentType.ModelView;
   parentController?: string; // Parent model (if part of a hierarchical structure)
   fileName?: string; // File name where the model is defined
   tableName?: string; // Database table name
-  dependencies?: DependencyDescriptor[]; // Other models this model is related to
   relationships?: RelationshipDescriptor[]; // Model relationships
   fields: FieldDescriptor[]; // Fields of the model
   ormMapping?: OrmMappingDescriptor; // ORM mapping details
@@ -18,7 +19,7 @@ export interface CdModelDescriptor extends BaseDescriptor {
 export interface FieldDescriptor extends BaseDescriptor {
   name: string; // Field name
   dbName?: string; // Database column name (if different from field name)
-  type: string; // Data type of the field
+  type: any; // Data type of the field
   required: boolean; // Indicates if the field is mandatory
   defaultValue?: any; // Default value for the field
   unique?: boolean; // Indicates if the field value must be unique

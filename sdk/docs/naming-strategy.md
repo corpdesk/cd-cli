@@ -20,7 +20,7 @@ This document outlines the standardized approach to naming conventions and entit
 
 ## 🏗️ Conventions & Case Utilities
 
-These utilities help derive consistent naming for code automation.
+These utils help derive consistent naming for code automation.
 
 ```ts
 const modulePascal = toPascalCase(moduleData.name);       // e.g., 'coop' → 'Coop'

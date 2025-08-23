@@ -18,15 +18,14 @@ import { AppType } from './cd-app.model.js';
 
 export interface CdModuleDescriptor extends BaseDescriptor {
   name: string;
-  parentAppType?: AppType;
+  parentAppType?: AppType; // If module is part of a larger application, this indicates the parent application type
+  appType?: AppType; // Modules are considered as applications in Corpdesk, In this case it is considered an application of cd-module
   cdModuleType: CdModuleTypeDescriptor; // Type of module, e.g., frontend, api, etc.
   description?: string;
   ctx: CdCtx;
   projectGuid?: string;
   parentProjectGuid?: string;
   language?: LanguageDescriptor; // getLanguageByName(name: string,languages: LanguageDescriptor[],)
-  // license?: LicenseDescriptor; // License details // getLicenseByName(name: string,licenses: LicenseDescriptor[],)
-  // contributors?: ContributorDescriptor; // Vendors, developers, and communities // getContributorsByNames(names: string[],contributors: ContributorDescriptor,)
   controllers: CdControllerDescriptor[]; // List of controllers
   models: CdModelDescriptor[]; // List of models
   services: CdServiceDescriptor[]; // List of services

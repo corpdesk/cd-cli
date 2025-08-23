@@ -2,7 +2,7 @@ import { dirname, resolve } from 'path';
 import { CdObjModel } from '../../moduleman/models/cd-obj.model.js';
 import type { BaseDescriptor } from './base-descriptor.model.js';
 import { fileURLToPath } from 'url';
-import { HOME } from '../../utilities/fs.util.js';
+import { HOME } from '../../utils/fs.util.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);

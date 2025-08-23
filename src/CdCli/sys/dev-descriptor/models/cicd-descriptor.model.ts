@@ -86,6 +86,13 @@ export interface CICdTask<T = any> extends CdSchedulerTask<T> {
   completionRef?: string
 }
 
+export interface CiCdTaskResult {
+  stage: string;
+  task: string;
+  state: number | boolean; // numeric enum or boolean
+  message: string;
+}
+
 // ─── Triggers ───────────────────────────────────────────────
 export interface CICdTrigger extends BaseDescriptor {
   type: 'push' | 'pull_request' | 'schedule' | 'manual' | 'other';
@@ -150,6 +157,8 @@ export function isCdFxReturnPipeline(obj: any): obj is CdFxReturn<CICdPipeline> 
     Array.isArray(obj.data.stages)
   );
 }
+
+
 
 // /////////////////////////////////////////////////////////////////////////////////////////
 // ─── Environment Service ────────────────────────────────────

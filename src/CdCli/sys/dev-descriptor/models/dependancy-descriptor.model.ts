@@ -2,11 +2,10 @@
 // import type { DependencyDescriptor } from './app-descriptor.model';
 
 import type { SecurityDescriptor } from './/service-descriptor.model.js';
-import type {
-  FileReference,
-  WorkstationAccessDescriptor,
-} from './/workstations.model.js';
+import type { FileReference, WorkstationAccessDescriptor } from './/workstations.model.js';
 import type { BaseDescriptor } from './base-descriptor.model.js';
+import { AppType } from './cd-app.model.js';
+import { CdCtx } from './cd-module-descriptor.model.js';
 import type { VersionControlDescriptor } from './version-control.model.js';
 
 export interface DependencyDescriptor
@@ -14,6 +13,28 @@ export interface DependencyDescriptor
     DependencyCategoryDescriptor,
     DependencySourceDescriptor,
     DependencyScopeDescriptor {
+  /**
+   * Corpdesk-specific context (sys/app) if this dependency
+   * is a Corpdesk module
+   */
+  cdCtx?: CdCtx; // 'sys' or 'app'
+
+  /**
+   * The type of app this dependency belongs to (cd-api, cd-cli, etc.)
+   * Useful when scanning multi-app repos
+   */
+  targetApp?: AppType; // e.g. 'cd-api', 'cd-cli'
+
+  /**
+   * True if this dependency is a Corpdesk module
+   */
+  isCdModule?: boolean;
+
+  /**
+   * Absolute or relative location from repo root
+   */
+  location?: string; // e.g. 'sys/base/base.service.ts'
+
   resolution?: ResolutionDescriptor;
   usage?: UsageDescriptor;
   installCommand?: string;
@@ -29,14 +50,7 @@ export interface DependencyDescriptor
 
 // Dependency Category Descriptor
 export interface DependencyCategoryDescriptor extends BaseDescriptor {
-  category:
-    | 'library'
-    | 'tool'
-    | 'framework'
-    | 'header'
-    | 'core'
-    | 'custom'
-    | 'unknown'; // Categorization
+  category: 'library' | 'tool' | 'framework' | 'header' | 'core' | 'utility' | 'custom' | 'unknown'; // Categorization
 }
 
 // Dependency Type Descriptor
@@ -46,34 +60,17 @@ export interface DependencyTypeDescriptor extends BaseDescriptor {
 
 // Dependency Source Descriptor
 export interface DependencySourceDescriptor extends BaseDescriptor {
-  source:
-    | 'npm'
-    | 'cdn'
-    | 'local'
-    | 'custom'
-    | 'external'
-    | 'system'
-    | 'repository'
-    | 'unknown'; // Origin or source of the dependency
+  source: 'npm' | 'cdn' | 'local' | 'custom' | 'external' | 'system' | 'repository' | 'unknown'; // Origin or source of the dependency
 }
 
 // Dependency Scope Descriptor
 export interface DependencyScopeDescriptor extends BaseDescriptor {
-  scope: 'global' | 'module' | 'local' | 'unknown'; // Scope of the dependency
+  scope: 'global' | 'module' | 'local' | 'this-module' | 'unknown'; // Scope of the dependency
 }
 
 // Resolution Descriptor
 export interface ResolutionDescriptor extends BaseDescriptor {
-  method:
-    | 'import'
-    | 'require'
-    | 'include'
-    | 'header'
-    | 'new'
-    | 'DI'
-    | 'cli'
-    | 'other'
-    | 'unknown'; // How the dependency is resolved
+  method: 'import' | 'require' | 'include' | 'header' | 'new' | 'DI' | 'cli' | 'other' | 'unknown'; // How the dependency is resolved
   path?: string; // Path to the dependency
   alias?: string; // Alias name for the dependency
 }
@@ -201,8 +198,7 @@ export const dependencies: DependencyDescriptor[] = [
       vulnerabilities: [],
     },
     dependencyMetadata: {
-      description:
-        'A static module bundler for modern JavaScript applications.',
+      description: 'A static module bundler for modern JavaScript applications.',
       repository: 'https://github.com/webpack/webpack',
       license: 'MIT',
       documentationUrl: 'https://webpack.js.org/',
@@ -520,8 +516,7 @@ export const cdApiDependencies: DependencyDescriptor[] = [
     },
     security: { isSecure: true },
     dependencyMetadata: {
-      description:
-        'In-memory key-value store for caching and message brokering',
+      description: 'In-memory key-value store for caching and message brokering',
       license: 'BSD-3-Clause',
     },
   },

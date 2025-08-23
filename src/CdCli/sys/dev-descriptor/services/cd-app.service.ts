@@ -15,7 +15,7 @@ import { join } from 'path';
 //   MOD_CRAFT_WORKSHOP_DIR,
 // } from '../../../app/app-craft/workshop/cd-api/workflow/default.model.js';
 import { readdirSync, readFileSync, statSync } from 'fs';
-import { toCamelCase, toPascalCase } from '../../utilities/cd-naming.util.js';
+import { toCamelCase, toPascalCase } from '../../utils/cd-naming.util.js';
 import { CdCtx, CdModuleDescriptor } from '../models/cd-module-descriptor.model.js';
 import { inspect } from 'util';
 import {

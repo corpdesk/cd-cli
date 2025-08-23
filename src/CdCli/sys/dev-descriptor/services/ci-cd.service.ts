@@ -1,7 +1,11 @@
+import chalk from 'chalk';
+import Table from 'cli-table3';
+
 import {
   type CiCdDescriptor,
   CICdPipeline,
   CICdStage,
+  CiCdTaskResult,
   getCiCdByName,
   knownCiCds,
 } from '../models/cicd-descriptor.model.js';
@@ -10,17 +14,17 @@ import { CD_FX_FAIL, CdFxStateLevel, type CdFxReturn } from '../../base/IBase.js
 import CdLog from '../../cd-comm/controllers/cd-logger.controller.js';
 import { CdObjModel } from '../../moduleman/models/cd-obj.model.js';
 import { GenericService } from '../../base/generic-service.js';
-import { executeCommand } from '../../utilities/cmd.util.js';
+import { executeCommand } from '../../utils/cmd.util.js';
 import { join } from 'path';
 import { MOD_CRAFT_WORKSHOP_DIR } from '../../../app/app-craft/models/app-craft.model.js';
 import { DevModeAction } from '../../dev-mode/index.js';
 import { AppType } from '../models/cd-app.model.js';
 import { CdObjTypeModel } from '../../moduleman/index.js';
 import { pathToFileURL } from 'url';
-import { toCamelCase, toPascalCase } from '../../utilities/cd-naming.util.js';
+import { toCamelCase, toPascalCase } from '../../utils/cd-naming.util.js';
 import { VersionService } from './version.service.js';
 import { inspect } from 'util';
-import { writePrettyFile } from '../../utilities/fs.util.js';
+import { writePrettyFile } from '../../utils/fs.util.js';
 import { CdAutoGitService } from '../../../app/cd-auto-git/services/cd-auto-git.service.js';
 
 export class CiCdService extends GenericService<CdObjModel> {
@@ -385,5 +389,45 @@ export class CiCdService extends GenericService<CdObjModel> {
         data: null,
       };
     }
+  }
+
+  printTaskSummary(tasks: CiCdTaskResult[]) {
+    this.b.logWithContext(this, 'tasts', tasks, 'debug');
+    const table = new Table({
+      head: ['Stage', 'Task', 'Status', 'Message'],
+      colWidths: [30, 30, 12, 60],
+      wordWrap: true,
+    });
+
+    let successCount = 0;
+    let failCount = 0;
+    this.b.logWithContext(this, 'index', '01', 'debug');
+    tasks.forEach((t) => {
+      let status = '';
+      if (t.state === true || t.state === 1) {
+        status = chalk.green('✅ Success');
+        successCount++;
+      } else if (t.state === false || t.state === 0 || t.state === 2) {
+        status = chalk.red('❌ Failed');
+        failCount++;
+      } else {
+        status = chalk.yellow('⚠ Partial/Other');
+      }
+
+      table.push([t.stage, t.task, status, t.message]);
+    });
+    this.b.logWithContext(this, 'index', '02', 'debug');
+    console.log('\n' + table.toString());
+    console.log(
+      chalk.bold(`\nSummary:`) +
+        chalk.green(` ${successCount} succeeded`) +
+        ', ' +
+        chalk.red(`${failCount} failed`) +
+        ', ' +
+        chalk.yellow(`${tasks.length - successCount - failCount} warnings/other`) +
+        '\n',
+    );
+    this.b.logWithContext(this, 'index', '03', 'debug');
+    return { successCount, failCount, total: tasks.length };
   }
 }

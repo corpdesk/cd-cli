@@ -1,2 +1,3 @@
-Hello cd-ai (cd-api)
-Created: 2025-08-11T19:17:59.426Z
+# cd-ai
+
+module for processing ai auto development of corpdesk module at the backend

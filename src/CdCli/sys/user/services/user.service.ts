@@ -14,7 +14,7 @@ import { BaseService } from '../../base/base.service.js';
 import config from '../../../../config.js';
 import { GenericService } from '../../base/generic-service.js';
 import { DocModel } from '../../moduleman/models/doc.model.js';
-import { ProfileServiceHelper } from '../../utilities/profile-service-helper.js';
+import { ProfileServiceHelper } from '../../utils/profile-service-helper.js';
 
 export class UserService extends GenericService<UserModel> {
   // private b = new BaseService<UserModel>();

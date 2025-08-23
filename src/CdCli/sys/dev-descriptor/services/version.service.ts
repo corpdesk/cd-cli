@@ -1,5 +1,6 @@
 import { CdAutoGitService } from '../../../app/cd-auto-git/services/cd-auto-git.service.js';
 import {
+  RepoDirectoryDescriptor,
   SemanticVersionMap,
   SemanticVersionObject,
   VersionControlDescriptor,
@@ -8,7 +9,7 @@ import {
 } from '../models/version-control.model.js';
 import { CD_FX_FAIL, CdFxReturn, CdFxStateLevel } from '../../base/IBase.js';
 import CdLog from '../../cd-comm/controllers/cd-logger.controller.js';
-import { toCamelCase, toPascalCase } from '../../utilities/cd-naming.util.js';
+import { toCamelCase, toPascalCase } from '../../utils/cd-naming.util.js';
 import { join, resolve } from 'path';
 import { pathToFileURL } from 'url';
 import { MOD_CRAFT_WORKSHOP_DIR } from '../../../app/app-craft/models/app-craft.model.js';
@@ -38,6 +39,8 @@ export class VersionService {
     CdLog.debug(`VersionService::getVersioncontrol()/01`);
     CdLog.debug(`VersionService::getVersioncontrol()/cdObjName:${cdObjName}`);
     CdLog.debug(`VersionService::getVersioncontrol()/cdObjTypeName:${cdObjTypeName}`);
+    CdLog.debug(`VersionService::getVersioncontrol()/appType:${appType}`);
+    CdLog.debug(`VersionService::getVersioncontrol()/oEnv:${oEnv}`);
     try {
       // Convert to dashedName, e.g. cdAi → cd-ai
       const dashedName = cdObjName.toLowerCase();
@@ -62,7 +65,7 @@ export class VersionService {
         MOD_CRAFT_WORKSHOP_DIR,
         appType,
         'workflow',
-        cdObjTypeName,
+        oEnv,
         `${dashedName}-workshop.model.js`,
       );
 
@@ -130,6 +133,42 @@ export class VersionService {
         message: `VersionService:;getVersionControlByName: Error: ${(e as Error).message}`,
       };
     }
+  }
+
+  getRepoDirectoryPath(
+    versionControl: VersionControlDescriptor,
+    name?: string,
+    oEnv?: string,
+  ): CdFxReturn<string> {
+    if (!versionControl?.repository?.directories) {
+      return { state: false, message: 'No directories found in version control', data: '' };
+    }
+
+    const dirs = versionControl.repository.directories;
+
+    let match: RepoDirectoryDescriptor | undefined;
+
+    // 1️⃣ Try match by name if provided
+    if (name) {
+      match = dirs.find((d) => d.name === name);
+    }
+
+    // 2️⃣ Try match by environment name if provided (and name match failed or not given)
+    if (!match && oEnv) {
+      match = dirs.find((d) => d.environment?.name === oEnv);
+    }
+
+    // 3️⃣ Fallback to default directory
+    if (!match) {
+      match = dirs.find((d) => d.isDefault);
+    }
+
+    // 4️⃣ Return result
+    if (match?.path) {
+      return { state: true, message: 'Directory found', data: match.path };
+    }
+
+    return { state: false, message: 'No matching directory found', data: '' };
   }
 
   async parseVersionInput(input: string): Promise<CdFxReturn<SemanticVersionMap>> {

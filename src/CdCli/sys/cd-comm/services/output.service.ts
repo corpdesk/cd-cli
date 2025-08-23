@@ -1,7 +1,7 @@
 import { BaseService } from '../../base/base.service.js';
 import { DocModel } from '../../moduleman/models/doc.model.js';
 import { SessionService } from '../../user/services/session.service.js';
-import { CdPdf } from '../../utilities/pdf.js';
+import { CdPdf } from '../../utils/pdf.js';
 import { PdfModel } from '../models/pdf.model.js';
 
 export class OutputService {

@@ -42,9 +42,9 @@ To provide a unified, efficient, and scalable command-line interface (CLI) for m
 src/CdCli/
 ├── app/              # Application area
 ├── sys/              # System area
-├── base/             # Shared utilities (e.g., HttpService, IBase.ts)
-├── cd-cli/           # CLI utilities and profile handlers
-├── cd-comm/          # Communication and logging utilities
+├── base/             # Shared utils (e.g., HttpService, IBase.ts)
+├── cd-cli/           # CLI utils and profile handlers
+├── cd-comm/          # Communication and logging utils
 ├── config.ts         # Global configuration constants
 ```
 

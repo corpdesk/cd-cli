@@ -4,6 +4,8 @@ import prettier from 'prettier';
 import fs, { access } from 'fs/promises';
 import { formatterConfig } from '../base/IBase.js';
 import { constants } from 'fs';
+import { BaseService } from '../base/base.service.js';
+import CdLog from '../cd-comm/controllers/cd-logger.controller.js';
 
 export const HOME = homedir();
 
@@ -188,6 +190,7 @@ function getParserFromExtension(ext: string): prettier.BuiltInParserName {
 }
 
 export async function writePrettyFile(fullPath: string, content: string): Promise<void> {
+  CdLog.debug(`fs.util::writePrettyFile()/fullPath:${fullPath}`)
   const ext = path.extname(fullPath);
   const parser = getParserFromExtension(ext);
 
@@ -199,9 +202,10 @@ export async function writePrettyFile(fullPath: string, content: string): Promis
   console.log(`✅ Pretty file written: ${fullPath}`);
 }
 
-export async function writePrettyFileSafely(path: string, content: string): Promise<void> {
+export async function writePrettyFileSafely(fullPath: string, content: string): Promise<void> {
+  CdLog.debug(`fs.util::writePrettyFileSafely()/fullPath:${fullPath}`)
   const formatted = await prettier.format(content, { parser: 'typescript' });
-  await fs.writeFile(path, formatted, 'utf8');
+  await fs.writeFile(fullPath, formatted, 'utf8');
 }
 
 export async function fileExists(path: string): Promise<boolean> {

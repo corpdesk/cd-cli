@@ -1,63 +1,55 @@
-import {
-  DataSource,
-  DeleteResult,
-  FindOptionsWhere,
-  ObjectLiteral,
-  UpdateResult,
-} from "typeorm";
-import { CompanyModel } from "../moduleman/models/company.model.js";
-import { ConsumerModel } from "../moduleman/models/consumer.model.js";
-import { SessionModel } from "../user/models/session.model.js";
-import { IUserProfile, UserModel } from "../user/models/user.model.js";
-import { MenuViewModel } from "../moduleman/models/menu-view.model.js";
-import { AclModuleViewModel } from "../moduleman/models/acl-module-view.model.js";
-import { Observable } from "rxjs";
+import { DataSource, DeleteResult, FindOptionsWhere, ObjectLiteral, UpdateResult } from 'typeorm';
+import { CompanyModel } from '../moduleman/models/company.model.js';
+import { ConsumerModel } from '../moduleman/models/consumer.model.js';
+import { SessionModel } from '../user/models/session.model.js';
+import { IUserProfile, UserModel } from '../user/models/user.model.js';
+import { MenuViewModel } from '../moduleman/models/menu-view.model.js';
+import { AclModuleViewModel } from '../moduleman/models/acl-module-view.model.js';
+import { Observable } from 'rxjs';
 
 export interface BaseServiceInterface<T> {
   create: (
     req: Request | null,
     res: Response | null,
-    serviceInput: IServiceInput<T>
+    serviceInput: IServiceInput<T>,
   ) => Promise<CdFxReturn<T> | T | ICdResponse>;
   read: (
     req: Request | null,
     res: Response | null,
-    serviceInput: IServiceInput<T>
+    serviceInput: IServiceInput<T>,
   ) => Promise<CdFxReturn<T[]> | T[] | ICdResponse>;
   update: (
     req: Request | null,
     res: Response | null,
-    serviceInput: IServiceInput<T>
+    serviceInput: IServiceInput<T>,
   ) => Promise<CdFxReturn<UpdateResult> | UpdateResult | ICdResponse>;
   delete: (
     req: Request | null,
     res: Response | null,
-    serviceInput: IServiceInput<T>
+    serviceInput: IServiceInput<T>,
   ) => Promise<CdFxReturn<DeleteResult> | DeleteResult | ICdResponse>;
 }
 
-export abstract class AbstractBaseService<T>
-  implements BaseServiceInterface<T>
-{
+export abstract class AbstractBaseService<T> implements BaseServiceInterface<T> {
   abstract create(
     req: Request | null,
     res: Response | null,
-    serviceInput: IServiceInput<T>
+    serviceInput: IServiceInput<T>,
   ): Promise<CdFxReturn<T> | T | ICdResponse>;
   abstract read(
     req: Request | null,
     res: Response | null,
-    serviceInput: IServiceInput<T>
+    serviceInput: IServiceInput<T>,
   ): Promise<CdFxReturn<T[]> | T[] | ICdResponse>;
   abstract update(
     req: Request | null,
     res: Response | null,
-    serviceInput: IServiceInput<T>
+    serviceInput: IServiceInput<T>,
   ): Promise<CdFxReturn<UpdateResult> | UpdateResult | ICdResponse>;
   abstract delete(
     req: Request | null,
     res: Response | null,
-    serviceInput: IServiceInput<T>
+    serviceInput: IServiceInput<T>,
   ): Promise<CdFxReturn<DeleteResult> | DeleteResult | ICdResponse>;
 }
 
@@ -121,94 +113,94 @@ export interface FxStateSemantics {
 export const CD_FX_SUCCESS: CdFxReturn<null> = {
   data: null,
   state: CdFxStateLevel.Success,
-  message: "Success!",
+  message: 'Success!',
 };
 
 export const CD_FX_FAIL: CdFxReturn<null> = {
   data: null,
   state: CdFxStateLevel.Error,
-  message: "Failed!",
+  message: 'Failed!',
 };
 
 export const CD_FX_PARTIAL_SUCCESS: CdFxReturn<null> = {
   data: null,
   state: CdFxStateLevel.PartialSuccess,
-  message: "Partial success.",
+  message: 'Partial success.',
 };
 
 export const CD_FX_LOGICAL_FAILURE: CdFxReturn<null> = {
   data: null,
   state: CdFxStateLevel.LogicalFailure,
-  message: "Logical failure.",
+  message: 'Logical failure.',
 };
 
 export const CD_FX_WARNING: CdFxReturn<null> = {
   data: null,
   state: CdFxStateLevel.Warning,
-  message: "Warning issued.",
+  message: 'Warning issued.',
 };
 
 export const CD_FX_RECOVERABLE: CdFxReturn<null> = {
   data: null,
   state: CdFxStateLevel.Recoverable,
-  message: "Recoverable state.",
+  message: 'Recoverable state.',
 };
 
 export const CD_FX_INFO: CdFxReturn<null> = {
   data: null,
   state: CdFxStateLevel.Info,
-  message: "Informational message.",
+  message: 'Informational message.',
 };
 
 export const CD_FX_PENDING: CdFxReturn<null> = {
   data: null,
   state: CdFxStateLevel.Pending,
-  message: "Pending operation.",
+  message: 'Pending operation.',
 };
 
 export const CD_FX_CANCELLED: CdFxReturn<null> = {
   data: null,
   state: CdFxStateLevel.Cancelled,
-  message: "Operation cancelled.",
+  message: 'Operation cancelled.',
 };
 
 export const CD_FX_NOT_FOUND: CdFxReturn<null> = {
   data: null,
   state: CdFxStateLevel.NotFound,
-  message: "Not found.",
+  message: 'Not found.',
 };
 
 export const CD_FX_NOT_IMPLEMENTED: CdFxReturn<null> = {
   data: null,
   state: CdFxStateLevel.NotImplemented,
-  message: "Not implemented yet.",
+  message: 'Not implemented yet.',
 };
 
 export const CD_FX_SYSTEM_ERROR: CdFxReturn<null> = {
   data: null,
   state: CdFxStateLevel.SystemError,
-  message: "System-level error occurred.",
+  message: 'System-level error occurred.',
 };
 
 export const CD_FX_FATAL: CdFxReturn<null> = {
   data: null,
   state: CdFxStateLevel.Fatal,
-  message: "Fatal error.",
+  message: 'Fatal error.',
 };
 
 export const CD_FX_UNKNOWN: CdFxReturn<null> = {
   data: null,
   state: CdFxStateLevel.Unknown,
-  message: "Unknown state or error.",
+  message: 'Unknown state or error.',
 };
 
 /**
  * For use in utility run() with anticipated errors
  */
 export interface CdErrorRecognition {
-  pattern: string | RegExp;           // To match against stderr or combined output
-  state: CdFxStateLevel;              // Mapped response level
-  message?: string;                   // Friendly message if match is found
+  pattern: string | RegExp; // To match against stderr or combined output
+  state: CdFxStateLevel; // Mapped response level
+  message?: string; // Friendly message if match is found
 }
 
 // cd request format
@@ -301,7 +293,7 @@ export interface EnvConfig {
   firebaseConfig?: any;
 }
 
-export const SYS_CTX = "Sys";
+export const SYS_CTX = 'Sys';
 export const DEFAULT_DAT: EnvelopDat = {
   f_vals: [
     {
@@ -316,54 +308,54 @@ export const DEFAULT_ARGS = {};
 
 export const DEFAULT_ENVELOPE_CREATE: ICdRequest = {
   ctx: SYS_CTX,
-  m: "",
-  c: "",
-  a: "Create",
+  m: '',
+  c: '',
+  a: 'Create',
   dat: DEFAULT_DAT,
   args: DEFAULT_ARGS,
 };
 
 export const DEFAULT_ENVELOPE_GET: ICdRequest = {
   ctx: SYS_CTX,
-  m: "",
-  c: "",
-  a: "Get",
+  m: '',
+  c: '',
+  a: 'Get',
   dat: DEFAULT_DAT,
   args: DEFAULT_ARGS,
 };
 
 export const DEFAULT_ENVELOPE_GET_PAGED: ICdRequest = {
   ctx: SYS_CTX,
-  m: "",
-  c: "",
-  a: "GetCount",
+  m: '',
+  c: '',
+  a: 'GetCount',
   dat: DEFAULT_DAT,
   args: DEFAULT_ARGS,
 };
 
 export const DEFAULT_ENVELOPE_GET_TYPE: ICdRequest = {
   ctx: SYS_CTX,
-  m: "",
-  c: "",
-  a: "GetCount",
+  m: '',
+  c: '',
+  a: 'GetCount',
   dat: DEFAULT_DAT,
   args: DEFAULT_ARGS,
 };
 
 export const DEFAULT_ENVELOPE_UPDATE: ICdRequest = {
   ctx: SYS_CTX,
-  m: "",
-  c: "",
-  a: "Update",
+  m: '',
+  c: '',
+  a: 'Update',
   dat: DEFAULT_DAT,
   args: DEFAULT_ARGS,
 };
 
 export const DEFAULT_ENVELOPE_DELETE: ICdRequest = {
   ctx: SYS_CTX,
-  m: "",
-  c: "",
-  a: "Delete",
+  m: '',
+  c: '',
+  a: 'Delete',
   dat: DEFAULT_DAT,
   args: DEFAULT_ARGS,
 };
@@ -380,11 +372,11 @@ export const DEFAULT_CD_RESPONSE: ICdResponse = {
     success: false,
     info: {
       messages: [],
-      code: "",
-      app_msg: "",
+      code: '',
+      app_msg: '',
     },
     sess: {
-      cd_token: "",
+      cd_token: '',
       jwt: null,
       ttl: 600,
     },
@@ -394,10 +386,10 @@ export const DEFAULT_CD_RESPONSE: ICdResponse = {
 };
 
 export const DEFAULT_CD_REQUEST: ICdRequest = {
-  ctx: "Sys",
-  m: "",
-  c: "",
-  a: "",
+  ctx: 'Sys',
+  m: '',
+  c: '',
+  a: '',
   dat: DEFAULT_DAT,
   args: DEFAULT_ARGS,
 };
@@ -526,11 +518,36 @@ export interface IFetchInput {
     method?: string;
     body?: string;
     headers?: {
-      "Content-Type"?: string;
-      "X-Parse-Application-Id"?: string;
-      "X-Parse-REST-API-Key"?: string;
+      'Content-Type'?: string;
+      'X-Parse-Application-Id'?: string;
+      'X-Parse-REST-API-Key'?: string;
     };
   };
+}
+
+/**
+ * Usage for interface ValidationRules 
+ const rules: ValidationRules = {
+  required: ["userId", "coopId"],
+  noDuplicate: ["userId", "coopId"],
+  allowedValues: {
+    coopMemberTypeId: [101, 102, 108],
+  },
+  minLength: {
+    coopMemberProfile: 5,
+  },
+  regex: {
+    userEmail: /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+  },
+};
+ */
+export interface ValidationRules {
+  required?: string[]; // Fields that must be present
+  noDuplicate?: string[]; // Fields that must be unique
+  allowedValues?: Record<string, any[]>; // Optional: enforce enum-like constraints
+  minLength?: Record<string, number>; // Optional: enforce minimum string lengths
+  maxLength?: Record<string, number>; // Optional: enforce maximum string lengths
+  regex?: Record<string, RegExp>; // Optional: custom format rules
 }
 
 export interface Cmd<T> {
@@ -640,9 +657,9 @@ export interface IFetchInput {
     method?: string;
     body?: string;
     headers?: {
-      "Content-Type"?: string;
-      "X-Parse-Application-Id"?: string;
-      "X-Parse-REST-API-Key"?: string;
+      'Content-Type'?: string;
+      'X-Parse-Application-Id'?: string;
+      'X-Parse-REST-API-Key'?: string;
     };
   };
 }
@@ -826,8 +843,8 @@ export const INIT_CD_RESP = {
     success: false,
     info: {
       messages: [],
-      code: "",
-      app_msg: "",
+      code: '',
+      app_msg: '',
     },
     sess: {
       cd_token: null,
@@ -919,7 +936,7 @@ export type SearchTerm = { term: string } | string;
 export interface ExecOptions {
   cwd?: string; // Optional working directory
   env?: NodeJS.ProcessEnv; // Optional environment variables
-  mode?: "sync" | "async"; // Execution mode
+  mode?: 'sync' | 'async'; // Execution mode
 }
 
 export interface ISessionDataExt {
@@ -989,6 +1006,5 @@ export const formatterConfig: FormatterConfigMap = {
   '.css': { parser: 'css' },
   '.scss': { parser: 'scss' },
   '.yml': { parser: 'yaml' },
-  '.yaml': { parser: 'yaml' }
+  '.yaml': { parser: 'yaml' },
 };
-

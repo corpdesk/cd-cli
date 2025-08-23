@@ -101,6 +101,7 @@ export interface RepoDescriptor extends BaseDescriptor {
 // Interface for repository directory. Multiples can be used to describe different directories of different contextual usage in the repository.
 export interface RepoDirectoryDescriptor {
   // context: 'workshop' | 'test-bed' | 'production' | 'ci-cd' | 'custom'; // known use-case types
+  name?: string; // Name of the directory (e.g., "src", "dist", "output")
   environment: EnvironmentDescriptor; // Environment context (e.g., workshop, test-bed)
   path: string; // absolute or relative path
   purpose?: string; // optional human-readable explanation
@@ -233,8 +234,6 @@ export interface CdFileWrapper<T> {
   fileMeta: CdFileDescriptor;
 }
 
-
-
 export const repoRegistry: VersionControlDescriptor[] = [
   {
     name: 'cd-ai',
@@ -249,31 +248,67 @@ export const repoRegistry: VersionControlDescriptor[] = [
         repoHost: 'corpdesk',
       },
       directories: [
+        /**
+         * This is the workshop output directory associated with this particular version controller descriptor.
+         * It is used to scafold the module for the cd-ai.
+         */
         {
+          name: 'workshopModuleOutput',
           environment: envWorkshop,
-          // path: '/home/emp-12/cd-cli/dist/CdCli/app/app-craft/workshop/cd-api/output/cd-ai',
-          path: '/home/emp-12/cd-cli/src/CdCli/app/app-craft/workshop/cd-module/output/cd-ai',
+          path: '/home/emp-12/cd-cli/dist/CdCli/app/app-craft/workshop/cd-module/output/cd-ai',
           purpose: 'Auto-generated source files',
           isDefault: true,
         },
+        /**
+         * This is the test-bed for this scafold module.
+         * The module is first generated in the workshop output directory,
+         * then synced with the git repository.
+         * It is then used for integration and live testing.
+         * The test-bed is used to test the module in a live environment.
+         */
         {
+          name: 'moduleTestBed',
           environment: envTestBed,
           path: '/home/emp-12/cd-projects/cd-api/src/CdApi/app/cd-ai',
           purpose: 'Integration and live testing',
         },
+        /**
+         * This is the app directory for the test-bed, cd-api.
+         */
         {
+          name: 'testBedApiApp',
           environment: envCdApiApp,
           path: '/home/emp-12/cd-projects/cd-api/src/CdApi/app',
           purpose: 'cd-api apps directory',
         },
+        /**
+         * This is the sys directory for the test-bed, cd-api.
+         */
         {
+          name: 'testBedApiSys',
           environment: envCdApiSys,
           path: '/home/emp-12/cd-projects/cd-api/src/CdApi/sys',
           purpose: 'cd-api system directory',
         },
+        /**
+         * This is the root directory for the test-bed, cd-api.
+         * It is used to derive the app descriptor path for the cd-api.
+         */
         {
+          name: 'testBedApiRoot',
           environment: envCdApi,
           path: '/home/emp-12/cd-projects/cd-api',
+          purpose: 'cd-api root directory',
+        },
+        /**
+         * This is the app descriptor for this particular version controller descriptor.
+         * In this case it is the cd-api root directory.
+         * It is used to derive the app descriptor path for the cd-api.
+         */
+        {
+          name: 'CdAppDescriptor',
+          environment: envCdApi,
+          path: '/home/emp-12/cd-projects/cd-api/.cd/cd-app.descriptor.json',
           purpose: 'cd-api root directory',
         },
       ],

@@ -26,7 +26,7 @@ import config from '../../../../config.js';
 })
 // @CdModel
 export class CompanyModel {
-  b!: BaseService<DocModel>;
+  b!: BaseService<CompanyModel>;
 
   @PrimaryGeneratedColumn({
     name: 'company_id',

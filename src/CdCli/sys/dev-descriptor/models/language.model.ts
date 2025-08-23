@@ -1,249 +1,198 @@
 // import type { LanguageDescriptor } from './dev-descriptor.model';
 
+import { CdFxReturn } from '../../base/IBase.js';
 import type { BaseDescriptor } from './base-descriptor.model.js';
 
-export interface LanguageDescriptor extends BaseDescriptor {
-  name: string; // Name of the language
-  version: string; // Current version
-  releaseDate?: string; // Release date of the current or first version
-  type: 'interpreted' | 'compiled' | 'hybrid' | 'unknown'; // Type of language
+// export interface LanguageDescriptor extends BaseDescriptor {
+//   name: string; // Name of the language
+//   version: string; // Current version
+//   releaseDate?: string; // Release date of the current or first version
+//   type: 'interpreted' | 'compiled' | 'hybrid' | 'unknown'; // Type of language
 
-  languageEcosystem: LanguageEcosystem;
-  languageParadigms: LanguageParadigms;
-  languageTooling: LanguageTooling;
-  languageFeatures: LanguageFeatures;
-  languageMiscellaneous: LanguageMiscellaneous;
+//   languageEcosystem: LanguageEcosystem;
+//   languageParadigms: LanguageParadigms;
+//   languageTooling: LanguageTooling;
+//   languageFeatures: LanguageFeatures;
+//   languageMiscellaneous: LanguageMiscellaneous;
+// }
+
+/**
+ * Generic Language Descriptor System
+ * Supports minimal usage (just name + .ts) and enriched multi-stage modeling
+ */
+
+export interface LanguageDescriptor extends BaseDescriptor {
+  name: LanguageName; // Required: given name (e.g., "TypeScript", "C++", "Python"). C
+  version?: string; // Optional: version (e.g., "5.0", "C++20")
+  releaseDate?: string; // Optional: first/current release date
+  type?: 'interpreted' | 'compiled' | 'hybrid' | 'unknown';
+
+  // --- Core usage driver ---
+  fileProfiles: LanguageFileProfile[]; // Required: must know at least one extension
+
+  // --- Optional enrichment ---
+  languageEcosystem?: LanguageEcosystem;
+  languageParadigms?: LanguageParadigms;
+  languageTooling?: LanguageTooling;
+  languageFeatures?: LanguageFeatures;
+  languageMiscellaneous?: LanguageMiscellaneous;
 }
 
+/**
+ * Describes how files are represented in a given language ecosystem
+ */
+export interface LanguageFileProfile extends BaseDescriptor {
+  profileName?: string; // Optional: e.g., "typeScriptSource", "cppHeader"
+  extension: string; // e.g. ".ts", ".js", ".cpp", ".h"
+  stage?: 'source' | 'transpiled' | 'compiled' | 'intermediate' | 'executable';
+  standard?: string; // e.g., "ECMAScript 6", "C++20"
+  tooling?: string[]; // Tooling relevant for this stage (["tsc", "babel"])
+  notes?: string; // Additional context/usage notes
+}
+
+/**
+ * Language Ecosystem
+ */
 export interface LanguageEcosystem extends BaseDescriptor {
-  defaultPackageManager?: string; // Primary package manager
-  frameworks?: string[]; // List of popular frameworks/libraries
+  defaultPackageManager?: string; // e.g., "npm", "conan"
+  frameworks?: string[]; // Popular frameworks/libraries
   community?: {
     size?: number; // Estimated community size
-    forums?: string[]; // URLs to forums or resources
+    forums?: string[]; // Community links/resources
   };
 }
 
+/**
+ * Language Paradigms (programming style support)
+ */
 export interface LanguageParadigms extends BaseDescriptor {
-  supportsOOP: boolean; // Supports Object-Oriented Programming
-  supportsFunctional: boolean; // Supports Functional Programming
-  supportsProcedural: boolean; // Supports Procedural Programming
+  supportsOOP?: boolean;
+  supportsFunctional?: boolean;
+  supportsProcedural?: boolean;
+  supportsLogic?: boolean;
+  supportsConcurrent?: boolean;
 }
 
+/**
+ * Tooling ecosystem
+ */
 export interface LanguageTooling extends BaseDescriptor {
-  buildTools?: string[]; // Common build tools
-  testingFrameworks?: string[]; // Testing frameworks
-  linters?: string[]; // Linters for code quality
-  debuggers?: string[]; // Debugging tools
+  buildTools?: string[];
+  testingFrameworks?: string[];
+  linters?: string[];
+  debuggers?: string[];
+  packageManagers?: string[];
 }
 
+/**
+ * Language Features
+ */
 export interface LanguageFeatures extends BaseDescriptor {
-  staticTyping: boolean; // Static typing support
-  dynamicTyping: boolean; // Dynamic typing support
-  memoryManagement: 'garbageCollection' | 'manual' | 'other' | 'unknown'; // Memory management type
-  platformSupport: string[]; // Supported platforms (e.g., server, mobile, etc.)
-  interoperability?: string[]; // Supported languages/productions for interop
+  staticTyping?: boolean;
+  dynamicTyping?: boolean;
+  memoryManagement?: 'garbageCollection' | 'manual' | 'other' | 'unknown';
+  platformSupport?: string[]; // e.g., ["server", "mobile", "desktop"]
+  interoperability?: string[]; // e.g., ["WebAssembly", "Java"]
 }
 
+/**
+ * Miscellaneous descriptors
+ */
 export interface LanguageMiscellaneous extends BaseDescriptor {
-  documentationStyle?: string; // Preferred documentation tool or style
-  fileExtensions?: string[]; // File extensions associated with the language
-  useCases?: string[]; // Typical use cases for the language
+  documentationStyle?: string; // e.g., "JSDoc", "Doxygen"
+  useCases?: string[]; // e.g., ["Web apps", "System programming"]
+  fileExtensions?: string[]; // Legacy/extra extensions, if needed
+}
+
+export enum LanguageName {
+  TypeScript = 'TypeScript',
+  Cpp = 'C++',
+  Python = 'Python',
+  JavaScript = 'JavaScript',
+  Java = 'Java',
+  Go = 'Go',
+  Rust = 'Rust',
+  Ruby = 'Ruby',
+  PHP = 'PHP',
+  CSharp = 'C#',
 }
 
 export const languages: LanguageDescriptor[] = [
   {
-    name: 'JavaScript',
-    version: 'ES2022',
-    releaseDate: '2022-06-01',
-    type: 'interpreted',
+    name: LanguageName.TypeScript,
+    version: '5.0',
+    type: 'hybrid',
+    fileProfiles: [
+      { profileName: 'tsSource', extension: '.ts', stage: 'source', standard: 'ECMAScript 6+', tooling: ['tsc'] },
+      { profileName: 'tsCompiled', extension: '.js', stage: 'transpiled', standard: 'ECMAScript 6+', tooling: ['node'] },
+    ],
     languageEcosystem: {
       defaultPackageManager: 'npm',
-      frameworks: ['React', 'Angular', 'Vue'],
-      community: {
-        size: 2000000,
-        forums: ['https://stackoverflow.com', 'https://dev.to'],
-      },
+      frameworks: ['Angular', 'NestJS', 'React'],
     },
-    languageParadigms: {
-      supportsOOP: true,
-      supportsFunctional: true,
-      supportsProcedural: true,
-    },
+    languageParadigms: { supportsOOP: true, supportsFunctional: true },
     languageTooling: {
-      buildTools: ['Webpack', 'Parcel', 'Rollup'],
-      testingFrameworks: ['Jest', 'Mocha', 'Jasmine'],
-      linters: ['ESLint', 'JSHint'],
-      debuggers: ['Chrome DevTools', 'Node.js Inspector'],
-    },
-    languageFeatures: {
-      staticTyping: false,
-      dynamicTyping: true,
-      memoryManagement: 'garbageCollection',
-      platformSupport: ['server', 'browser', 'mobile'],
-      interoperability: ['Node.js', 'Deno'],
-    },
-    languageMiscellaneous: {
-      documentationStyle: 'JSDoc',
-      fileExtensions: ['.js', '.mjs'],
-      useCases: ['web development', 'server-side applications'],
-    },
-  },
-  {
-    name: 'Python',
-    version: '3.11',
-    releaseDate: '2022-10-03',
-    type: 'interpreted',
-    languageEcosystem: {
-      defaultPackageManager: 'pip',
-      frameworks: ['Django', 'Flask', 'FastAPI'],
-      community: {
-        size: 1500000,
-        forums: ['https://python.org', 'https://reddit.com/r/python'],
-      },
-    },
-    languageParadigms: {
-      supportsOOP: true,
-      supportsFunctional: true,
-      supportsProcedural: true,
-    },
-    languageTooling: {
-      buildTools: ['PyInstaller', 'Setuptools'],
-      testingFrameworks: ['unittest', 'pytest', 'nose'],
-      linters: ['Pylint', 'flake8'],
-      debuggers: ['PDB', 'PyCharm Debugger'],
-    },
-    languageFeatures: {
-      staticTyping: true,
-      dynamicTyping: true,
-      memoryManagement: 'garbageCollection',
-      platformSupport: ['server', 'desktop', 'scientific computing'],
-      interoperability: ['C', 'Java'],
-    },
-    languageMiscellaneous: {
-      documentationStyle: 'Sphinx',
-      fileExtensions: ['.py'],
-      useCases: ['data science', 'web development', 'automation'],
-    },
-  },
-  {
-    name: 'C++',
-    version: '20',
-    releaseDate: '2020-12-15',
-    type: 'compiled',
-    languageEcosystem: {
-      defaultPackageManager: 'vcpkg',
-      frameworks: ['Qt', 'Boost'],
-      community: {
-        size: 800000,
-        forums: ['https://cplusplus.com', 'https://stackoverflow.com'],
-      },
-    },
-    languageParadigms: {
-      supportsOOP: true,
-      supportsFunctional: true,
-      supportsProcedural: true,
-    },
-    languageTooling: {
-      buildTools: ['CMake', 'Make'],
-      testingFrameworks: ['Google Test', 'Catch2'],
-      linters: ['Cppcheck', 'Clang-Tidy'],
-      debuggers: ['GDB', 'LLDB'],
-    },
-    languageFeatures: {
-      staticTyping: true,
-      dynamicTyping: false,
-      memoryManagement: 'manual',
-      platformSupport: ['server', 'desktop', 'embedded'],
-      interoperability: ['C', 'Python'],
-    },
-    languageMiscellaneous: {
-      documentationStyle: 'Doxygen',
-      fileExtensions: ['.cpp', '.h', '.hpp'],
-      useCases: ['game development', 'system software', 'embedded systems'],
-    },
-  },
-  {
-    name: 'Go',
-    version: '1.21',
-    releaseDate: '2023-08-01',
-    type: 'compiled',
-    languageEcosystem: {
-      defaultPackageManager: 'go modules',
-      frameworks: ['Gin', 'Echo', 'Beego'],
-      community: {
-        size: 500000,
-        forums: ['https://golang.org', 'https://golangweekly.com'],
-      },
-    },
-    languageParadigms: {
-      supportsOOP: false,
-      supportsFunctional: false,
-      supportsProcedural: true,
-    },
-    languageTooling: {
-      buildTools: ['Go Build'],
-      testingFrameworks: ['Go Test'],
-      linters: ['Golint'],
-      debuggers: ['Delve'],
+      buildTools: ['webpack', 'tsc'],
+      testingFrameworks: ['jest'],
+      linters: ['eslint'],
     },
     languageFeatures: {
       staticTyping: true,
       dynamicTyping: false,
       memoryManagement: 'garbageCollection',
-      platformSupport: ['server', 'cloud'],
-      interoperability: ['C'],
     },
-    languageMiscellaneous: {
-      documentationStyle: 'Godoc',
-      fileExtensions: ['.go'],
-      useCases: ['cloud computing', 'microservices', 'network programming'],
-    },
+  },
+  {
+    name: LanguageName.Cpp,
+    version: 'C++20',
+    type: 'compiled',
+    fileProfiles: [
+      { profileName: 'cppSource', extension: '.cpp', stage: 'source', standard: 'C++20', tooling: ['g++'] },
+      { profileName: 'hSource', extension: '.h', stage: 'source', standard: 'C++20' },
+      { profileName: 'oBinary', extension: '.o', stage: 'intermediate', tooling: ['ld'] },
+      { profileName: 'execBin', extension: '.exe', stage: 'executable' },
+    ],
+    languageEcosystem: { defaultPackageManager: 'conan' },
+    languageParadigms: { supportsOOP: true, supportsProcedural: true, supportsConcurrent: true },
+    languageFeatures: { staticTyping: true, memoryManagement: 'manual' },
   },
 ];
 
 export const defaultLanguage: LanguageDescriptor = {
-  name: 'Unknown',
-  version: 'N/A',
-  type: 'interpreted',
-  languageEcosystem: {
-    defaultPackageManager: 'N/A',
-    frameworks: [],
-    community: {
-      size: 0,
-      forums: [],
-    },
-  },
-  languageParadigms: {
-    supportsOOP: false,
-    supportsFunctional: false,
-    supportsProcedural: false,
-  },
-  languageTooling: {
-    buildTools: [],
-    testingFrameworks: [],
-    linters: [],
-    debuggers: [],
-  },
-  languageFeatures: {
-    staticTyping: false,
-    dynamicTyping: false,
-    memoryManagement: 'other',
-    platformSupport: [],
-    interoperability: [],
-  },
-  languageMiscellaneous: {
-    documentationStyle: 'N/A',
-    fileExtensions: [],
-    useCases: [],
-  },
+  name: LanguageName.TypeScript,
+  fileProfiles: [{ extension: '.ts', stage: 'source', standard: 'ECMAScript 6+' }],
 };
 
+
+
 export function getLanguageByName(
-  name: string,
+  name: LanguageName,
   languages: LanguageDescriptor[],
 ): LanguageDescriptor {
-  return (
-    languages.find((language) => language.name === name) || defaultLanguage
-  );
+  return languages.find((language) => language.name === name) || defaultLanguage;
+}
+
+/**
+ * Extracts a file extension for a given language name and profile.
+ * @param name - The language name (enum LanguageName).
+ * @param languages - The array of LanguageDescriptor objects.
+ * @param fileProfileName - The profileName to search within the language's fileProfiles.
+ * @returns CdFxReturn<string | null> - The extension if found, otherwise null.
+ */
+export function getExtensionByLangProfile(
+  name: LanguageName,
+  languages: LanguageDescriptor[],
+  fileProfileName: string
+): CdFxReturn<string | null> {
+  const lang = languages.find(l => l.name === name);
+  if (!lang) {
+    return { state: false, data: null, message: `Language ${name} not found.` };
+  }
+
+  const profile = lang.fileProfiles.find(fp => fp.profileName === fileProfileName);
+  if (!profile) {
+    return { state: false, data: null, message: `Profile ${fileProfileName} not found for language ${name}.` };
+  }
+
+  return { state: true, data: profile.extension, message: 'Extension retrieved successfully.' };
 }

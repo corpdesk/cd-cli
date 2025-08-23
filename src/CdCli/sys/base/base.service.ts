@@ -22,6 +22,7 @@ import {
   IQbFilter,
   IQbInput,
   ObjectItem,
+  ValidationRules,
   type BaseServiceInterface,
   type CdFxReturn,
   type ICdRequest,
@@ -34,7 +35,7 @@ import {
 } from './IBase.js';
 import { SessionModel } from '../user/models/session.model.js';
 import { RedisService } from './redis-service.js';
-import { EntityAdapter } from '../utilities/entity-adapter.js';
+import { EntityAdapter } from '../utils/entity-adapter.js';
 import config from '../../../config.js';
 import { v4 as uuidv4 } from 'uuid';
 import { Logger } from 'winston';
@@ -47,9 +48,10 @@ import { QueryDeepPartialEntity } from 'typeorm/query-builder/QueryPartialEntity
 import { createClient } from 'redis';
 import { from, Observable } from 'rxjs';
 import { SocketStore } from '../cd-push/models/cd-push-socket.model.js';
-import { QueryBuilderHelper } from '../utilities/query-builder-helper.js';
+import { QueryBuilderHelper } from '../utils/query-builder-helper.js';
 import { TypeOrmDatasource } from './type-orm-connect.js';
-import { toKebabCase } from '../utilities/cd-naming.util.js';
+import { toKebabCase } from '../utils/cd-naming.util.js';
+import { inspect } from 'util';
 
 const USER_ANON = 1000;
 const INVALID_REQUEST = 'invalid request';
@@ -1140,17 +1142,17 @@ export class BaseService<T extends ObjectLiteral> extends AbstractBaseService<T>
     return true;
   }
 
-  siGet<T>(q: IQuery, dn: string, model: new () => T): IServiceInput<T> {
-    return {
-      serviceModel: model,
-      docName: dn,
-      cmd: {
-        action: 'find',
-        query: q,
-      },
-      dSource: 1,
-    };
-  }
+  // siGet<T>(q: IQuery, dn: string, model: new () => T): IServiceInput<T> {
+  //   return {
+  //     serviceModel: model,
+  //     docName: dn,
+  //     cmd: {
+  //       action: 'find',
+  //       query: q,
+  //     },
+  //     dSource: 1,
+  //   };
+  // }
 
   async validateUnique(req, res, serviceInput) {
     this.logger.logDebug('BaseService::validateUnique()/01');
@@ -2161,5 +2163,298 @@ export class BaseService<T extends ObjectLiteral> extends AbstractBaseService<T>
 
   isEmpty(value) {
     return value == null || value.length === 0;
+  }
+
+  /**
+   * @deprecated
+   * This method was an early helper to construct IServiceInput for read/find operations.
+   * Use `serviceInputGet()` instead, which follows clearer naming conventions.
+   *
+   * @param q - The IQuery object defining filters, pagination, etc.
+   * @param dn - A human-readable docName for logging/debugging (e.g., 'Get Members')
+   * @param model - The model constructor to query (e.g., CoopMemberModel)
+   * @returns IServiceInput - A well-structured input object for BaseService read methods
+   */
+  siGet<T>(q: IQuery, dn: string, model: new () => T): IServiceInput<T> {
+    return {
+      serviceModel: model,
+      docName: dn,
+      cmd: {
+        action: 'find',
+        query: q,
+      },
+      dSource: 1,
+    };
+  }
+
+  /**
+   * Constructs a standardized IServiceInput object for read operations.
+   *
+   * Recommended replacement for the deprecated `siGet()` method.
+   * Used when performing actions like find, list, or fetch with filters.
+   *
+   * @param query - IQuery object (filter, take, skip, select, etc.)
+   * @param docName - Descriptive name for tracing/debugging/logging purposes
+   * @param model - The model class (constructor function) to be used in the query
+   * @returns IServiceInput object for use with read operations
+   */
+  serviceInputGet<T>(query: IQuery, docName: string, model: new () => T): IServiceInput<T> {
+    return {
+      serviceModel: model,
+      docName,
+      cmd: {
+        action: 'find',
+        query,
+      },
+      dSource: 1,
+    };
+  }
+
+  /**
+   * Constructs a standardized IServiceInput object for Create, Update, or Delete operations.
+   *
+   * Includes reference to the service instance, its model, and metadata such as docName.
+   * This method is intended for general use across all non-read (CRUD) operations.
+   *
+   * @param serviceInstance - The active service instance (e.g., `this`)
+   * @param docName - Optional descriptive name; defaults to "CRUD <ModelName>" if not provided
+   * @returns IServiceInput object suitable for create/update/delete operations
+   */
+  serviceInputCRUD(serviceInstance: any): IServiceInput<T> {
+    const modelName =
+      serviceInstance.modelName ||
+      (serviceInstance.serviceModel?.constructor?.name ?? 'UnknownModel');
+    const methodName = this.getCallerFunctionName();
+    const className = serviceInstance.constructor?.name || 'UnknownService';
+
+    return {
+      serviceInstance,
+      serviceModel: serviceInstance.serviceModel.constructor, // ✅ FIXED
+      modelName,
+      serviceModelInstance: serviceInstance.serviceModel,
+      docName: `${methodName} ${className}`,
+      dSource: 1,
+    };
+  }
+
+  /**
+   * Logs structured debug information with timestamp, class/method context, and data.
+   * Automatically resolves the calling method name and supports rich data inspection.
+   *
+   * @param thisArg - The calling class instance (usually `this`)
+   * @param message - A message to include in the log
+   * @param data - Optional data to be logged alongside
+   * @param level - Optional log level (default is "debug")
+   */
+  async logWithContext(
+    thisArg: any,
+    message: string,
+    data?: any,
+    level: 'debug' | 'info' | 'warn' | 'error' = 'debug',
+  ) {
+    // const chalk = await import("chalk");
+    const caller = this.getCallerInfo(4); // customizable stack depth
+    const className = thisArg.constructor?.name || 'UnknownClass';
+    const timestamp = new Date().toLocaleString('en-KE', {
+      timeZone: process.env.TZ || 'Africa/Nairobi',
+    });
+
+    const prefix = `[${timestamp}] [${className}::${caller.method}():${caller.line}]`;
+
+    const logMsg = data
+      ? `${prefix}: ${message} — ${inspect(data, { depth: 3, colors: true })}`
+      : `${prefix}: ${message}`;
+
+    switch (level) {
+      case 'info':
+        console.log(chalk.green(logMsg));
+        break;
+      case 'warn':
+        console.warn(chalk.yellow(logMsg));
+        break;
+      case 'error':
+        console.error(chalk.red(logMsg));
+        break;
+      default:
+        console.debug(chalk.blueBright(logMsg));
+        break;
+    }
+  }
+
+  /**
+   * Returns the method name and line number of the calling function.
+   * Useful for contextual logging.
+   *
+   * @param depth - Stack depth to resolve the actual caller
+   * @returns An object with method and line
+   */
+  getCallerInfo(depth = 3): { method: string; line: string } {
+    const stack = new Error().stack?.split('\n') || [];
+    const targetLine = stack[depth] || '';
+
+    const methodMatch = targetLine.match(/at (\w+)/);
+    const method = methodMatch?.[1] || 'unknownMethod';
+
+    const lineMatch = targetLine.match(/:(\d+):\d+\)?$/);
+    const line = lineMatch?.[1] || '??';
+
+    return { method, line };
+  }
+
+  /**
+   * Utility to get the name of the function that called the current method.
+   * This uses stack trace introspection — may vary slightly by environment.
+   */
+  /**
+   * Extracts the name of the caller function from the stack trace.
+   * @param depth - Optional depth in the call stack. Default is 3.
+   *                Increase it if more stack frames are involved.
+   */
+  private getCallerFunctionName(depth: number = 3): string {
+    const err = new Error();
+    const stack = err.stack?.split('\n') || [];
+
+    // Example:
+    // [0] Error
+    // [1] at getCallerFunctionName...
+    // [2] at logWithContext...
+    // [3] at create...  <-- default
+    const callerLine = stack[depth] || '';
+    const match = callerLine.match(/at (\w+)/);
+    return match?.[1] ?? 'unknownMethod';
+  }
+
+  async beforeCreateGeneric(req, fieldMap: Record<string, any>): Promise<boolean> {
+    for (const [key, value] of Object.entries(fieldMap)) {
+      const finalValue = value === 'GUID' ? this.getGuid() : value;
+      this.setPlData(req, { key, value: finalValue });
+    }
+    return true;
+  }
+
+  getPlValue(req, key: string, fValsIndex: number | null = null): any {
+    const data = this.getPlData(req, null, fValsIndex);
+    return data?.[key];
+  }
+
+  // async exists(req, res, field: string, model: any, value: any): Promise<boolean> {
+  //   const svSess = new SessionService();
+
+  //   if (value === undefined || value === null) {
+  //     this.i.app_msg = `${field} is required for existence check`;
+  //     this.err.push(this.i.app_msg);
+  //     await this.setAppState(false, this.i, svSess.sessResp);
+  //     return false;
+  //   }
+
+  //   const serviceInput = {
+  //     serviceModel: model,
+  //     docName: `BaseService::exists(${field})`,
+  //     cmd: { action: 'find', query: { where: { [field]: value } } },
+  //     dSource: 1,
+  //   };
+
+  //   try {
+  //     const result = await this.read(req, res, serviceInput);
+  //     return result.length > 0;
+  //   } catch (e) {
+  //     this.logger.logError(`BaseService::exists() - Error: ${(e as Error).message}`);
+  //     this.i.app_msg = `Existence check failed for ${field}`;
+  //     this.err.push(this.i.app_msg);
+  //     await this.setAppState(false, this.i, svSess.sessResp);
+  //     return false;
+  //   }
+  // }
+  async exists<T>(
+    req: Request | null,
+    res: Response | null,
+    field: string,
+    model: any,
+    value: any,
+  ): Promise<boolean> {
+    const svSess = new SessionService();
+
+    if (value === undefined || value === null) {
+      this.i.app_msg = `${field} is required for existence check`;
+      this.err.push(this.i.app_msg);
+      await this.setAppState(false, this.i, svSess.sessResp);
+      return false;
+    }
+
+    const serviceInput = {
+      serviceModel: model,
+      docName: `BaseService::exists(${field})`,
+      cmd: { action: 'find', query: { where: { [field]: value } } },
+      dSource: 1,
+    };
+
+    try {
+      const result = await this.read(req, res, serviceInput);
+
+      // If result is a plain array
+      if (Array.isArray(result)) {
+        return result.length > 0;
+      }
+
+      // If result is a CdFxReturn or ICdResponse with array data
+      if ('data' in result && Array.isArray(result.data)) {
+        return result.data.length > 0;
+      }
+
+      // If none match, treat as no results
+      return false;
+    } catch (error: any) {
+      this.logger.logError(`BaseService::exists() - Error: ${error.message}`);
+      this.i.app_msg = `Existence check failed for ${field}`;
+      this.err.push(this.i.app_msg);
+      await this.setAppState(false, this.i, svSess.sessResp);
+      return false;
+    }
+  }
+
+  async validateCreateGeneric(
+    req,
+    res,
+    rules: ValidationRules,
+    existenceMap: { [field: string]: any }, // field: Model
+    validationCreateParams: any, // same as your existing usage
+  ): Promise<boolean> {
+    const svSess = new SessionService();
+
+    // Check required fields
+    for (let field of rules.required || []) {
+      const value = this.getPlValue(req, field);
+      if (!value) {
+        this.i.app_msg = `${field} is required`;
+        this.err.push(this.i.app_msg);
+        await this.setAppState(false, this.i, svSess.sessResp);
+        return false;
+      }
+    }
+
+    // Validate existence of references
+    for (let field of Object.keys(existenceMap)) {
+      const model = existenceMap[field];
+      const value = this.getPlValue(req, field);
+      const found = await this.exists(req, res, field, model, value);
+      if (!found) return false;
+    }
+
+    // Perform duplication + required field logic
+    if (await this.validateUnique(req, res, validationCreateParams)) {
+      if (await this.validateRequired(req, res, rules)) {
+        return true;
+      } else {
+        this.setAlertMessage(
+          `Missing required fields: ${this.isInvalidFields.join(', ')}`,
+          svSess,
+          true,
+        );
+        return false;
+      }
+    } else {
+      this.setAlertMessage(`Duplicate entry for ${rules.noDuplicate?.join(', ')}`, svSess, false);
+      return false;
+    }
   }
 }

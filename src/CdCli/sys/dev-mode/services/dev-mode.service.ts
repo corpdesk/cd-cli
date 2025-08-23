@@ -207,19 +207,21 @@ export class DevModeService {
         `DevModeService::executeCrudCommand()/responseCdRequest:${inspect(responseCdRequest, { depth: 2 })}`,
       );
 
-      if (responseCdRequest?.state) {
-        return {
-          state: true,
-          data: null,
-          message: `✔ ${selectedItem.label} "${name}" ${DevModeAction[action].toLowerCase()}d successfully.`,
-        };
-      } else {
-        return {
-          state: false,
-          data: null,
-          message: `❌ Failed to ${DevModeAction[action].toLowerCase()} ${selectedItem.label}: ${responseCdRequest.message}`,
-        };
-      }
+      // if (responseCdRequest?.state === true || responseCdRequest.state === CdFxStateLevel.Success) {
+      //   return {
+      //     state: true,
+      //     data: responseCdRequest.data,
+      //     // message: `✔ ${selectedItem.label} "${name}" ${DevModeAction[action].toLowerCase()}d successfully.`,
+      //     message: responseCdRequest.message
+      //   };
+      // } else {
+      //   return {
+      //     state: false,
+      //     data: responseCdRequest.data,
+      //     message: `❌ Failed to ${DevModeAction[action].toLowerCase()} ${selectedItem.label}: ${responseCdRequest.message}`,
+      //   };
+      // }
+      return responseCdRequest;
     } catch (err: any) {
       return {
         state: false,

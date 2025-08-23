@@ -2,7 +2,7 @@
  * Future development must remove any coop related items in this class.
  * The class should be general.
  * All coop items must be isolated in coops directory
- * This util directory where this file resides should contain system related and shared utilities
+ * This util directory where this file resides should contain system related and shared utils
  *
  * modifyProfile() should have access policy
  *  - self can modify active coopId
@@ -13,8 +13,8 @@
 
 
 import { MemberMeta } from '../../app/coops/index.js';
-import { IServiceInput } from '../../sys/base/IBase.js';
-import { UserModel } from '../../sys/user/models/user.model.js';
+import { IServiceInput } from '../base/IBase.js';
+import { UserModel } from '../user/models/user.model.js';
 
 // import { ICoopRole, MemberMeta } from "../../app/coops/models/coop-member.model";
 // import { IQuery, IServiceInput } from "../base/IBase";
