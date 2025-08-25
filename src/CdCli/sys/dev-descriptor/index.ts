@@ -28,7 +28,7 @@ export * from './models/testing-framework.model.js';
 export * from './models/cd-controller-descriptor.model.js';
 export * from './services/ci-cd.service.js';
 export * from './services/environment.service.js';
-export * from './services/dependency.service.js';
+export * from './services/dependency-descriptor.service.js';
 export * from './services/cd-ci-runner.service.js';
 export * from './services/service.service.js';
 export * from './services/dev-descriptor.service.js';

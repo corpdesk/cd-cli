@@ -36,7 +36,7 @@ import {
   repoRegistry,
 } from '../models/version-control.model.js';
 import { CiCdService } from './ci-cd.service.js';
-import { DependencyService } from './dependency.service.js';
+import { DependencyDescriptorService } from './dependency-descriptor.service.js';
 import { DevDescriptorService } from './dev-descriptor.service.js';
 import { SshService } from './ssh.service.js';
 import { WorkstationService } from './workstation.service.js';
@@ -48,7 +48,7 @@ export class EnvironmentService extends GenericService<CdObjModel> {
   cdToken: string = '';
   svDevDescriptors: DevDescriptorService;
   svWorkstation: WorkstationService;
-  svDependency: DependencyService;
+  svDependency: DependencyDescriptorService;
   ctlWorkstationAccess: WorkstationAccessController;
   svSsh: SshService;
   progressTracker = new ProgressTrackerService();
@@ -67,7 +67,7 @@ export class EnvironmentService extends GenericService<CdObjModel> {
     super(CdObjModel);
     this.svDevDescriptors = new DevDescriptorService();
     this.svWorkstation = new WorkstationService();
-    this.svDependency = new DependencyService();
+    this.svDependency = new DependencyDescriptorService();
     this.ctlWorkstationAccess = new WorkstationAccessController();
     this.svSsh = new SshService();
     this.ctlService = new ServiceController();

@@ -1,63 +1,231 @@
 ## ISSUE
 
 ---
-Issue reference in the log:
-[22/08/2025, 21:55:16] [GenComponentService::GenComponentService():379]: resolveOutputFilePath:start
 
-Below is the current implementation of sanitizeModuleData().
-You can refactor it as proposed.
-I have included the helpers you mentioned below for reference.
+- both services and controller files are being writen to controllers and services directory
+- we need a way of getting primary type
+
+In the C
+
+```log
+[2025-08-24 22:16:33] 🛠️ Running case: method
+[2025-08-24 22:16:33] 🛠️ Starting CICdRunnerService::callMethodFromCdRequest()
+[2025-08-24 22:16:33] 🛠️ CICdRunnerService::callMethodFromCdRequest()/01
+[2025-08-24 22:16:33] 🛠️ CICdRunnerService::callMethodFromCdRequest()/03
+[2025-08-24 22:16:33] 🛠️ CICdRunnerService::callMethodFromCdRequest()/04
+[2025-08-24 22:16:33] 🛠️ CICdRunnerService::callMethodFromCdRequest()/ctlDashedName:gen-service.controller.js
+[2025-08-24 22:16:33] 🛠️ CICdRunnerService::callMethodFromCdRequest()/05
+[2025-08-24 22:16:33] 🛠️ CICdRunnerService::callMethodFromCdRequest()/controllerPath:../../../app/app-craft/controllers/gen-service.controller.js
+[24/08/2025, 22:16:33] [GenComponentService::async():302]: writeFile:before-tree — {
+  outputDir: '/home/emp-12/cd-cli/dist/CdCli/app/app-craft/workshop/cd-module/output',
+  tree: '/home/emp-12/cd-cli/dist/CdCli/app/app-craft/workshop/cd-module/output\n' +
+    '└── cd-ai\n' +
+    '    ├── .cd\n' +
+    '    │   ├── changelog.json\n' +
+    '    │   ├── doc.json\n' +
+    '    │   └── roadmap.json\n' +
+    '    ├── CHANGELOG.md\n' +
+    '    ├── controllers\n' +
+    '    │   └── .gitkeep\n' +
+    '    ├── .gitignore\n' +
+    '    ├── LICENSE\n' +
+    '    ├── models\n' +
+    '    │   └── .gitkeep\n' +
+    '    ├── package.json\n' +
+    '    ├── README.md\n' +
+    '    └── services\n' +
+    '        └── .gitkeep\n' +
+    '\n' +
+    '6 directories, 11 files\n'
+}
+[24/08/2025, 22:16:33] [GenComponentService::async():302]: writeFile:start — {
+  fullPath: '/home/emp-12/cd-cli/dist/CdCli/app/app-craft/workshop/cd-module/output/cd-ai/controllers/cd-ai-usage-logs.service.ts',
+  action: 1
+}
+[24/08/2025, 22:16:33] [GenComponentService::async():302]: writeFile:before-tree — {
+  outputDir: '/home/emp-12/cd-cli/dist/CdCli/app/app-craft/workshop/cd-module/output',
+  tree: '/home/emp-12/cd-cli/dist/CdCli/app/app-craft/workshop/cd-module/output\n' +
+    '└── cd-ai\n' +
+    '    ├── .cd\n' +
+    '    │   ├── changelog.json\n' +
+    '    │   ├── doc.json\n' +
+    '    │   └── roadmap.json\n' +
+    '    ├── CHANGELOG.md\n' +
+    '    ├── controllers\n' +
+    '    │   └── .gitkeep\n' +
+    '    ├── .gitignore\n' +
+    '    ├── LICENSE\n' +
+    '    ├── models\n' +
+    '    │   └── .gitkeep\n' +
+    '    ├── package.json\n' +
+    '    ├── README.md\n' +
+    '    └── services\n' +
+    '        └── .gitkeep\n' +
+    '\n' +
+    '6 directories, 11 files\n'
+}
+[24/08/2025, 22:16:33] [GenComponentService::async():302]: writeFile:start — {
+  fullPath: '/home/emp-12/cd-cli/dist/CdCli/app/app-craft/workshop/cd-module/output/cd-ai/controllers/cd-ai.service.ts',
+  action: 1
+}
+[24/08/2025, 22:16:33] [GenComponentService::async():302]: writeFile:before-tree — {
+  outputDir: '/home/emp-12/cd-cli/dist/CdCli/app/app-craft/workshop/cd-module/output',
+  tree: '/home/emp-12/cd-cli/dist/CdCli/app/app-craft/workshop/cd-module/output\n' +
+    '└── cd-ai\n' +
+    '    ├── .cd\n' +
+    '    │   ├── changelog.json\n' +
+    '    │   ├── doc.json\n' +
+    '    │   └── roadmap.json\n' +
+    '    ├── CHANGELOG.md\n' +
+    '    ├── controllers\n' +
+    '    │   └── .gitkeep\n' +
+    '    ├── .gitignore\n' +
+    '    ├── LICENSE\n' +
+    '    ├── models\n' +
+    '    │   └── .gitkeep\n' +
+    '    ├── package.json\n' +
+    '    ├── README.md\n' +
+    '    └── services\n' +
+    '        └── .gitkeep\n' +
+    '\n' +
+    '6 directories, 11 files\n'
+}
+[24/08/2025, 22:16:33] [GenComponentService::async():302]: writeFile:start — {
+  fullPath: '/home/emp-12/cd-cli/dist/CdCli/app/app-craft/workshop/cd-module/output/cd-ai/controllers/cd-ai-usage-logs.controller.ts',
+  action: 1
+}
+[24/08/2025, 22:16:33] [GenComponentService::async():302]: writeFile:before-tree — {
+  outputDir: '/home/emp-12/cd-cli/dist/CdCli/app/app-craft/workshop/cd-module/output',
+  tree: '/home/emp-12/cd-cli/dist/CdCli/app/app-craft/workshop/cd-module/output\n' +
+    '└── cd-ai\n' +
+    '    ├── .cd\n' +
+    '    │   ├── changelog.json\n' +
+    '    │   ├── doc.json\n' +
+    '    │   └── roadmap.json\n' +
+    '    ├── CHANGELOG.md\n' +
+    '    ├── controllers\n' +
+    '    │   └── .gitkeep\n' +
+    '    ├── .gitignore\n' +
+    '    ├── LICENSE\n' +
+    '    ├── models\n' +
+    '    │   └── .gitkeep\n' +
+    '    ├── package.json\n' +
+    '    ├── README.md\n' +
+    '    └── services\n' +
+    '        └── .gitkeep\n' +
+    '\n' +
+    '6 directories, 11 files\n'
+}
+[24/08/2025, 22:16:33] [GenComponentService::async():302]: writeFile:start — {
+  fullPath: '/home/emp-12/cd-cli/dist/CdCli/app/app-craft/workshop/cd-module/output/cd-ai/controllers/cd-ai.controller.ts',
+  action: 1
+}
+[2025-08-24 22:16:33] 🛠️ fs.util::writePrettyFile()/fullPath:/home/emp-12/cd-cli/dist/CdCli/app/app-craft/workshop/cd-module/output/cd-ai/controllers/cd-ai-usage-logs.service.ts
+[2025-08-24 22:16:33] 🛠️ fs.util::writePrettyFile()/fullPath:/home/emp-12/cd-cli/dist/CdCli/app/app-craft/workshop/cd-module/output/cd-ai/controllers/cd-ai.service.ts
+[2025-08-24 22:16:33] 🛠️ fs.util::writePrettyFile()/fullPath:/home/emp-12/cd-cli/dist/CdCli/app/app-craft/workshop/cd-module/output/cd-ai/controllers/cd-ai-usage-logs.controller.ts
+[2025-08-24 22:16:33] 🛠️ fs.util::writePrettyFile()/fullPath:/home/emp-12/cd-cli/dist/CdCli/app/app-craft/workshop/cd-module/output/cd-ai/controllers/cd-ai.controller.ts
+⠙ ⏳ Running task 'generateServices' (Attempt 1/1)...✅ Pretty file written: /home/emp-12/cd-cli/dist/CdCli/app/app-craft/workshop/cd-module/output/cd-ai/models/cd-ai.model.ts
+```
+
+```log
+[2025-08-24 23:51:57] 🛠️ GenComponentService::resolveOutputFilePath()/config: {
+  artifactType: 'controllers',
+  templatePath: '/home/emp-12/cd-cli/dist/CdCli/app/app-craft/workshop/cd-module/template/abcd/controllers/abcd.controller.js',
+  dependencyList: [
+    {
+      name: 'BaseService',
+      category: 'core',
+      source: 'local',
+      scope: 'module',
+      targetApp: 'cd-api',
+      isCdModule: false,
+      cdCtx: 'sys',
+      resolution: [Object],
+      usage: [Object]
+    },
+    {
+      name: 'AbcdTypeService',
+      category: 'custom',
+      source: 'local',
+      scope: 'module',
+      targetApp: 'cd-api',
+      isCdModule: true,
+      cdCtx: 'app',
+      resolution: [Object],
+      usage: [Object]
+    },
+    {
+      name: 'AbcdService',
+      category: 'custom',
+      source: 'local',
+      scope: 'module',
+      targetApp: 'cd-api',
+      isCdModule: true,
+      cdCtx: 'app',
+      resolution: [Object],
+      usage: [Object]
+    }
+  ],
+  outputPath: '/home/emp-12/cd-cli/dist/CdCli/app/app-craft/workshop/cd-module/output',
+  language: {
+    name: 'TypeScript',
+    version: '5.0',
+    type: 'hybrid',
+    fileProfiles: [ [Object], [Object] ],
+    languageEcosystem: { defaultPackageManager: 'npm', frameworks: [Array] },
+    languageParadigms: { supportsOOP: true, supportsFunctional: true },
+    languageTooling: {
+      buildTools: [Array],
+      testingFrameworks: [Array],
+      linters: [Array]
+    },
+    languageFeatures: {
+      staticTyping: true,
+      dynamicTyping: false,
+      memoryManagement: 'garbageCollection'
+    }
+  },
+  extension: '.ts',
+  componentDescriptor: {
+    name: 'cd-ai',
+    type: 'service',
+    methods: [ [Object], [Object], [Object] ],
+    dependencies: [ [Object], [Object], [Object] ],
+    fileName: 'cd-ai.service.ts'
+  },
+  componentName: 'cd-ai-usage-logs'
+}
+[2025-08-24 23:51:57] 🛠️ GenComponentService::resolveOutputFilePath()/expected-resolution: /home/emp-12/cd-cli/dist/CdCli/app/app-craft/workshop/cd-module/output/cd-ai/controllers/cd-ai.service.ts
+[24/08/2025, 23:51:57] [GenComponentService::GenComponentService():395]: resolveOutputPath:opt: — '02'
+
+```
+
+I need a function that can be used to derive PrimaryComponentType from a file name.
+Below is a typical set of file names.
+
+cd-ai-usage-logs-type.controller.ts
+cd-ai-usage-logs-type.service.ts
+cd-ai-usage-logs-type.model.ts
 
 ```ts
-private sanitizeModuleData(data: CdModuleDescriptor): CdModuleDescriptor {
-    this.b.logWithContext(this, 'sanitizeModuleData:input', data, 'debug');
-
-    const dedupe = <T extends ComponentDescriptor>(list: T[]): T[] => {
-      const seen = new Set<string>();
-      return list.filter((comp) => {
-        const key = `${comp.name}:${comp.type}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
-    };
-
-    // 1. Deduplicate original input
-    const deduped: CdModuleDescriptor = {
-      ...data,
-      controllers: dedupe(data.controllers ?? []),
-      services: dedupe(data.services ?? []),
-      models: dedupe(data.models ?? []),
-    };
-
-    // 2. Apply counterpart rules + filenames
-    const withCounterparts = this.ensureCounterparts(deduped);
-
-    // 3. Final dedupe
-    const result: CdModuleDescriptor = {
-      ...withCounterparts,
-      controllers: dedupe(withCounterparts.controllers ?? []),
-      services: dedupe(withCounterparts.services ?? []),
-      models: dedupe(withCounterparts.models ?? []),
-    };
-
-    this.b.logWithContext(this, 'sanitizeModuleData:output', result, 'debug');
-    return result;
-  }
-
-private getBaseType(type: ComponentType): string {
-  if (type.startsWith('controller')) return 'controller';
-  if (type.startsWith('service')) return 'service';
-  if (type.startsWith('model')) return 'model';
-  if (type === 'utility') return 'utility';
-  return type; // fallback
+export enum ComponentType {
+  Controller = 'controller',
+  ControllerType = 'controller-type',
+  Service = 'service',
+  ServiceType = 'service-type',
+  Model = 'model',
+  ModelType = 'model-type',
+  ModelView = 'model-view',
+  Utility = 'utility',
+  Component = 'component',
+  Plugin = 'plugin',
 }
 
-private buildFileName(name: string, type: ComponentType): string {
-  const baseType = this.getBaseType(type);
-  return `${name}.${baseType}.ts`;
-}
+export type PrimaryComponentType = 'controller' | 'service' | 'model';
+export type DerivedSuffix = 'type' | 'view';
 
+export type DerivedComponentType =
+  | `${PrimaryComponentType}-${DerivedSuffix}`;
 ```
 
 ---
@@ -65,121 +233,41 @@ private buildFileName(name: string, type: ComponentType): string {
 ## COMPLETED TASKS:
 
 ---
-
-- create cd-ai ...done
-- create isolated task for git commit ...done
-- create isolated task for git push ...done
-- the finishing for create cd-ai, has issues ...sorted
-- find active versionControl for cd-ai and change the output directory from /workshop/cd-api to /worshop/cd-module
-- remove hello-api.txt..done
-- formulate how to set path in appCraft.GenEntityService methods..done
-- confirm the right output folder for > create module ...done
-- set cd-ai as cdObjName, cd-module as cdObjType, test-bed as environment ...done
-- > create --cd-module --name cd-ai --o-env workshop --repo cd-ai; ...done
-- > create --cd-module --name cd-ai --o-env test-bed --repo cd-ai; ...done
-- test upgrade of cd-ai module to confirm version documents are updated...done
-- when upgrading module, work on package.json that is resident to the module
-- write a brief introductory documentation for corpdesk technical guide
-- assess corpdesk service 'create' to try and identify sharable codes to simplify the services codes.
-  - test current create to confirm is working ok
-  - implement BaseService.serviceInputCRUD(serviceInstance: any): IServiceInput
-  - test BaseService.serviceInputCRUD(serviceInstance: any): IServiceInput in CoopMemberService.create()
-  - implement BaseService.logWithContext(thisArg: any, message: string, data?: any,level: "debug" | "info" | "warn" | "error" = "debug")
-  - test BaseService.logWithContext(thisArg: any, message: string, data?: any,level: "debug" | "info" | "warn" | "error" = "debug") in CoopMemberService.create()
-- 'create' upgrade contd:
-  - implement BaseService.beforeCreateGeneric()
-  - test BaseService.beforeCreateGeneric() in CoopMemberService.create()
-
-23rd August 2025:
-- privatize working chat-gpt
-  - export history
-  - save history
-  - delete history
-  - work out new ways of associating with chat-gpt without compromising IP info
-- privacy migration suspended
-- 'create' upgrade contd:
-  - implement IBase/interface ValidationRules
-  - test BaseService.beforeCreateGeneric() in CoopMemberService.create()
-- test improved service and controller in the abcd for cd-app-craft workshop
-- refine BaseService
-  - validation
-  - error reporting
-- create method GenControllerController.GenerateAllControllersForCdObj() similar to GenEntityController.GenerateAllEntitiesForCdObj()
-- create method GenServiceController.GenerateAllServicesForCdObj() similar to GenEntityController.GenerateAllEntitiesForCdObj()
-- create task for GenerateAllControllersForCdObj() similar to GenerateAllEntitiesForCdObj in the workflow for cd-ai
-- create task for GenerateAllServicesForCdObj() similar to GenerateAllEntitiesForCdObj in the workflow for cd-ai
-- create method GenServiceController.GenerateAllServicesForCdObj() similar to GenEntityController.GenerateAllEntitiesForCdObj()
-- run 'create' in cd-cli to test creation of controllers and services
-- adjusted CdAutoGit.CommitAndPush() to display logs of actions including errors.
-- added 'action' argument to CdAutoGit.CommitAndPush() to allow use of -f only when action=create.
-- Implement PreCreateClear() to avoid git issues
-- harmonize imports
-  - check if app descriptor has dependancies
-  - check if modules have dependancies
-  - check if component have dependancies
-  - create a list of dependancies for abcd.service.ts based on DependancyDescriptor[]
-  - applying abcd as a dependancy and substituting the same during module development via DependancyDescriptor[]
-  - update abcd.services.ts codes
-  - - make sure the versionControl.repository.directories are named appropriately to enable searching: done
-  - update templates codes
-  - issue: the output directory seem to be cleaning up during or before PreCreateCleanup
-    - cleanup seem to be targeting wrong directory
-      [14/08/2025, 10:51:52] [AppCraftService::async():23]: Target directory exists before cleanup — {
-      targetDir: '/home/emp-12/cd-cli/dist/CdCli/app/app-craft/workshop/cd-module/output/cd-ai',
-      contents: [
-      '.cd', '.git',
-      '.gitignore', 'CHANGELOG.md',
-      'LICENSE', 'README.md',
-      'controllers', 'models',
-      'package.json', 'services'
-      ]
-      }
-  - confirm that the data for imports is being integrated in scafolding of services and controllers.
-  - if path to template, path to output directory or path to app descriptor does not exists, abort: done
-- make model descriptor an extension of component descritptor
-- use ComponentType to administor controller, controller-type, model, model-view etc
-- All component generate type files but only models produce 'view files'
-- All component data should be marked with ComponentType
-- To sort git commit and push method in a systematic, maintainable and scalable manner
-- module descritpor json output being fed to code generators is now acceptable
+Milestone:
+- imports developed from descriptors working ok
+- file naming working ok with all the ComponentType's
+- class names and headers working ok
 
 ## TASKS IN PROGRESS:
 
 ---
 
-
+- test if imports are correct
+  - imports still reading 'abcd'
+  - how to configure native import: eg importing service to controller
+- set queriable methods
+- populate methods for controllers and services
+- test cd-ai module
+- correct import paths
 
 ## TO DO:
 
 ---
-
-- test cd-ai module
-- correct import paths
+- auto generate initial methods
 - fine tune roadmap for cd-api for actuall testing
 - test version auto update for CdApp (cd-api) and CdModule (cd-ai)
 - package.json can be downgraded without warning but one should not be able to downgrade in comparison to git records
 - package.json was update successfully
 - changelog was not updated as expected
 
-## COMMANDS PLANNING
+## COMMANDS DESIGN AND DEVELOPMENT
 
 ---
 
-```html
-<DevModeAction>
-  --<CdObjType>
-    --name
-    <CdObj>
-      --type
-      <CdObjType>
-        <!--consider modifying to:-->
-        <DevModeAction>
-          --<ActonTarget as CdObjType.cdObjTypeName>
-            --name
-            <CdObj>
-              --o-env
-              <CdEnvName></CdEnvName></CdObj></ActonTarget></DevModeAction></CdObjType></CdObj></CdObjType
-></DevModeAction>
+Command structure
+
+```sh
+<DevModeAction> --<ActonTarget as CdObjType.cdObjTypeName> --name <CdObj.dObjName> --o-env <Env as CdObjType.cdObjTypeName> --repo <Repo as CdObj.dObjName>
 ```
 
 ```sh

@@ -11,6 +11,8 @@ import {
   CdModelDescriptor,
   CdModuleDescriptor,
   CdServiceDescriptor,
+  dependencies,
+  DependencyDescriptorService,
   deriveExemptConfig,
   getExtensionByLangProfile,
   getLanguageByName,
@@ -36,9 +38,10 @@ import { cdFx } from '../../base/cd-fx-return.util.js';
 
 export class CdModuleDescriptorService {
   b = new BaseService();
-  extension: string = ''; 
+  svDependencyDescriptor = new DependencyDescriptorService();
+  extension: string = '';
   private policyCtx: { base: CdModuleDescriptor; custom: CdModuleDescriptor } | null = null;
-  
+
   /** Ordered list of policies (name + fn), all inside this class (no stray classes). */
   private validationPolicies: ValidationPolicy[] = [];
   // private policies: ValidationPolicy[] = [];
@@ -77,7 +80,6 @@ export class CdModuleDescriptorService {
     this.b.logWithContext(this, 'constructor:end', null, 'debug');
   }
 
-  
   public normalizeName(name: string, componentType: ComponentType): string {
     this.b.logWithContext(this, 'normalizeName:input', { name, componentType }, 'debug');
     if (!name) return name;
@@ -220,7 +222,6 @@ export class CdModuleDescriptorService {
     return value.charAt(0).toUpperCase() + value.slice(1);
   }
 
-  
   private sanitizeModuleData(data: CdModuleDescriptor): CdModuleDescriptor {
     this.b.logWithContext(this, 'sanitizeModuleData:input', data, 'debug');
 
@@ -293,7 +294,6 @@ export class CdModuleDescriptorService {
     this.validationPolicies.push(policy);
   }
 
-  
   // -----------------------------
   // Validation entrypoint
   // -----------------------------
@@ -315,7 +315,6 @@ export class CdModuleDescriptorService {
     return cdFx(CdFxStateLevel.Success, 'Validation successful', merged);
   }
 
-  
   // -----------------------------
   // Policy: Assign missing entity types
   // -----------------------------
@@ -332,7 +331,6 @@ export class CdModuleDescriptorService {
     },
   };
 
-  
   // -----------------------------
   // Policy: Override defaults
   // -----------------------------
@@ -344,7 +342,6 @@ export class CdModuleDescriptorService {
     },
   };
 
-  
   // -----------------------------
   // Policy: Naming validation + normalization
   // -----------------------------
@@ -364,7 +361,6 @@ export class CdModuleDescriptorService {
     },
   };
 
-  
   private policyDependencyValidation: ValidationPolicy = {
     name: 'policyDependencyValidation',
     applyValidationPolicy: async (_, descriptor) => {
@@ -411,7 +407,6 @@ export class CdModuleDescriptorService {
     },
   };
 
-  
   private policyNormalizeSuffix: ValidationPolicy = {
     name: 'policyNormalizeSuffix',
     applyValidationPolicy: async (_, descriptor) => {
@@ -426,7 +421,6 @@ export class CdModuleDescriptorService {
     },
   };
 
-  
   private policyEnsureSuffixCounterparts: ValidationPolicy = {
     name: 'policyEnsureSuffixCounterparts',
     applyValidationPolicy: async (_, descriptor) => {
@@ -441,7 +435,10 @@ export class CdModuleDescriptorService {
       ];
 
       for (const [source, target] of counterpartRules) {
-        if (types.includes(source as ComponentType.Model) && !types.includes(target as ComponentType.Model)) {
+        if (
+          types.includes(source as ComponentType.Model) &&
+          !types.includes(target as ComponentType.Model)
+        ) {
           return cdFx(
             CdFxStateLevel.NotFound,
             `Missing counterpart: ${target} required for ${source}`,
@@ -454,7 +451,6 @@ export class CdModuleDescriptorService {
     },
   };
 
-  
   /**
    * Add missing type suffix to controllers and services
    */
@@ -472,7 +468,6 @@ export class CdModuleDescriptorService {
     };
   }
 
-  
   /**
    * Sanitize repeated suffixes (-type-type → -type)
    */
@@ -494,7 +489,6 @@ export class CdModuleDescriptorService {
     };
   }
 
-  
   private policyDeduplicateEntities: ValidationPolicy = {
     name: 'policyDeduplicateEntities',
     applyValidationPolicy: async (_, descriptor) => {
@@ -550,7 +544,7 @@ export class CdModuleDescriptorService {
 
     for (const policy of this.validationPolicies) {
       this.b.logWithContext(this, 'applyPolicies:applying_policy', policy.name, 'debug');
-      if (!result.data) {
+      if (!result || !result.data) {
         this.b.logWithContext(
           this,
           'applyPolicies:data_null',
@@ -563,8 +557,32 @@ export class CdModuleDescriptorService {
           message: `Policy failed: ${policy.name} - result.data is null or undefined`,
         };
       }
+
       result = await policy.applyValidationPolicy(result.data, custom);
-      this.b.logWithContext(this, 'applyPolicies:policy_result', result, 'debug');
+
+      // if(!result || !result.data){
+      //   return {
+      //     state: false,
+      //     data: null,
+      //     message: `There was an error during policy validation`,
+      //   };
+      // }
+      // // const resultFinal = await this.svDependencyDescriptor.rebuildDependencyData(result.data);
+      // // this.b.logWithContext(this, `applyPolicies: resultFinal:`, resultFinal, 'debug')
+      // if(!resultFinal || !resultFinal.data){
+      //   this.b.logWithContext(
+      //     this,
+      //     'applyPolicies:resultFinal/data_null',
+      //     { policy: policy.name, result },
+      //     'error',
+      //   );
+      //   return {
+      //     state: false,
+      //     data: null,
+      //     message: `Setting dependancy data encountered and error`,
+      //   };
+      // }
+      this.b.logWithContext(this, 'applyPolicies:result', result, 'debug');
       if (!result.state) {
         this.b.logWithContext(
           this,
@@ -575,11 +593,20 @@ export class CdModuleDescriptorService {
         return { ...result, message: `Policy failed: ${policy.name} - ${result.message}` };
       }
     }
+
+    if (!result || !result.data) {
+      return {
+        state: false,
+        data: null,
+        message: `There was an error processing policy validation`,
+      };
+    }
     this.b.logWithContext(this, 'applyPolicies:success', result, 'debug');
-    return result;
+    const resultFinal = await this.svDependencyDescriptor.rebuildDependencyData(result.data);
+    this.b.logWithContext(this, 'applyPolicies:success/resultFinal', resultFinal, 'debug');
+    return resultFinal;
   }
 
-  
   private normalizeNameLikeFields<T extends Record<string, any>>(obj: T): T {
     this.b.logWithContext(this, 'normalizeNameLikeFields:input', obj, 'debug');
     if (!obj) return obj;
