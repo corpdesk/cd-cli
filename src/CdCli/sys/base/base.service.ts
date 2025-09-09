@@ -32,7 +32,7 @@ import {
   type IRespInfo,
   type IServiceInput,
   type ISessResp,
-} from './IBase.js';
+} from './i-base.js';
 import { SessionModel } from '../user/models/session.model.js';
 import { RedisService } from './redis-service.js';
 import { EntityAdapter } from '../utils/entity-adapter.js';
@@ -111,7 +111,7 @@ export class BaseService<T extends ObjectLiteral> extends AbstractBaseService<T>
   //   this.logger.logInfo("BaseService::init()/this.models:", this.models);
   // }
 
-  async init(req: any, res: any) {
+  async init(req?: any, res?: any) {
     this.logger.logDebug('BaseService::init()/01:');
     try {
       if (!this.db) {

@@ -24,7 +24,7 @@ import {
   ISelectedMenu,
   IServiceInput,
   ISessionDataExt,
-} from '../../base/IBase.js';
+} from '../../base/i-base.js';
 // import { MenuModel } from '../models/menu.model';
 // import { CdObjService } from './cd-obj.service';
 // import { CdObjModel } from '../models/cd-obj.model';

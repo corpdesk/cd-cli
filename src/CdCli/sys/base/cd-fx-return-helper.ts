@@ -1,4 +1,4 @@
-import { CdFxStateLevel, FxStateMeta, FxStateSemantics } from "./IBase.js";
+import { CdFxStateLevel, FxStateMeta, FxStateSemantics } from "./i-base.js";
 
 // Overloads for direct state checks
 export function isSuccess(state: boolean | CdFxStateLevel): boolean {

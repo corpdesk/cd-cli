@@ -1,5 +1,5 @@
 /* eslint-disable style/brace-style */
-import type { CdFxReturn } from '../../base/IBase.js';
+import type { CdFxReturn } from '../../base/i-base.js';
 
 import type { ProfileModel } from '../../cd-cli/models/cd-cli-profile.model.js';
 import type { EnvironmentService } from '../services/environment.service.js';

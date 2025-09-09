@@ -3,7 +3,7 @@
 /* eslint-disable antfu/if-newline */
 
 /* eslint-disable style/brace-style */
-import type { CdFxReturn } from '../../base/IBase.js';
+import type { CdFxReturn } from '../../base/i-base.js';
 import type {
   OperatingSystemDescriptor,
   SshCredentials,

@@ -14,6 +14,7 @@ import {
   dependencies,
   DependencyDescriptorService,
   deriveExemptConfig,
+  f,
   getExtensionByLangProfile,
   getLanguageByName,
   LanguageName,
@@ -222,7 +223,7 @@ export class CdModuleDescriptorService {
     return value.charAt(0).toUpperCase() + value.slice(1);
   }
 
-  private sanitizeModuleData(data: CdModuleDescriptor): CdModuleDescriptor {
+  private async sanitizeModuleData(data: CdModuleDescriptor): Promise<CdModuleDescriptor> {
     this.b.logWithContext(this, 'sanitizeModuleData:input', data, 'debug');
 
     const dedupe = <T extends ComponentDescriptor>(list: T[]): T[] => {
@@ -253,6 +254,11 @@ export class CdModuleDescriptorService {
     // 2. Apply counterpart rules
     const withCounterparts = this.ensureCounterparts(deduped);
 
+    // check for counterparts...ok
+    // this.b.logWithContext(this, `sanitizeModuleData:withCounterparts:`, withCounterparts, 'debug');
+    // check for dependencies...ok
+    // this.b.logWithContext(this, `sanitizeModuleData:withCounterparts.controllers[0].dependencies:`, withCounterparts.controllers[0].dependencies, 'debug');
+
     // 3. Normalize filenames
     const normalized: CdModuleDescriptor = {
       ...withCounterparts,
@@ -260,6 +266,10 @@ export class CdModuleDescriptorService {
       services: normalize(withCounterparts.services ?? []),
       models: normalize(withCounterparts.models ?? []),
     };
+    // check for counterparts...ok
+    // this.b.logWithContext(this, `sanitizeModuleData:normalized:`, normalized, 'debug');
+    // check for dependencies...ok
+    // this.b.logWithContext(this, `sanitizeModuleData:normalized.controllers[0].dependencies:`, normalized.controllers[0].dependencies, 'debug');
 
     // 4. Final dedupe
     const result: CdModuleDescriptor = {
@@ -269,8 +279,27 @@ export class CdModuleDescriptorService {
       models: dedupe(normalized.models ?? []),
     };
 
-    this.b.logWithContext(this, 'sanitizeModuleData:output', result, 'debug');
-    return result;
+    ////////////////////////////////////////////////////
+    // 🔄 rebuild dependencies on the validated base
+    const finalResult = await this.svDependencyDescriptor.rebuildDependencyData(result);
+    this.b.logWithContext(
+      this,
+      'sanitizeModuleData:finalResult.data?.controllers[0].dependencies',
+      finalResult.data?.controllers[0].dependencies,
+      'debug',
+    );
+
+    if (!finalResult || !finalResult.data) {
+      throw new Error(`There was and error in rebuildDependencyData()`);
+    }
+
+    ////////////////////////////////////////////////////////////////
+
+    // check for counterparts...ok
+    // this.b.logWithContext(this, 'sanitizeModuleData:result', result, 'debug');
+    // check for dependencies...ok
+    // this.b.logWithContext(this, 'sanitizeModuleData:result.controllers[0].dependencies', result.controllers[0].dependencies, 'debug');
+    return finalResult.data;
   }
 
   private getBaseType(type: ComponentType): string {
@@ -297,15 +326,30 @@ export class CdModuleDescriptorService {
   // -----------------------------
   // Validation entrypoint
   // -----------------------------
-  async validateDescriptor(
-    base: CdModuleDescriptor,
-    custom: CdModuleDescriptor,
-  ): Promise<CdFxReturn<CdModuleDescriptor>> {
-    let merged: CdModuleDescriptor = { ...base, ...custom };
+  // async validateDescriptor(
+  //   base: CdModuleDescriptor,
+  //   custom: CdModuleDescriptor,
+  // ): Promise<CdFxReturn<CdModuleDescriptor>> {
+  //   let merged: CdModuleDescriptor = { ...base, ...custom };
+
+  //   for (const policy of this.validationPolicies) {
+  //     this.b.logWithContext(this, `apply_policy:${policy.name}`, merged, 'debug');
+  //     const result = await policy.applyValidationPolicy(base, merged);
+  //     if (!result.state || !result.data) {
+  //       return result; // stop immediately if a policy fails
+  //     }
+  //     merged = result.data;
+  //   }
+
+  //   return cdFx(CdFxStateLevel.Success, 'Validation successful', merged);
+  // }
+  async validateDescriptor(base: CdModuleDescriptor): Promise<CdFxReturn<CdModuleDescriptor>> {
+    let merged: CdModuleDescriptor = { ...base }; // already merged before this call
 
     for (const policy of this.validationPolicies) {
       this.b.logWithContext(this, `apply_policy:${policy.name}`, merged, 'debug');
-      const result = await policy.applyValidationPolicy(base, merged);
+
+      const result = await policy.applyValidationPolicy(merged);
       if (!result.state || !result.data) {
         return result; // stop immediately if a policy fails
       }
@@ -318,9 +362,21 @@ export class CdModuleDescriptorService {
   // -----------------------------
   // Policy: Assign missing entity types
   // -----------------------------
+  // private policyAssignEntitySuffixes: ValidationPolicy = {
+  //   name: 'policyAssignEntitySuffixes',
+  //   applyValidationPolicy: async (_, descriptor) => {
+  //     descriptor.models = descriptor.models.map((entity) => {
+  //       if (!entity.type) {
+  //         entity.type = ComponentType.Model; // fallback default
+  //       }
+  //       return entity;
+  //     });
+  //     return cdFx(CdFxStateLevel.Success, 'Suffixes assigned', descriptor);
+  //   },
+  // };
   private policyAssignEntitySuffixes: ValidationPolicy = {
     name: 'policyAssignEntitySuffixes',
-    applyValidationPolicy: async (_, descriptor) => {
+    applyValidationPolicy: async (descriptor) => {
       descriptor.models = descriptor.models.map((entity) => {
         if (!entity.type) {
           entity.type = ComponentType.Model; // fallback default
@@ -334,26 +390,48 @@ export class CdModuleDescriptorService {
   // -----------------------------
   // Policy: Override defaults
   // -----------------------------
+  // private policyOverrideDefault: ValidationPolicy = {
+  //   name: 'policyOverrideDefault',
+  //   applyValidationPolicy: async (base, custom) => {
+  //     const merged = { ...base, ...custom };
+  //     return cdFx(CdFxStateLevel.Success, 'Default override applied', merged);
+  //   },
+  // };
   private policyOverrideDefault: ValidationPolicy = {
     name: 'policyOverrideDefault',
-    applyValidationPolicy: async (base, custom) => {
-      const merged = { ...base, ...custom };
-      return cdFx(CdFxStateLevel.Success, 'Default override applied', merged);
+    applyValidationPolicy: async (descriptor) => {
+      // previously merged base+custom, now just trust merged input
+      return cdFx(CdFxStateLevel.Success, 'Default override applied', descriptor);
     },
   };
 
   // -----------------------------
   // Policy: Naming validation + normalization
   // -----------------------------
+  // private policyNamingValidation: ValidationPolicy = {
+  //   name: 'policyNamingValidation',
+  //   applyValidationPolicy: async (_, descriptor) => {
+  //     for (const entity of descriptor.models) {
+  //       if (!entity.name || !entity.type) {
+  //         return cdFx(
+  //           CdFxStateLevel.NotFound,
+  //           `Entity missing name or type: ${entity}`,
+  //           descriptor, // return the descriptor, not null
+  //         );
+  //       }
+  //     }
+  //     return cdFx(CdFxStateLevel.Success, 'Naming validated', descriptor);
+  //   },
+  // };
   private policyNamingValidation: ValidationPolicy = {
     name: 'policyNamingValidation',
-    applyValidationPolicy: async (_, descriptor) => {
+    applyValidationPolicy: async (descriptor) => {
       for (const entity of descriptor.models) {
         if (!entity.name || !entity.type) {
           return cdFx(
             CdFxStateLevel.NotFound,
             `Entity missing name or type: ${entity}`,
-            descriptor, // return the descriptor, not null
+            descriptor,
           );
         }
       }
@@ -363,7 +441,7 @@ export class CdModuleDescriptorService {
 
   private policyDependencyValidation: ValidationPolicy = {
     name: 'policyDependencyValidation',
-    applyValidationPolicy: async (_, descriptor) => {
+    applyValidationPolicy: async (descriptor) => {
       // Check controllers
       for (const controller of descriptor.controllers ?? []) {
         for (const dep of controller.dependencies ?? []) {
@@ -409,7 +487,7 @@ export class CdModuleDescriptorService {
 
   private policyNormalizeSuffix: ValidationPolicy = {
     name: 'policyNormalizeSuffix',
-    applyValidationPolicy: async (_, descriptor) => {
+    applyValidationPolicy: async (descriptor) => {
       descriptor.models = descriptor.models.map((entity) => {
         // prevent double suffixing like ServiceService, ModelModel
         if (entity.name.toLowerCase().endsWith(entity.type.toLowerCase())) {
@@ -423,7 +501,7 @@ export class CdModuleDescriptorService {
 
   private policyEnsureSuffixCounterparts: ValidationPolicy = {
     name: 'policyEnsureSuffixCounterparts',
-    applyValidationPolicy: async (_, descriptor) => {
+    applyValidationPolicy: async (descriptor) => {
       const types = descriptor.models.map((e) => e.type);
 
       const counterpartRules: [ComponentType, ComponentType][] = [
@@ -491,7 +569,7 @@ export class CdModuleDescriptorService {
 
   private policyDeduplicateEntities: ValidationPolicy = {
     name: 'policyDeduplicateEntities',
-    applyValidationPolicy: async (_, descriptor) => {
+    applyValidationPolicy: async (descriptor) => {
       const seen = new Map<string, any>();
       descriptor.models = descriptor.models.filter((entity) => {
         const key = `${entity.name}-${entity.type}`;
@@ -511,7 +589,7 @@ export class CdModuleDescriptorService {
     base: T[] = [],
     custom: T[] = [],
   ): T[] {
-    this.b.logWithContext(this, 'mergeWithOverrideByName:input', { base, custom }, 'debug');
+    this.b.logWithContext(this, 'mergeWithOverrideByName:input', { base }, 'debug');
     const map = new Map<string, T>();
     const unnamed: T[] = [];
     for (const it of base) {
@@ -533,24 +611,19 @@ export class CdModuleDescriptorService {
     return result;
   }
 
-  async applyPolicies(
-    base: CdModuleDescriptor,
-    custom: CdModuleDescriptor,
-  ): Promise<CdFxReturn<CdModuleDescriptor>> {
-    this.b.logWithContext(this, 'applyPolicies:input', { base, custom }, 'debug');
-    this.policyCtx = { base, custom };
-    let result: CdFxReturn<CdModuleDescriptor> = { state: true, data: base, message: 'initial' };
-    this.b.logWithContext(this, 'applyPolicies:initial_result', result, 'debug');
+  async applyPolicies(base: CdModuleDescriptor): Promise<CdFxReturn<CdModuleDescriptor>> {
+    this.b.logWithContext(this, 'applyPolicies:input', base, 'debug');
+
+    let result: CdFxReturn<CdModuleDescriptor> = {
+      state: true,
+      data: base,
+      message: 'initial',
+    };
 
     for (const policy of this.validationPolicies) {
       this.b.logWithContext(this, 'applyPolicies:applying_policy', policy.name, 'debug');
-      if (!result || !result.data) {
-        this.b.logWithContext(
-          this,
-          'applyPolicies:data_null',
-          { policy: policy.name, result },
-          'error',
-        );
+
+      if (!result.data) {
         return {
           state: false,
           data: null,
@@ -558,53 +631,38 @@ export class CdModuleDescriptorService {
         };
       }
 
-      result = await policy.applyValidationPolicy(result.data, custom);
+      // 🟢 Refactored: policy now only receives "base"
+      result = await policy.applyValidationPolicy(result.data);
 
-      // if(!result || !result.data){
-      //   return {
-      //     state: false,
-      //     data: null,
-      //     message: `There was an error during policy validation`,
-      //   };
-      // }
-      // // const resultFinal = await this.svDependencyDescriptor.rebuildDependencyData(result.data);
-      // // this.b.logWithContext(this, `applyPolicies: resultFinal:`, resultFinal, 'debug')
-      // if(!resultFinal || !resultFinal.data){
-      //   this.b.logWithContext(
-      //     this,
-      //     'applyPolicies:resultFinal/data_null',
-      //     { policy: policy.name, result },
-      //     'error',
-      //   );
-      //   return {
-      //     state: false,
-      //     data: null,
-      //     message: `Setting dependancy data encountered and error`,
-      //   };
-      // }
       this.b.logWithContext(this, 'applyPolicies:result', result, 'debug');
+
       if (!result.state) {
-        this.b.logWithContext(
-          this,
-          'applyPolicies:policy_failed',
-          { policy: policy.name, message: result.message },
-          'error',
-        );
-        return { ...result, message: `Policy failed: ${policy.name} - ${result.message}` };
+        return {
+          ...result,
+          message: `Policy failed: ${policy.name} - ${result.message}`,
+        };
       }
     }
 
-    if (!result || !result.data) {
+    if (!result.data) {
       return {
         state: false,
         data: null,
         message: `There was an error processing policy validation`,
       };
     }
-    this.b.logWithContext(this, 'applyPolicies:success', result, 'debug');
-    const resultFinal = await this.svDependencyDescriptor.rebuildDependencyData(result.data);
-    this.b.logWithContext(this, 'applyPolicies:success/resultFinal', resultFinal, 'debug');
-    return resultFinal;
+
+    // 🔄 rebuild dependencies on the validated base
+    const rebuilt = await this.svDependencyDescriptor.rebuildDependencyData(result.data);
+    this.b.logWithContext(this, 'applyPolicies:success', rebuilt, 'debug');
+    this.b.logWithContext(
+      this,
+      'applyPolicies:rebuilt.data?.controllers[0].dependencies',
+      rebuilt.data?.controllers[0].dependencies,
+      'debug',
+    );
+
+    return rebuilt;
   }
 
   private normalizeNameLikeFields<T extends Record<string, any>>(obj: T): T {
@@ -731,6 +789,11 @@ export class CdModuleDescriptorService {
             });
           }
         }
+
+        // check for controllers and counterparts
+        // this.b.logWithContext(this, `ensureCounterparts:enriched[0].dependencies`, {enriched: enriched[0]}, 'debug');
+        // check for dependancies
+        // this.b.logWithContext(this, `ensureCounterparts:enriched[0].dependencies`, {enriched: enriched[0].dependencies}, 'debug');
       }
 
       return enriched;
@@ -994,64 +1057,94 @@ export class CdModuleDescriptorService {
   defaultCdApiModuleData(customModuleData: CdModuleDescriptor): CdModuleDescriptor {
     const cdObjName = customModuleData.name;
     const modulePascal = toPascalCase(cdObjName);
-    const cdObjTypeName = customModuleData.cdModuleType;
-    const moduleCtx = customModuleData.ctx;
 
-    const processedControllers = customModuleData.controllers.map((c, index) => {
+    const processedControllers = customModuleData.controllers.map((c) => {
       const controllerName = c.name;
       const controllerPascal = toPascalCase(controllerName);
       const controllerCamel = toCamelCase(controllerName);
       const controllerKebab = toKebabCase(controllerName);
       const controllerSnake = toUniversalSnakeCase(controllerName);
 
-      const isMain = index === 0;
+      const mergedController = this.buildController(c, controllerName, controllerPascal);
+      const mergedModel = this.buildModel(
+        customModuleData,
+        controllerName,
+        controllerCamel,
+        controllerKebab,
+        controllerSnake,
+      );
+      const mergedService = this.buildService(
+        c,
+        controllerName,
+        controllerCamel,
+        controllerPascal,
+        modulePascal,
+      );
 
-      // === CONTROLLER ===
-      const controller = {
-        type: ComponentType.Controller,
-        name: controllerName,
-        classSignature: { extends: 'CdController' },
-        attributes: [
-          {
-            name: 'b',
-            type: 'BaseService',
-            visibility: 'private',
-            isDependency: true,
-            isStateful: true,
-          },
-          {
-            name: `sv${controllerPascal}`,
-            type: `${controllerPascal}Service`,
-            visibility: 'private',
-            isDependency: true,
-            isStateful: true,
-          },
-          {
-            name: 'http',
-            type: 'express',
-            isApiEntry: true,
-            httpContextAware: true,
-            routing: {
-              baseRoute: `/${controllerName.toLowerCase()}`,
-              authRequired: true,
-              methods: {
-                Create: { httpMethod: 'POST', route: '/' },
-                Get: { httpMethod: 'GET', route: '/' },
-                GetType: { httpMethod: 'GET', route: '/type' },
-                GetCount: { httpMethod: 'GET', route: '/count' },
-                Update: { httpMethod: 'PUT', route: '/' },
-                Delete: { httpMethod: 'DELETE', route: '/' },
-              },
-            },
-          },
-        ],
-        methods: ['Create', 'Get', 'GetType', 'GetCount', 'Update', 'Delete'].map((methodName) => ({
-          name: methodName,
-          isDefault: methodName === 'Create',
+      this.b.logWithContext(this, `defaultCdApiModuleData:mergedService`, mergedService, 'debug');
+
+      return { controller: mergedController, model: mergedModel, service: mergedService };
+    });
+
+    return {
+      ...customModuleData,
+      controllers: processedControllers.map((e) => e.controller),
+      models: processedControllers.map((e) => e.model),
+      services: processedControllers.map((e) => e.service),
+    };
+  }
+
+  private buildController(customController: any, controllerName: string, controllerPascal: string) {
+    const controllerCamel = toCamelCase(controllerName);
+    const defaultController = {
+      type: ComponentType.Controller,
+      name: controllerName,
+      classSignature: { extends: 'CdController' },
+      attributes: [
+        {
+          name: 'b',
+          type: 'BaseService',
+          visibility: 'private',
+          isDependency: true,
+          isStateful: true,
+        },
+        {
+          name: `sv${controllerPascal}`,
+          type: `${controllerPascal}Service`,
+          visibility: 'private',
+          isDependency: true,
+          isStateful: true,
+        },
+        {
+          name: `sv${controllerPascal}Type`,
+          type: `${controllerPascal}TypeService`,
+          visibility: 'private',
+          isDependency: true,
+          isStateful: true,
+        },
+      ],
+      methods: [
+        {
+          name: 'constructor',
+          scope: { visibility: 'public', static: false },
+          output: { returnType: 'void' },
+          parameters: [],
+          behavior: { isAsync: false, isPure: true, returnsPromise: false },
+        },
+        ...[
+          'Create',
+          `Get${controllerPascal}`,
+          `Get${controllerPascal}Type`,
+          'GetCount',
+          'Update',
+          'Delete',
+        ].map((m) => ({
+          name: m,
+          isDefault: m === 'Create',
           scope: { visibility: 'public', static: false },
           output: {
             returnType: 'Promise<void>',
-            description: `${methodName} operation for ${controllerPascal}`,
+            description: `${m} operation for ${controllerPascal}`,
           },
           parameters: [
             { name: 'req', type: 'Request' },
@@ -1059,139 +1152,327 @@ export class CdModuleDescriptorService {
           ],
           behavior: { isAsync: true, isPure: false, returnsPromise: true },
         })),
-      };
+      ],
+    };
 
-      // === MODEL ===
-      const model = {
-        name: `${controllerKebab}`,
-        type: ComponentType.Model,
-        parentController: controllerName,
-        fileName: `${controllerKebab}.model.ts`,
-        tableName: controllerSnake,
-        fields: [
-          {
-            name: `${controllerCamel}Id`,
-            type: 'number',
-            required: true,
-            default: true,
-          },
-          {
-            name: `${controllerCamel}Guid`,
-            type: 'string',
-            required: true,
-            default: true,
-          },
-          {
-            name: `${controllerCamel}Name`,
-            type: 'string',
-            required: false,
-            default: true,
-          },
-          {
-            name: `${controllerCamel}Description`,
-            type: 'string',
-            required: true,
-            default: true,
-          },
-          {
-            name: `${controllerCamel}DocId`,
-            type: 'number',
-            required: false,
-            default: true,
-          },
-          {
-            name: `${controllerCamel}Enabled`,
-            type: 'boolean',
-            required: false,
-            default: true,
-          },
-        ],
-      };
+    return {
+      ...defaultController,
+      ...customController,
+      attributes: this.mergeUnique(
+        defaultController.attributes,
+        customController.attributes,
+        'name',
+      ),
+      methods: this.mergeUnique(defaultController.methods, customController.methods, 'name'),
+    };
+  }
 
-      // === SERVICE ===
-      const service = {
-        type: ComponentType.Service,
-        name: controllerName,
-        classSignature: {
-          extends: 'CdService',
-          implements: [],
+  private buildModel(
+    customModuleData: CdModuleDescriptor,
+    controllerName: string,
+    controllerCamel: string,
+    controllerKebab: string,
+    controllerSnake: string,
+  ): CdModelDescriptor {
+    const defaultModel: CdModelDescriptor = {
+      name: controllerKebab,
+      type: ComponentType.Model,
+      parentController: controllerName,
+      fileName: `${controllerKebab}.model.ts`,
+      tableName: controllerSnake,
+      fields: [
+        {
+          name: `${controllerCamel}Id`,
+          type: 'number',
+          required: true,
+          default: false,
+          primary: true,
+          autoIncrement: true,
+          dbName: `${controllerSnake}_id`,
         },
-        attributes: [
-          { name: 'logger', type: 'Logging', isDefault: true },
-          { name: 'b', type: 'BaseService', isDefault: true },
-          { name: 'cdToken', type: 'string', isDefault: true },
-          { name: 'uid', type: 'number', isDefault: true },
-          {
-            name: 'serviceModel',
-            type: `${controllerPascal}Model`,
-            isDefault: true,
+        {
+          name: `${controllerCamel}Guid`,
+          type: 'string',
+          required: true,
+          default: true,
+          unique: true,
+          defaultValue: 'uuid',
+          dbName: `${controllerSnake}_guid`,
+        },
+        {
+          name: `${controllerCamel}Name`,
+          type: 'string',
+          required: false,
+          default: true,
+          dbName: `${controllerSnake}_name`,
+        },
+        {
+          name: `${controllerCamel}Description`,
+          type: 'string',
+          required: true,
+          default: true,
+          dbName: `${controllerSnake}_description`,
+        },
+        {
+          name: `${controllerCamel}DocId`,
+          type: 'number',
+          required: false,
+          default: true,
+          dbName: `doc_id`,
+        },
+        {
+          name: `${controllerCamel}Enabled`,
+          type: 'boolean',
+          required: false,
+          default: true,
+          defaultValue: true,
+          dbName: `${controllerSnake}_enabled`,
+        },
+      ],
+    };
+
+    const customModel: Partial<CdModelDescriptor> =
+      customModuleData.models.find((m) => m.name === controllerName) || {};
+
+    const mergedFields = this.mergeUnique(
+      defaultModel.fields,
+      customModel.fields ?? [],
+      'name',
+    ).map((f) => ({
+      ...f,
+      dbName: f.dbName || toUniversalSnakeCase(f.name), // normalize dbName
+    }));
+
+    return {
+      ...defaultModel,
+      ...customModel,
+      fields: mergedFields,
+    };
+  }
+
+  // private buildModel(
+  //   customModuleData: CdModuleDescriptor,
+  //   controllerName: string,
+  //   controllerCamel: string,
+  //   controllerKebab: string,
+  //   controllerSnake: string,
+  // ): CdModelDescriptor {
+  //   const defaultModel: CdModelDescriptor = {
+  //     name: controllerKebab,
+  //     type: ComponentType.Model,
+  //     parentController: controllerName,
+  //     fileName: `${controllerKebab}.model.ts`,
+  //     tableName: controllerSnake,
+  //     fields: [
+  //       {
+  //         name: `${controllerCamel}Id`,
+  //         type: f.mysql.int, // ✅ structured type
+  //         required: true,
+  //         default: false,
+  //         primary: true,
+  //         autoIncrement: true,
+  //         dbName: `${controllerSnake}_id`,
+  //       },
+  //       {
+  //         name: `${controllerCamel}Guid`,
+  //         type: f.mysql.uuid, // ✅ UUID field
+  //         required: true,
+  //         default: true,
+  //         unique: true,
+  //         defaultValue: 'uuid',
+  //         dbName: `${controllerSnake}_guid`,
+  //       },
+  //       {
+  //         name: `${controllerCamel}Name`,
+  //         type: f.mysql.varchar(150), // ✅ varchar(150)
+  //         required: false,
+  //         default: true,
+  //         dbName: `${controllerSnake}_name`,
+  //       },
+  //       {
+  //         name: `${controllerCamel}Description`,
+  //         type: f.mysql.text, // ✅ TEXT
+  //         required: true,
+  //         default: true,
+  //         dbName: `${controllerSnake}_description`,
+  //       },
+  //       {
+  //         name: `${controllerCamel}DocId`,
+  //         type: f.mysql.int, // ✅ INT (FK candidate)
+  //         required: false,
+  //         default: true,
+  //         dbName: `doc_id`,
+  //       },
+  //       {
+  //         name: `${controllerCamel}Enabled`,
+  //         type: f.mysql.boolean, // ✅ MySQL boolean
+  //         required: false,
+  //         default: true,
+  //         defaultValue: true,
+  //         dbName: `${controllerSnake}_enabled`,
+  //       },
+  //     ],
+  //   };
+
+  //   // Find custom model in descriptor
+  //   const customModel: Partial<CdModelDescriptor> =
+  //     customModuleData.models.find((m) => m.name === controllerName) || {};
+
+  //   // Merge default + custom fields
+  //   const mergedFields = this.mergeUnique(
+  //     defaultModel.fields,
+  //     customModel.fields ?? [],
+  //     'name',
+  //   ).map((f) => ({
+  //     ...f,
+  //     dbName: f.dbName || toUniversalSnakeCase(f.name), // normalize dbName
+  //   }));
+
+  //   return {
+  //     ...defaultModel,
+  //     ...customModel,
+  //     fields: mergedFields,
+  //   };
+  // }
+
+  private buildService(
+    customController: any,
+    controllerName: string,
+    controllerCamel: string,
+    controllerPascal: string,
+    modulePascal: string,
+  ) {
+    // just in case controller data overrides the service
+    customController.type = ComponentType.Service;
+
+    const defaultService = {
+      type: ComponentType.Service,
+      name: controllerName,
+      classSignature: { extends: 'CdService', implements: [] },
+      attributes: [
+        { name: 'logger', type: 'Logging', isDefault: true },
+        { name: 'b', type: 'BaseService', isDefault: true },
+        { name: 'cdToken', type: 'string', isDefault: true },
+        { name: 'uid', type: 'number', isDefault: true },
+        { name: 'serviceModel', type: `${controllerPascal}Model`, isDefault: true },
+        { name: 'svSess', type: 'SessionService', isDefault: true },
+        { name: 'validationCreateParams', type: 'any', isDefault: true },
+        {
+          name: 'cRules',
+          type: 'object',
+          isDefault: true,
+          defaultValue: {
+            required: [`${controllerCamel}Name`, `${controllerCamel}TypeId`],
+            noDuplicate: [`${controllerCamel}Name`, `${controllerCamel}TypeId`],
           },
-          { name: 'svSess', type: 'SessionService', isDefault: true },
-          { name: 'validationCreateParams', type: 'any', isDefault: true },
-          {
-            name: 'cRules',
-            type: 'object',
-            isDefault: true,
-            defaultValue: {},
-          },
-        ],
-        methods: [
+        },
+        // {
+        //   name: 'uRules',
+        //   type: 'object',
+        //   isDefault: true,
+        //   defaultValue: {},
+        // },
+        // {
+        //   name: 'dRules',
+        //   type: 'object',
+        //   isDefault: true,
+        //   defaultValue: {},
+        // },
+      ],
+      methods: [
+        {
+          name: 'constructor',
+          scope: { visibility: 'public', static: false },
+          output: { returnType: 'void' },
+          parameters: [],
+          behavior: { isAsync: false, isPure: true, returnsPromise: false },
+        },
+        {
+          name: 'beforeUpdate',
+          scope: { visibility: 'private', static: false },
+          output: { returnType: 'any', description: 'Hook to adjust query before update' },
+          parameters: [{ name: 'q', type: 'any' }],
+          behavior: { isAsync: false, isPure: false, returnsPromise: false },
+          isDefault: true,
+        },
+        ...[
           'create',
           'validateCreate',
           `${controllerCamel}Exists`,
           `get${controllerPascal}Count`,
-          'update',
-          'delete',
+          `get${controllerPascal}QB`,
+          `get${controllerPascal}Type`,
           `get${controllerPascal}Profile`,
           `get${controllerPascal}ProfileByToken`,
           `getScoped${controllerPascal}`,
           `update${controllerPascal}Profile`,
+          'update',
+          'delete',
           `activate${modulePascal}`,
-        ].map((methodName) => ({
-          name: methodName,
-          isDefault: methodName === 'create',
+        ].map((m) => ({
+          name: m,
+          isDefault: m === 'create',
           scope: { visibility: 'public', static: false },
-          output: {
-            returnType: methodName.includes('Exists')
-              ? `Promise<${controllerPascal}Model[]>`
-              : 'Promise<void>',
-            description: `Performs ${methodName}`,
-          },
+          output: { returnType: 'Promise<void>', description: `Performs ${m}` },
           behavior: { isAsync: true, isPure: false, returnsPromise: true },
-          parameters: [
-            'get',
-            'update',
-            'delete',
-            'create',
-            'validateCreate',
-            'getScoped',
-            'getProfile',
-            'updateProfile',
-            'getCount',
-            'getByToken',
-            'activate',
-          ].some((m) => methodName.toLowerCase().includes(m))
+          parameters: ['create', 'update', 'delete', 'get', 'validateCreate'].some((k) =>
+            m.toLowerCase().includes(k),
+          )
             ? [
                 { name: 'req', type: 'Request' },
                 { name: 'res', type: 'Response' },
               ]
             : undefined,
         })),
-      };
-
-      return { controller, model, service };
-    });
-
-    const finalControllers = processedControllers.map((e) => e.controller);
-    const finalModels = processedControllers.map((e) => e.model);
-    const finalServices = processedControllers.map((e) => e.service);
+      ],
+    };
 
     return {
-      ...customModuleData,
-      controllers: finalControllers as CdModuleDescriptor['controllers'],
-      models: finalModels as CdModuleDescriptor['models'],
-      services: finalServices as CdModuleDescriptor['services'],
+      ...defaultService,
+      ...customController, // override if service defined in custom
+      attributes: this.mergeUnique(defaultService.attributes, customController.attributes, 'name'),
+      methods: this.mergeUnique(defaultService.methods, customController.methods, 'name'),
     };
+  }
+
+  /**
+   * Merge two arrays of objects uniquely by a key.
+   * Custom items override defaults if they share the same key.
+   */
+  // private mergeUnique<T extends Record<string, any>>(
+  //   defaults: T[],
+  //   customs: T[],
+  //   key: keyof T,
+  // ): T[] {
+  //   const map = new Map<any, T>();
+
+  //   // Add defaults first
+  //   for (const d of defaults) {
+  //     map.set(d[key], d);
+  //   }
+
+  //   // Override / add customs
+  //   for (const c of customs) {
+  //     map.set(c[key], { ...map.get(c[key]), ...c });
+  //   }
+
+  //   return Array.from(map.values());
+  // }
+  private mergeUnique<T>(defaults: T[] = [], customs: T[] = [], key: keyof T): T[] {
+    const safeDefaults = Array.isArray(defaults) ? defaults : [];
+    const safeCustoms = Array.isArray(customs) ? customs : [];
+
+    const map = new Map<string | number, T>();
+
+    for (const item of safeDefaults) {
+      map.set(item[key] as any, item);
+    }
+
+    for (const item of safeCustoms) {
+      map.set(item[key] as any, item);
+    }
+
+    return Array.from(map.values());
   }
 
   async cdApiModuleData(
@@ -1235,14 +1516,26 @@ export class CdModuleDescriptorService {
       // 4) Derive base descriptor from custom
       const base: CdModuleDescriptor = await this.defaultCdApiModuleData(custom);
       this.b.logWithContext(this, 'cdApiModuleData:base', base, 'debug');
+      this.b.logWithContext(
+        this,
+        'cdApiModuleData:base.controllers[1]:',
+        base.controllers[1],
+        'debug',
+      );
+      // CdLog.debug(`CdModuleDescriptorService::cdApiModuleData:${inspect(base.controllers, {depth: 3})}`, )
 
       // 5) Validate + merge using registered policies
-      const result = await this.applyPolicies(base, custom);
+      const result = await this.applyPolicies(base);
       if (!result.state) {
         return result; // already wrapped in CdFxReturn
       }
 
-      this.b.logWithContext(this, 'cdApiModuleData:merged', result.data, 'debug');
+      this.b.logWithContext(
+        this,
+        'cdApiModuleData:result.data?.controllers[0].dependencies',
+        result.data?.controllers[0].dependencies,
+        'debug',
+      );
       if (!result || !result.data) {
         return cdFx(
           CdFxStateLevel.LogicalFailure,
@@ -1253,7 +1546,10 @@ export class CdModuleDescriptorService {
 
       // 6) Final cleanup/sanitization after policies
       const cdApiModuleData = await this.sanitizeModuleData(result.data);
-      this.b.logWithContext(this, 'cdApiModuleData:sanitized', cdApiModuleData, 'debug');
+      // check for counterparts...ok
+      // this.b.logWithContext(this, 'cdApiModuleData:cdApiModuleData', cdApiModuleData, 'debug');
+      // check for dependencies...ok
+      // this.b.logWithContext(this, 'cdApiModuleData:cdApiModuleData.controllers[0].dependencies', cdApiModuleData.controllers[0].dependencies, 'debug');
 
       return {
         state: true,

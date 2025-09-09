@@ -1,5 +1,5 @@
 import { ObjectLiteral } from 'typeorm';
-import { CdFxReturn, IQuery, IServiceInput } from '../../base/IBase.js';
+import { CdFxReturn, IQuery, IServiceInput } from '../../base/i-base.js';
 import { CdObjModel } from '../models/cd-obj.model.js';
 import { CdObjService } from '../services/cd-obj.service.js';
 

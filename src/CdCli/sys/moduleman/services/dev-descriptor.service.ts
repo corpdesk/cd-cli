@@ -1,9 +1,9 @@
-import type { IQuery } from '../../base/IBase.js';
+import type { IQuery } from '../../base/i-base.js';
 // import type { CdDescriptor } from '../models/dev-descriptor.model';
 /* eslint-disable style/brace-style */
 import config from '../../../../config.js';
 import { HttpService } from '../../base/http.service.js';
-import { ISessResp } from '../../base/IBase.js';
+import { ISessResp } from '../../base/i-base.js';
 import { CdCliProfileController } from '../../cd-cli/controllers/cd-cli-profile.cointroller.js';
 import CdLog from '../../cd-comm/controllers/cd-logger.controller.js';
 import { SessonController } from '../../user/controllers/session.controller.js';

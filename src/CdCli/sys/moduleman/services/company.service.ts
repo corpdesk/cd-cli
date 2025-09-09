@@ -2,7 +2,7 @@
 // import { CompanyModel } from "../entities/CompanyModel";
 
 import { ObjectLiteral } from 'typeorm';
-import { CD_FX_FAIL, CdFxReturn, IQuery } from '../../base/IBase.js';
+import { CD_FX_FAIL, CdFxReturn, IQuery } from '../../base/i-base.js';
 import { CompanyModel } from '../models/company.model.js';
 import CdLog from '../../cd-comm/controllers/cd-logger.controller.js';
 import { BaseService } from '../../base/base.service.js';

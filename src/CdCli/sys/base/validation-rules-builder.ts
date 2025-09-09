@@ -1,6 +1,6 @@
-// import { ValidationRules } from "./IBase";
+// import { ValidationRules } from "./i-base";
 
-import { ValidationRules } from "./IBase.js";
+import { ValidationRules } from "./i-base.js";
 
 export class ValidationRulesBuilder {
   private rules: ValidationRules = {};

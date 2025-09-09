@@ -19,7 +19,7 @@ import {
   IQuery,
   IServiceInput,
   ISessionDataExt,
-} from '../../base/IBase.js';
+} from '../../base/i-base.js';
 import { ModuleService } from './module.service.js';
 import { SessionService } from '../../user/services/session.service.js';
 import { ConsumerService } from './consumer.service.js';

@@ -38,6 +38,9 @@ export type DerivedSuffix = 'type' | 'view';
 export type DerivedComponentType =
   | `${PrimaryComponentType}-${DerivedSuffix}`;
 
+export type Ext = 'controller' | 'service' | 'model';
+export type Suffix = 'type' | 'view' | null;
+
 // export type ComponentType =
 //   | PrimaryComponentType
 //   | DerivedComponentType;

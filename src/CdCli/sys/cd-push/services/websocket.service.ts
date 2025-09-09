@@ -9,7 +9,7 @@ import {
   IRespInfo,
   IServiceInput,
   IUser,
-} from '../../base/IBase.js';
+} from '../../base/i-base.js';
 import { CdPushSocketModel, SocketStore } from '../models/cd-push-socket.model.js';
 import { CdPushViewModel } from '../models/cd-push-view.model.js';
 import { CdPushTypeModel } from '../models/cd-push-type.model.js';

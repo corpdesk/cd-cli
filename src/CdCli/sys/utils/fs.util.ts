@@ -2,7 +2,7 @@ import { homedir } from 'os';
 import path from 'path';
 import prettier from 'prettier';
 import fs, { access } from 'fs/promises';
-import { formatterConfig } from '../base/IBase.js';
+import { formatterConfig } from '../base/i-base.js';
 import { constants } from 'fs';
 import { BaseService } from '../base/base.service.js';
 import CdLog from '../cd-comm/controllers/cd-logger.controller.js';
@@ -171,39 +171,42 @@ export async function writeFileSafely(fullPath: string, content: string): Promis
 // export async function writePrettyFile(fullPath: string, content: string): Promise<void> {
 //   const dir = path.dirname(fullPath);
 
-//   try {
-//     await fs.mkdir(dir, { recursive: true });
-
-//     const formatted = await prettier.format(content, { parser: 'typescript' });
-
-//     await fs.writeFile(fullPath, formatted, 'utf-8');
-//     console.log(`✅ Pretty file written (overwrite): ${fullPath}`);
-//   } catch (err) {
-//     console.error(`❌ Failed to write pretty file: ${fullPath}`, err);
-//     throw err;
-//   }
-// }
 function getParserFromExtension(ext: string): prettier.BuiltInParserName {
   const entry = formatterConfig[ext];
   if (!entry) throw new Error(`Unsupported file extension: ${ext}`);
   return entry.parser;
 }
 
+
 export async function writePrettyFile(fullPath: string, content: string): Promise<void> {
-  CdLog.debug(`fs.util::writePrettyFile()/fullPath:${fullPath}`)
-  const ext = path.extname(fullPath);
-  const parser = getParserFromExtension(ext);
+  try {
+    CdLog.debug(`fs.util::writePrettyFile()/fullPath:${fullPath}`);
 
-  await fs.mkdir(path.dirname(fullPath), { recursive: true });
+    const ext = path.extname(fullPath);
+    const parser = getParserFromExtension(ext) || 'typescript'; // fallback parser
 
-  const formatted = await prettier.format(content, { parser });
-  await fs.writeFile(fullPath, formatted, 'utf-8');
+    await fs.mkdir(path.dirname(fullPath), { recursive: true });
 
-  console.log(`✅ Pretty file written: ${fullPath}`);
+    let formatted: string;
+    try {
+      formatted = await prettier.format(content, { parser });
+    } catch (prettierErr: any) {
+      CdLog.warning(
+        `⚠️ Prettier failed for ${fullPath}, writing raw content. Error: ${prettierErr.message}`,
+      );
+      formatted = content;
+    }
+
+    await fs.writeFile(fullPath, formatted, 'utf-8');
+    console.log(`✅ Pretty file written: ${fullPath}`);
+  } catch (err: any) {
+    CdLog.error(`❌ writePrettyFile failed for ${fullPath}: ${err.message}`);
+    throw err;
+  }
 }
 
 export async function writePrettyFileSafely(fullPath: string, content: string): Promise<void> {
-  CdLog.debug(`fs.util::writePrettyFileSafely()/fullPath:${fullPath}`)
+  CdLog.debug(`fs.util::writePrettyFileSafely()/fullPath:${fullPath}`);
   const formatted = await prettier.format(content, { parser: 'typescript' });
   await fs.writeFile(fullPath, formatted, 'utf8');
 }

@@ -50,7 +50,7 @@ export interface DependencyDescriptor
 
 // Dependency Category Descriptor
 export interface DependencyCategoryDescriptor extends BaseDescriptor {
-  category: 'library' | 'tool' | 'framework' | 'header' | 'core' | 'utility' | 'custom' | 'unknown'; // Categorization
+  category: 'library' | 'tool' | 'framework' | 'header' | 'core' | 'sys' | 'app' | 'utility' | 'custom' | 'unknown'; // Categorization
 }
 
 // Dependency Type Descriptor

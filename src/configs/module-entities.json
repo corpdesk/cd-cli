@@ -6,5 +6,6 @@
   { "moduleName": "cd-dev", "ctx": "sys", "enabled": false },
   { "moduleName": "cd-accts", "ctx": "app", "enabled": false },
   { "moduleName": "coops", "ctx": "app", "enabled": false },
-  { "moduleName": "cd-geo", "ctx": "app", "enabled": false }
+  { "moduleName": "cd-geo", "ctx": "app", "enabled": false },
+  { "moduleName": "cd-ai", "ctx": "app", "enabled": true }
 ]

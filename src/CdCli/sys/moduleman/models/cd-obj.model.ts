@@ -7,7 +7,7 @@ import {
   OneToMany,
 } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
-import type { ICdRequest } from '../../base/IBase.js';
+import type { ICdRequest } from '../../base/i-base.js';
 
 export const defaultCdObjEnv: ICdRequest = {
   ctx: 'Sys',

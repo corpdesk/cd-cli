@@ -1,8 +1,9 @@
-import { ICdRequest } from '../../base/IBase.js';
+import { ICdRequest } from '../../base/i-base.js';
 import { DependencyDescriptor } from '../index.js';
 import type { BaseDescriptor } from './base-descriptor.model.js';
 
 export interface FunctionDescriptor extends BaseDescriptor {
+  name: string; // override the BaseDescriptor, which is optional
   scope: ScopeDescriptor; // Access level and static nature
   parameters?: ParameterDescriptor[]; // Function parameters
   output?: OutputDescriptor; // Return type and description

@@ -1,6 +1,6 @@
 /* eslint-disable style/operator-linebreak */
 /* eslint-disable style/brace-style */
-import type { ICdResponse, ISessResp } from '../../base/IBase.js';
+import type { ICdResponse, ISessResp } from '../../base/i-base.js';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import path, { dirname, join } from 'node:path';
 // import { fileURLToPath } from 'node:url';

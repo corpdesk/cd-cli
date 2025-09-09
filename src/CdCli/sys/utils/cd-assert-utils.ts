@@ -1,6 +1,6 @@
 // cd-assert-utils.ts
 
-import { CdAssertReturn, CdFxStateLevel } from "../base/IBase.js";
+import { CdAssertReturn, CdFxStateLevel } from "../base/i-base.js";
 
 
 // ─── Assertion Evaluator ──────────────────────────

@@ -1,6 +1,6 @@
 /* eslint-disable style/brace-style */
 /* eslint-disable style/operator-linebreak */
-import type { CdFxReturn } from '../../base/IBase.js';
+import type { CdFxReturn } from '../../base/i-base.js';
 import type { WorkstationAccessDescriptor } from '../models/workstations.model.js';
 import CdLog from '../../cd-comm/controllers/cd-logger.controller.js';
 import { WorkstationAccessService } from '../services/workstation-access.service.js';

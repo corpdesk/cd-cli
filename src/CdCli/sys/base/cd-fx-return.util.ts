@@ -1,6 +1,6 @@
 // import { CdFxReturn, CdFxStateLevel } from "./cd-fx-types"; // adjust if needed
 
-import { CdFxReturn, CdFxStateLevel } from "./IBase.js";
+import { CdFxReturn, CdFxStateLevel } from "./i-base.js";
 
 // ✅ Default returns for each CdFxStateLevel
 

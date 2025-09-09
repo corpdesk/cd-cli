@@ -1,5 +1,5 @@
 /* eslint-disable style/brace-style */
-import { CD_FX_FAIL, type ICdResponse, type ISessResp } from '../../base/IBase.js';
+import { CD_FX_FAIL, type ICdResponse, type ISessResp } from '../../base/i-base.js';
 import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { CONFIG_FILE_PATH } from '../../../../config.js';

@@ -19,7 +19,7 @@ import {
   IQuery,
   IServiceInput,
   ISessionDataExt,
-} from '../src/CdCli/sys/base/IBase';
+} from '../src/CdCli/sys/base/i-base';
 // import { ModuleService } from './module.service';
 import { SessionService } from '../src/CdCli/sys/user/services/session.service';
 // import { ConsumerService } from './consumer.service';

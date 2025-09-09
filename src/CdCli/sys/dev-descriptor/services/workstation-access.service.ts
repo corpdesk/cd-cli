@@ -5,7 +5,7 @@ import type {
 } from '../models/workstations.model.js';
 /* eslint-disable ts/no-require-imports */
 /* eslint-disable style/operator-linebreak */
-import type { CdFxReturn } from '../../base/IBase.js';
+import type { CdFxReturn } from '../../base/i-base.js';
 import { SshService } from './ssh.service.js';
 import { CdObjModel } from '../../moduleman/models/cd-obj.model.js';
 import { GenericService } from '../../base/generic-service.js';

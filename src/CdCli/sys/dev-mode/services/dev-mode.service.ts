@@ -1,6 +1,6 @@
 import { inspect } from 'util';
 import { BaseService } from '../../base/base.service.js';
-import { CdFxReturn, CdFxStateLevel, ICdRequest } from '../../base/IBase.js';
+import { CdFxReturn, CdFxStateLevel, ICdRequest } from '../../base/i-base.js';
 import CdLog from '../../cd-comm/controllers/cd-logger.controller.js';
 import { AppType, CdEnvName, repoRegistry } from '../../dev-descriptor/index.js';
 import { SessionService } from '../../user/index.js';
@@ -203,9 +203,9 @@ export class DevModeService {
 
       const b = new BaseService();
       const responseCdRequest = await b.invokeCdRequest(request);
-      CdLog.debug(
-        `DevModeService::executeCrudCommand()/responseCdRequest:${inspect(responseCdRequest, { depth: 2 })}`,
-      );
+      // CdLog.debug(
+      //   `DevModeService::executeCrudCommand()/responseCdRequest:${inspect(responseCdRequest, { depth: 2 })}`,
+      // );
 
       // if (responseCdRequest?.state === true || responseCdRequest.state === CdFxStateLevel.Success) {
       //   return {

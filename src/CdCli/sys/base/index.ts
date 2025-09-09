@@ -9,4 +9,4 @@ export * from './redis-service.js';
 export * from './base.service.js';
 export * from './http.service.js';
 export * from './type-orm-connect.js';
-export * from './IBase.js';
+export * from './i-base.js';

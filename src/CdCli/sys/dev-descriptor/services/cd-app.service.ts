@@ -1,5 +1,5 @@
 /* eslint-disable style/brace-style */
-import { CD_FX_FAIL, type CdFxReturn, type CdRequest, type IQuery } from '../../base/IBase.js';
+import { CD_FX_FAIL, type CdFxReturn, type CdRequest, type IQuery } from '../../base/i-base.js';
 import type { CdDescriptor } from '../models/dev-descriptor.model.js';
 import { HttpService } from '../../base/http.service.js';
 import CdLog from '../../cd-comm/controllers/cd-logger.controller.js';

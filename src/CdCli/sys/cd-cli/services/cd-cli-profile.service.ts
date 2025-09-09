@@ -5,9 +5,9 @@ import type {
   ICdResponse,
   IJsonUpdate,
   IQuery,
-} from '../../base/IBase.js';
+} from '../../base/i-base.js';
 import { HttpService } from '../../base/http.service.js';
-import { DEFAULT_CD_RESPONSE, DEFAULT_ENVELOPE_CREATE } from '../../base/IBase.js';
+import { DEFAULT_CD_RESPONSE, DEFAULT_ENVELOPE_CREATE } from '../../base/i-base.js';
 import CdLog from '../../cd-comm/controllers/cd-logger.controller.js';
 import config from '../../../../config.js';
 

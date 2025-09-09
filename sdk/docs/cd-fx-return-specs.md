@@ -160,7 +160,7 @@ export enum CdFxStateLevel {
 ### 🛠️ Helper File: `cd-fx-return-helper.ts`
 
 ```ts
-import { CdFxStateLevel } from "./IBase.js";
+import { CdFxStateLevel } from "./i-base.js";
 
 // Overloads for direct state checks
 export function isSuccess(state: boolean | CdFxStateLevel): boolean {

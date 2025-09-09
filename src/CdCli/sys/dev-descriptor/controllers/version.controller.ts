@@ -3,7 +3,7 @@
 // import type { ServiceService } from './service.service.js';
 // import { Body, Controller, Post } from '@nestjs/common.js';
 
-import type { CdFxReturn } from '../../base/IBase.js';
+import type { CdFxReturn } from '../../base/i-base.js';
 import type { BaseServiceDescriptor } from '../models/service-descriptor.model.js';
 import { SemanticVersionObject } from '../models/version-control.model.js';
 import { ServiceService } from '../services/service.service.js';

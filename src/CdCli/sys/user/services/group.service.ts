@@ -7,7 +7,7 @@ import {
   IQbInput,
   IQuery,
   IServiceInput,
-} from '../../base/IBase.js';
+} from '../../base/i-base.js';
 import { CdObjTypeModel } from '../../moduleman/models/cd-obj-type.model.js';
 import { CompanyModel } from '../../moduleman/models/company.model.js';
 import { ConsumerModel } from '../../moduleman/models/consumer.model.js';

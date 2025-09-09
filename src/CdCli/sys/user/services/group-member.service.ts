@@ -7,7 +7,7 @@ import {
   CdFxReturn,
   CreateIParams,
   IQuery,
-} from '../../base/IBase.js';
+} from '../../base/i-base.js';
 import { GroupMemberModel } from '../models/group-member.model.js';
 import CdLog from '../../cd-comm/controllers/cd-logger.controller.js';
 import { BaseService } from '../../base/base.service.js';

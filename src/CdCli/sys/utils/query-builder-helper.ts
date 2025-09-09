@@ -1,6 +1,6 @@
 import { SelectQueryBuilder, Repository, Like, ObjectLiteral } from 'typeorm';
 import { EntityAdapter } from './entity-adapter.js';
-import { IServiceInput, QueryInput } from '../base/IBase.js';
+import { IServiceInput, QueryInput } from '../base/i-base.js';
 
 export class QueryBuilderHelper {
   entityAdapter: EntityAdapter;

@@ -9,7 +9,7 @@ import {
   IServiceInput,
   ISessionDataExt,
   ISessResp,
-} from '../../base/IBase.js';
+} from '../../base/i-base.js';
 import CdLog from '../../cd-comm/controllers/cd-logger.controller.js';
 import { BaseService } from '../../base/base.service.js';
 import config from '../../../../config.js';

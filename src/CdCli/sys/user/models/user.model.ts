@@ -1,6 +1,6 @@
 import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
-import type { ICdRequest } from '../../base/IBase.js';
-import { DEFAULT_ARGS, DEFAULT_DAT, SYS_CTX } from '../../base/IBase.js';
+import type { ICdRequest } from '../../base/i-base.js';
+import { DEFAULT_ARGS, DEFAULT_DAT, SYS_CTX } from '../../base/i-base.js';
 import { UserController } from '../controllers/user.controller.js';
 import { BaseService } from '../../base/base.service.js';
 

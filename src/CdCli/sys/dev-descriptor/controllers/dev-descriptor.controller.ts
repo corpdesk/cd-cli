@@ -6,7 +6,7 @@ import {
   type ICdResponse,
   type IQuery,
   type ISessResp,
-} from '../../base/IBase.js';
+} from '../../base/i-base.js';
 import type {
   CdDescriptor,
   TypeDescriptor,

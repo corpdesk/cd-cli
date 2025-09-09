@@ -8,7 +8,7 @@ import {
   type IJsonUpdate,
   type IQuery,
   type ISessResp,
-} from '../../base/IBase.js';
+} from '../../base/i-base.js';
 import type {
   ProfileContainer,
   ProfileData,
@@ -199,7 +199,7 @@ export class CdCliProfileController {
   }
 
   async loadProfiles(): Promise<CdFxReturn<ProfileContainer>> {
-    CdLog.debug('starting loadCdCliConfig()');
+    // CdLog.debug('starting loadCdCliConfig()');
 
     try {
       // Ensure profile check and login before loading config
@@ -462,7 +462,7 @@ export class CdCliProfileController {
     try {
       // Resolve the path to the configuration file
       const configFilePath = CONFIG_FILE_PATH; // Assuming this constant points to ~/.cd-cli/cd-cli.profiles.json
-      CdLog.debug(`config file: ${configFilePath}`);
+      // CdLog.debug(`config file: ${configFilePath}`);
 
       // Step 1: Check if the configuration file exists
       if (!existsSync(configFilePath)) {
@@ -550,7 +550,7 @@ export class CdCliProfileController {
 
         CdLog.success('Session token renewed successfully.');
       } else {
-        CdLog.info('Valid session token found. Proceeding...');
+        // CdLog.info('Valid session token found. Proceeding...');
         this.cdToken = session.cd_token;
       }
 
@@ -756,9 +756,9 @@ export class CdCliProfileController {
         // CdLog.debug(
         //   `getProfileByName()/profileResult: ${JSON.stringify(profileResult)}`,
         // );
-        CdLog.debug(
-          `getProfileByName()/profileResult.data?.items: ${JSON.stringify(profileResult.data?.items)}`,
-        );
+        // CdLog.debug(
+        //   `getProfileByName()/profileResult.data?.items: ${JSON.stringify(profileResult.data?.items)}`,
+        // );
         if (!profileResult.state || !profileResult.data) {
           const message = `Failed to load profiles: ${profileResult.message}`;
           CdLog.error(message);
@@ -821,9 +821,9 @@ export class CdCliProfileController {
     CdLog.debug('CdCliProfileController::getSessionData()/starting...');
 
     const profileResult = await this.getProfileByName(config.cdApiLocal);
-    CdLog.debug(
-      `getSessionData()/profileResult: ${JSON.stringify(profileResult)}`,
-    );
+    // CdLog.debug(
+    //   `getSessionData()/profileResult: ${JSON.stringify(profileResult)}`,
+    // );
     if (!profileResult.state || !profileResult.data) {
       return {
         data: null,

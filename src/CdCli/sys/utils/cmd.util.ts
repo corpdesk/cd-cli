@@ -1,6 +1,6 @@
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { CdErrorRecognition, CdFxReturn, CdFxStateLevel } from '../base/IBase.js';
+import { CdErrorRecognition, CdFxReturn, CdFxStateLevel } from '../base/i-base.js';
 
 const execAsync = promisify(exec);
 

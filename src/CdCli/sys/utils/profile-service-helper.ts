@@ -13,11 +13,11 @@
 
 
 import { MemberMeta } from '../../app/coops/index.js';
-import { IServiceInput } from '../base/IBase.js';
+import { IServiceInput } from '../base/i-base.js';
 import { UserModel } from '../user/models/user.model.js';
 
 // import { ICoopRole, MemberMeta } from "../../app/coops/models/coop-member.model";
-// import { IQuery, IServiceInput } from "../base/IBase";
+// import { IQuery, IServiceInput } from "../base/i-base";
 
 export class ProfileServiceHelper {
   /**

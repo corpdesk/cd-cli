@@ -1,6 +1,6 @@
 import { Entity, PrimaryGeneratedColumn, Column } from 'typeorm';
 import { BaseService } from '../../base/base.service.js';
-import { IQuery, IServiceInput } from '../../base/IBase.js';
+import { IQuery, IServiceInput } from '../../base/i-base.js';
 import { CompanyViewModel } from './company-view.model.js';
 import { DocModel } from './doc.model.js';
 import config from '../../../../config.js';

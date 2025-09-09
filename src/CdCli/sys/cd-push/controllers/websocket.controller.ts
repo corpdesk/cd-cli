@@ -4,7 +4,7 @@ import { DocModel } from '../../moduleman/models/doc.model.js';
 import { WebsocketService } from '../services/websocket.service.js';
 import { CdPushSocketModel } from '../models/cd-push-socket.model.js';
 import { GenericService } from '../../base/generic-service.js';
-import { IServiceInput } from '../../base/IBase.js';
+import { IServiceInput } from '../../base/i-base.js';
 
 export class WebSocketController {
   b: BaseService<CdPushSocketModel>;

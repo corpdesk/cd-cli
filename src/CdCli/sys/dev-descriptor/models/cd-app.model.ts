@@ -1,4 +1,4 @@
-import type { CdRequest, ICdRequest } from '../../base/IBase.js';
+import type { CdRequest, ICdRequest } from '../../base/i-base.js';
 import type { BaseDescriptor } from './base-descriptor.model.js';
 import type { CdModuleDescriptor } from './cd-module-descriptor.model.js';
 import type { CiCdDescriptor } from './cicd-descriptor.model.js';

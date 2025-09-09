@@ -104,7 +104,7 @@ import axios, { AxiosInstance, AxiosRequestConfig } from "axios";
 import * as https from "https";
 import { CdCliProfileController } from "../cd-cli/controllers/cd-cli-profile.cointroller.js";
 import CdLog from "../cd-comm/controllers/cd-logger.controller.js";
-import type { CdFxReturn, ICdRequest, ICdResponse } from "./IBase.js";
+import type { CdFxReturn, ICdRequest, ICdResponse } from "./i-base.js";
 import { IProfileDetails } from "../cd-cli/models/cd-cli-profile.model.js";
 import config from "../../../config.js";
 import CdCliVaultController from "../cd-cli/controllers/cd-cli-vault.controller.js";

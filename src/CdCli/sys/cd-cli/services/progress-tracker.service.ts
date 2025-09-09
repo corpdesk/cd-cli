@@ -1,4 +1,4 @@
-import type { CdFxReturn } from '../../base/IBase.js';
+import type { CdFxReturn } from '../../base/i-base.js';
 import type {
   ProgressTrackerModel,
   StepProgress,

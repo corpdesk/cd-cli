@@ -2,7 +2,7 @@ import { createClient } from "redis";
 // import Redis from 'ioredis';
 import Redis, { Redis as RedisClient } from "ioredis";
 import { CdObjModel } from "../../moduleman/models/cd-obj.model.js";
-import { CD_FX_FAIL, CdFxReturn } from "../../base/IBase.js";
+import { CD_FX_FAIL, CdFxReturn } from "../../base/i-base.js";
 import { CdObjTypeModel } from "../../moduleman/models/cd-obj-type.model.js";
 import {
   CdDescriptor,

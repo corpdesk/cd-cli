@@ -7,7 +7,7 @@ import {
   VersionControlTag,
   VersionParts,
 } from '../models/version-control.model.js';
-import { CD_FX_FAIL, CdFxReturn, CdFxStateLevel } from '../../base/IBase.js';
+import { CD_FX_FAIL, CdFxReturn, CdFxStateLevel } from '../../base/i-base.js';
 import CdLog from '../../cd-comm/controllers/cd-logger.controller.js';
 import { toCamelCase, toPascalCase } from '../../utils/cd-naming.util.js';
 import { join, resolve } from 'path';

@@ -1,7 +1,7 @@
 /* eslint-disable style/indent */
 /* eslint-disable style/operator-linebreak */
 /* eslint-disable style/brace-style */
-import type { CdFxReturn } from '../../base/IBase.js';
+import type { CdFxReturn } from '../../base/i-base.js';
 import type { DependencyDescriptor } from '../models/dependancy-descriptor.model.js';
 import type {
   OperatingSystemDescriptor,
@@ -335,7 +335,7 @@ export class DependencyDescriptorService extends GenericService<CdObjModel> {
           IServiceInput,
           IUser,
           ISessionDataExt,
-      } from "../../../sys/base/IBase";
+      } from "../../../sys/base/i-base";
       import { BaseService } from "../../../sys/base/base.service";
       import { CdService } from "../../../sys/base/cd.service";
       import { Logging } from "../../../sys/base/winston.log";
@@ -359,7 +359,7 @@ export class DependencyDescriptorService extends GenericService<CdObjModel> {
           IServiceInput,
           IUser,
           ISessionDataExt,
-      } from "../../../sys/base/IBase";
+      } from "../../../sys/base/i-base";
       import { BaseService } from "../../../sys/base/base.service";
       import { CdService } from "../../../sys/base/cd.service";
       import { Logging } from "../../../sys/base/winston.log";
@@ -413,7 +413,9 @@ export class DependencyDescriptorService extends GenericService<CdObjModel> {
     this.applyModelDeps(moduleData);
 
     this.b.logWithContext(this, 'rebuildDependencies:end', { moduleData });
-    this.b.logWithContext(this, 'rebuildDependencies:controller[0]Dependencies', { controllerData: moduleData.controllers[0].dependencies });
+    this.b.logWithContext(this, 'rebuildDependencies:controller[0]Dependencies', {
+      controllerData: moduleData.controllers[0].dependencies,
+    });
     return { state: true, data: moduleData };
   }
 
@@ -436,12 +438,25 @@ export class DependencyDescriptorService extends GenericService<CdObjModel> {
   // CONTROLLER CASES (1 & 2)
   // =============================
   private applyControllerDeps(moduleData: CdModuleDescriptor) {
+    this.b.logWithContext(this, `applyControllerDeps:moduleData:`, moduleData, 'debug');
+    this.b.logWithContext(
+      this,
+      `applyControllerDeps:moduleData.controllers[0]:`,
+      moduleData.controllers[0],
+      'debug',
+    );
     for (const controller of moduleData.controllers || []) {
       if (
         controller.type === ComponentType.Controller ||
         controller.type === ComponentType.ControllerType
       ) {
-        controller.dependencies?.push(this.buildBaseServiceDependency());
+        controller.dependencies?.push(...this.buildBaseServiceDependency());
+        this.b.logWithContext(
+          this,
+          `applyControllerDeps:controller.dependencies1:`,
+          controller.dependencies,
+          'debug',
+        );
 
         for (const service of moduleData.services || []) {
           if (
@@ -450,7 +465,19 @@ export class DependencyDescriptorService extends GenericService<CdObjModel> {
           ) {
             controller.dependencies?.push(this.buildServiceDependency(service));
           }
+          this.b.logWithContext(
+            this,
+            `applyControllerDeps:controller.dependencies2:`,
+            controller.dependencies,
+            'debug',
+          );
         }
+        this.b.logWithContext(
+          this,
+          `applyControllerDeps:controller.dependencies3:`,
+          controller.dependencies,
+          'debug',
+        );
       }
     }
   }
@@ -462,11 +489,12 @@ export class DependencyDescriptorService extends GenericService<CdObjModel> {
     for (const service of moduleData.services || []) {
       if (service.type === ComponentType.Service || service.type === ComponentType.ServiceType) {
         // services depend on BaseService
-        service.dependencies?.push(this.buildBaseServiceDependency());
+        service.dependencies?.push(...this.buildBaseServiceDependency());
+        service.dependencies?.push(...this.buildSysServiceDependency());
 
         // services may depend on models
         for (const model of moduleData.models || []) {
-          if (model.type === ComponentType.Model || model.type === ComponentType.ModelType) {
+          if (model.type === ComponentType.Model || model.type === ComponentType.ModelType || model.type === ComponentType.ModelView) {
             service.dependencies?.push(this.buildModelDependency(model));
           }
         }
@@ -481,7 +509,7 @@ export class DependencyDescriptorService extends GenericService<CdObjModel> {
     for (const model of moduleData.models || []) {
       if (model.type === ComponentType.Model || model.type === ComponentType.ModelType) {
         // models always depend on BaseService
-        model.dependencies?.push(this.buildBaseServiceDependency());
+        model.dependencies?.push(...this.buildBaseServiceDependency());
       }
     }
   }
@@ -490,25 +518,110 @@ export class DependencyDescriptorService extends GenericService<CdObjModel> {
   // BUILDERS
   // =============================
 
-  private buildBaseServiceDependency(): DependencyDescriptor {
-    return {
-      name: 'BaseService',
-      category: 'core',
-      source: 'local',
-      scope: 'module',
-      targetApp: AppType.CdApi,
-      isCdModule: true,
-      cdCtx: CdCtx.Sys,
-      resolution: {
-        method: 'import',
-        path: '../../../sys/base/base.service',
+  // private buildBaseServiceDependency(): DependencyDescriptor {
+  //   return {
+  //     name: 'BaseService',
+  //     category: 'core',
+  //     source: 'local',
+  //     scope: 'module',
+  //     targetApp: AppType.CdApi,
+  //     isCdModule: true,
+  //     cdCtx: CdCtx.Sys,
+  //     resolution: {
+  //       method: 'import',
+  //       path: '../../../sys/base/base.service',
+  //     },
+  //     usage: { usageContext: 'core', classesUsed: ['BaseService'] },
+  //   };
+  // }
+  private buildBaseServiceDependency(): DependencyDescriptor[] {
+    return [
+      {
+        name: 'BaseService',
+        category: 'core',
+        source: 'local',
+        scope: 'module',
+        targetApp: AppType.CdApi,
+        isCdModule: true,
+        cdCtx: CdCtx.Sys,
+        resolution: {
+          method: 'import',
+          path: '../../../sys/base/base.service',
+        },
+        usage: { usageContext: 'core', classesUsed: ['BaseService'] },
       },
-      usage: { usageContext: 'core', classesUsed: ['BaseService'] },
-    };
+      {
+        name: 'Logging',
+        category: 'core',
+        source: 'local',
+        scope: 'module',
+        targetApp: AppType.CdApi,
+        isCdModule: true,
+        cdCtx: CdCtx.Sys,
+        resolution: {
+          method: 'import',
+          path: '../../../sys/base/winston.log',
+        },
+        usage: { usageContext: 'core', classesUsed: ['Logging'] },
+      },
+    ];
+  }
+
+  private buildSysServiceDependency(): DependencyDescriptor[] {
+    return [
+      {
+        name: 'SessionService',
+        category: 'sys',
+        source: 'local',
+        scope: 'module',
+        targetApp: AppType.CdApi,
+        isCdModule: true,
+        cdCtx: CdCtx.Sys,
+        resolution: {
+          method: 'import',
+          path: '../../../sys/user/services/session.service',
+        },
+        usage: { usageContext: 'service', classesUsed: ['SessionService'] },
+      },
+      {
+        name: 'ValidationRulesBuilder',
+        category: 'sys',
+        source: 'local',
+        scope: 'module',
+        targetApp: AppType.CdApi,
+        isCdModule: true,
+        cdCtx: CdCtx.Sys,
+        resolution: {
+          method: 'import',
+          path: '../../../sys/base/validation-rules-builder',
+        },
+        usage: { usageContext: 'service', classesUsed: ['ValidationRulesBuilder'] },
+      },
+    ];
   }
 
   private buildServiceDependency(service: CdServiceDescriptor): DependencyDescriptor {
-    return {
+    this.b.logWithContext(
+      this,
+      `buildServiceDependancy:service.name:`,
+      { servieName: service.name },
+      'debug',
+    );
+    this.b.logWithContext(
+      this,
+      `buildServiceDependancy:service.fileName:`,
+      { fileName: service.fileName },
+      'debug',
+    );
+
+    let path = '';
+    if (service.fileName) {
+      path = `../services/${service.fileName}`;
+    } else {
+      path = `../services/${service.name}.service`;
+    }
+
+    const ret = {
       name: service.name,
       category: 'custom',
       source: 'local',
@@ -518,17 +631,25 @@ export class DependencyDescriptorService extends GenericService<CdObjModel> {
       cdCtx: CdCtx.App,
       resolution: {
         method: 'import',
-        path: `../services/${service.fileName ?? service.name}.service`,
+        path: path,
       },
       usage: {
         usageContext: 'controller',
         classesUsed: [`${toPascalCase(service.name)}Service`],
       },
     };
+    this.b.logWithContext(this, `buildServiceDependancy:ret:`, { ret }, 'debug');
+    return ret as DependencyDescriptor;
   }
 
   private buildModelDependency(model: CdModelDescriptor): DependencyDescriptor {
-    return {
+    let path = '';
+    if (model.fileName) {
+      path = `../models/${model.fileName}`;
+    } else {
+      path = `../models/${model.name}.model`;
+    }
+    const ret = {
       name: model.name,
       category: 'custom',
       source: 'local',
@@ -538,12 +659,14 @@ export class DependencyDescriptorService extends GenericService<CdObjModel> {
       cdCtx: CdCtx.App,
       resolution: {
         method: 'import',
-        path: `../models/${model.fileName ?? model.name}.model`,
+        // path: `../models/${model.fileName ?? model.name}.model`,
+        path: path,
       },
       usage: {
         usageContext: 'service',
         classesUsed: [`${toPascalCase(model.name)}Model`],
       },
     };
+    return ret as DependencyDescriptor;
   }
 }

@@ -3,7 +3,7 @@ import type {
   CdRequest,
   ICdResponse,
   ISessResp,
-} from "../../base/IBase.js";
+} from "../../base/i-base.js";
 import type { CdDescriptor } from "../models/dev-descriptor.model.js";
 /* eslint-disable style/brace-style */
 import config from "../../../../config.js";

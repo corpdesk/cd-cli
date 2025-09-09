@@ -10,7 +10,7 @@
  */
 /* eslint-disable style/operator-linebreak */
 import type { CdDescriptor } from '../models/dev-descriptor.model.js';
-import { CD_FX_FAIL, type CdFxReturn, type IQuery } from '../../base/IBase.js';
+import { CD_FX_FAIL, type CdFxReturn, type IQuery } from '../../base/i-base.js';
 import { CdCliProfileController } from '../../cd-cli/controllers/cd-cli-profile.cointroller.js';
 import CdLog from '../../cd-comm/controllers/cd-logger.controller.js';
 import {} from '../models/environment.model.js';

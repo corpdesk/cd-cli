@@ -1,7 +1,7 @@
 import path, { join } from 'path';
 import ora from 'ora';
 import { pathToFileURL } from 'url';
-import { CdAssertReturn, CdFxReturn, CdFxStateLevel, ICdRequest } from '../../base/IBase.js';
+import { CdAssertReturn, CdFxReturn, CdFxStateLevel, ICdRequest } from '../../base/i-base.js';
 import CdLog from '../../cd-comm/controllers/cd-logger.controller.js';
 import { CdCtx, CdModuleDescriptor } from '../models/cd-module-descriptor.model.js';
 import {
@@ -76,9 +76,9 @@ export class CICdRunnerService {
   }> {
     CdLog.debug('Starting CICdRunnerService::loadModuleDescriptorAndWorkflow()');
 
-    CdLog.debug(
-      `CICdRunnerService::loadModuleDescriptorAndWorkflow()/actiion:${action}, cdObjType: ${cdObjType}, actionTargetName: ${extraParams.actionTargetName} cdObjName:${cdObjName}, oEnv:${oEnv}, extraParams:${inspect(extraParams, { depth: 2 })}`,
-    );
+    // CdLog.debug(
+    //   `CICdRunnerService::loadModuleDescriptorAndWorkflow()/actiion:${action}, cdObjType: ${cdObjType}, actionTargetName: ${extraParams.actionTargetName} cdObjName:${cdObjName}, oEnv:${oEnv}, extraParams:${inspect(extraParams, { depth: 2 })}`,
+    // );
 
     const dashedName = cdObjName.toLowerCase();
     CdLog.debug(`CICdRunnerService::loadModuleDescriptorAndWorkflow()/dashedName:${dashedName}`);
@@ -102,9 +102,9 @@ export class CICdRunnerService {
       extraParams,
     );
 
-    CdLog.debug(
-      `CICdRunnerService::loadModuleDescriptorAndWorkflow()/workflowFileResult:${inspect(workflowFileResult, { depth: 2 })}`,
-    );
+    // CdLog.debug(
+    //   `CICdRunnerService::loadModuleDescriptorAndWorkflow()/workflowFileResult:${inspect(workflowFileResult, { depth: 2 })}`,
+    // );
 
     if (!workflowFileResult || !workflowFileResult.state) {
       CdLog.debug(`CICdRunnerService::loadModuleDescriptorAndWorkflow()/gwf-01-1`);
@@ -208,10 +208,11 @@ export class CICdRunnerService {
     oEnv: string,
     extraParams?: any,
   ): Promise<CdFxReturn<{ path: string; descriptor: any }>> {
-    CdLog.debug(
-      `CICdRunnerService::getWorkFlow()/actiion:${action}, cdObjType: ${cdObjType}, actionTargetName: ${extraParams.actionTargetName} cdObjName:${cdObjName}, oEnv:${oEnv}, extraParams:${inspect(extraParams, { depth: 2 })}`,
-    );
+    // CdLog.debug(
+    //   `CICdRunnerService::getWorkFlow()/actiion:${action}, cdObjType: ${cdObjType}, actionTargetName: ${extraParams.actionTargetName} cdObjName:${cdObjName}, oEnv:${oEnv}, extraParams:${inspect(extraParams, { depth: 2 })}`,
+    // );
     try {
+      extraParams.oEnv = oEnv;
       const dashedName = cdObjName.toLowerCase();
       CdLog.debug(`CICdRunnerService::getWorkFlow()/dashedName:${dashedName}`);
       const svVersion = new VersionService();
@@ -248,9 +249,9 @@ export class CICdRunnerService {
        * - CdModuleDescriptor
        * - CdAppDescriptor
        */
-      CdLog.debug(
-        `CICdRunnerService::loadModuleDescriptorAndWorkflow()/Loading descriptor for type: ${extraParams?.descriptor}`,
-      );
+      // CdLog.debug(
+      //   `CICdRunnerService::loadModuleDescriptorAndWorkflow()/Loading descriptor for type: ${extraParams?.descriptor}`,
+      // );
       switch (extraParams.descriptor) {
         case 'CdModuleDescriptor':
           CdLog.debug(
@@ -261,35 +262,28 @@ export class CICdRunnerService {
             `CICdRunnerService::loadModuleDescriptorAndWorkflow()/case:CdModuleDescriptor-02`,
           );
           result = await svCdModuleDescriptor.cdApiModuleData(cdObjName, cdObjType, extraParams);
-          CdLog.debug(
-            `CICdRunnerService::loadModuleDescriptorAndWorkflow()/moduleDescriptor1:${inspect(
-              result,
-              {
-                depth: 4,
-              },
-            )}`,
-          );
           if (!result || !result.state) {
             CdLog.debug(
               `CICdRunnerService::loadModuleDescriptorAndWorkflow()/Failed to load module descriptor: ${result.message}`,
             );
             throw new Error(`Failed to load module descriptor: ${result.message}`);
           }
-
-          if (!result.data) {
-            CdLog.debug(
-              `CICdRunnerService::loadModuleDescriptorAndWorkflow()/No module descriptor data returned.`,
-            );
-            throw new Error(`No module descriptor data returned.`);
-          }
-
-          CdLog.debug(
-            `CICdRunnerService::loadModuleDescriptorAndWorkflow()/moduleDescriptor2:${inspect(result.data.controllers, { depth: 2 })}`,
-          );
           descriptor = result.data;
-          CdLog.debug(
-            `CICdRunnerService::loadModuleDescriptorAndWorkflow()/descriptor:${inspect(descriptor, { depth: 2 })}`,
+          // check for conuterparts...
+          this.b.logWithContext(
+            this,
+            'loadModuleDescriptorAndWorkflow()/descriptor',
+            descriptor,
+            'debug',
           );
+          // check for dependencies...
+          this.b.logWithContext(
+            this,
+            'cdApiModuleData:cdApiModuleData.descriptor[0].dependencies',
+            descriptor.controllers[0].dependencies,
+            'debug',
+          );
+
           break;
         case 'CdAppDescriptor':
           if (!appType) {
@@ -303,14 +297,14 @@ export class CICdRunnerService {
             oEnv,
             extraParams,
           );
-          CdLog.debug(
-            `CICdRunnerService::loadModuleDescriptorAndWorkflow()/moduleDescriptor3:${inspect(
-              result,
-              {
-                depth: 2,
-              },
-            )}`,
-          );
+          // CdLog.debug(
+          //   `CICdRunnerService::loadModuleDescriptorAndWorkflow()/moduleDescriptor3:${inspect(
+          //     result,
+          //     {
+          //       depth: 2,
+          //     },
+          //   )}`,
+          // );
           if (!result || !result.state) {
             CdLog.debug(
               `CICdRunnerService::loadModuleDescriptorAndWorkflow()/Failed to load module descriptor: ${result.message}`,
@@ -325,13 +319,13 @@ export class CICdRunnerService {
             throw new Error(`No module descriptor data returned.`);
           }
 
-          CdLog.debug(
-            `CICdRunnerService::loadModuleDescriptorAndWorkflow()/moduleDescriptor4:${inspect(result.data.controllers, { depth: 2 })}`,
-          );
+          // CdLog.debug(
+          //   `CICdRunnerService::loadModuleDescriptorAndWorkflow()/moduleDescriptor4:${inspect(result.data.controllers, { depth: 2 })}`,
+          // );
           descriptor = result.data;
-          CdLog.debug(
-            `CICdRunnerService::loadModuleDescriptorAndWorkflow()/descriptor:${inspect(descriptor, { depth: 2 })}`,
-          );
+          // CdLog.debug(
+          //   `CICdRunnerService::loadModuleDescriptorAndWorkflow()/descriptor:${inspect(descriptor, { depth: 2 })}`,
+          // );
           break;
       }
       if (!workflowFile) {
@@ -925,7 +919,7 @@ export class CICdRunnerService {
     CdLog.debug('Starting CICdRunnerService::executeTask()');
     CdLog.debug(`CICdRunnerService::executeTask()/task:${inspect(task, { depth: 1 })}`);
     CdLog.debug(`CICdRunnerService::executeTask()/task.type:${task.type}`);
-    CdLog.debug(`CICdRunnerService::executeTask()/descriptor:${inspect(descriptor, { depth: 1 })}`);
+    // CdLog.debug(`CICdRunnerService::executeTask()/descriptor:${inspect(descriptor, { depth: 1 })}`);
     try {
       switch (task.type) {
         case 'script-inline':
@@ -997,77 +991,156 @@ export class CICdRunnerService {
     // return { state: true, message: "Method called successfully." };
   }
 
+  // async callMethodFromCdRequest<T = any>(cdRequest: ICdRequest): Promise<CdFxReturn<T>> {
+  //   CdLog.debug('Starting CICdRunnerService::callMethodFromCdRequest()');
+  //   // CdLog.debug(`CICdRunnerService::callMethodFromCdRequest()/01`);
+  //   let { ctx, m, c, a, args, dat } = cdRequest;
+
+  //   if (!ctx || !m || !c || !a) {
+  //     // CdLog.debug(`CICdRunnerService::callMethodFromCdRequest()/02`);
+  //     return {
+  //       state: false,
+  //       message: 'Incomplete cdRequest — requires ctx, m, c, and a',
+  //     };
+  //   }
+
+  //   try {
+  //     // CdLog.debug(`CICdRunnerService::callMethodFromCdRequest()/03`);
+  //     const ctlDashedName = toDashedFileName(c, 'controller');
+  //     // CdLog.debug(`CICdRunnerService::callMethodFromCdRequest()/04`);
+  //     // CdLog.debug(`CICdRunnerService::callMethodFromCdRequest()/ctlDashedName:${ctlDashedName}`);
+  //     const controllerPath = `../../../${ctx}/${m}/controllers/${ctlDashedName}`;
+  //     // CdLog.debug(`CICdRunnerService::callMethodFromCdRequest()/05`);
+  //     // CdLog.debug(`CICdRunnerService::callMethodFromCdRequest()/controllerPath:${controllerPath}`);
+
+  //     // Dynamic ESM import (MUST include .js in helper-generated name)
+  //     const controllerModule = await import(controllerPath);
+  //     // CdLog.debug(`CICdRunnerService::callMethodFromCdRequest()/06`);
+  //     // CdLog.debug(
+  //     //   `CICdRunnerService::callMethodFromCdRequest()/controllerModule:${inspect(controllerModule, {
+  //     //     depth: 3,
+  //     //   })}`,
+  //     // );
+  //     c = `${c}Controller`;
+  //     // CdLog.debug(`CICdRunnerService::callMethodFromCdRequest()/c:${c}`);
+  //     if (!controllerModule || !controllerModule[c]) {
+  //       // CdLog.debug(`CICdRunnerService::callMethodFromCdRequest()/07`);
+  //       return {
+  //         state: false,
+  //         message: `Controller class '${c}' not found in '${controllerPath}'`,
+  //       };
+  //     }
+
+  //     // CdLog.debug(
+  //     //   `CICdRunnerService::callMethodFromCdRequest()/{ctx:${ctx},m:${m},c:${c},a:${a},}`,
+  //     // );
+
+  //     const ControllerClass = controllerModule[c];
+  //     // CdLog.debug(`CICdRunnerService::callMethodFromCdRequest()/08`);
+  //     const controllerInstance = new ControllerClass();
+  //     // CdLog.debug(`CICdRunnerService::callMethodFromCdRequest()/09`);
+  //     if (typeof controllerInstance[a] !== 'function') {
+  //       // CdLog.debug(`CICdRunnerService::callMethodFromCdRequest()/10`);
+  //       return {
+  //         state: false,
+  //         message: `Method '${a}' not found on controller '${c}'`,
+  //       };
+  //     }
+
+  //     // CdLog.debug(`CICdRunnerService::callMethodFromCdRequest()/11`);
+  //     const argValues = args ? Object.values(args) : [];
+  //     const resultControllerInstance: CdFxReturn<T> = await controllerInstance[a](
+  //       ...argValues,
+  //       dat,
+  //     );
+  //     this.b.logWithContext(this, 'resultControllerInstance', resultControllerInstance, 'debug');
+  //     // CdLog.debug(`CICdRunnerService::callMethodFromCdRequest()/12`);
+  //     return resultControllerInstance;
+  //   } catch (e: any) {
+  //     // CdLog.debug(`CICdRunnerService::callMethodFromCdRequest()/13`);
+  //     CdLog.error(`CICdRunnerService::callMethodFromCdRequest error: ${(e as Error).message}`);
+  //     return {
+  //       state: false,
+  //       message: 'Failed to invoke method from cdRequest',
+  //       data: null,
+  //     };
+  //   }
+  // }
+
   async callMethodFromCdRequest<T = any>(cdRequest: ICdRequest): Promise<CdFxReturn<T>> {
     CdLog.debug('Starting CICdRunnerService::callMethodFromCdRequest()');
-    CdLog.debug(`CICdRunnerService::callMethodFromCdRequest()/01`);
     let { ctx, m, c, a, args, dat } = cdRequest;
 
     if (!ctx || !m || !c || !a) {
-      CdLog.debug(`CICdRunnerService::callMethodFromCdRequest()/02`);
       return {
         state: false,
         message: 'Incomplete cdRequest — requires ctx, m, c, and a',
+        data: null,
       };
     }
 
     try {
-      CdLog.debug(`CICdRunnerService::callMethodFromCdRequest()/03`);
       const ctlDashedName = toDashedFileName(c, 'controller');
-      CdLog.debug(`CICdRunnerService::callMethodFromCdRequest()/04`);
-      CdLog.debug(`CICdRunnerService::callMethodFromCdRequest()/ctlDashedName:${ctlDashedName}`);
       const controllerPath = `../../../${ctx}/${m}/controllers/${ctlDashedName}`;
-      CdLog.debug(`CICdRunnerService::callMethodFromCdRequest()/05`);
-      CdLog.debug(`CICdRunnerService::callMethodFromCdRequest()/controllerPath:${controllerPath}`);
 
       // Dynamic ESM import (MUST include .js in helper-generated name)
       const controllerModule = await import(controllerPath);
-      CdLog.debug(`CICdRunnerService::callMethodFromCdRequest()/06`);
-      CdLog.debug(
-        `CICdRunnerService::callMethodFromCdRequest()/controllerModule:${inspect(controllerModule, {
-          depth: 3,
-        })}`,
-      );
+
       c = `${c}Controller`;
-      CdLog.debug(`CICdRunnerService::callMethodFromCdRequest()/c:${c}`);
       if (!controllerModule || !controllerModule[c]) {
-        CdLog.debug(`CICdRunnerService::callMethodFromCdRequest()/07`);
         return {
           state: false,
           message: `Controller class '${c}' not found in '${controllerPath}'`,
+          data: null,
         };
       }
 
-      CdLog.debug(
-        `CICdRunnerService::callMethodFromCdRequest()/{ctx:${ctx},m:${m},c:${c},a:${a},}`,
-      );
-
       const ControllerClass = controllerModule[c];
-      CdLog.debug(`CICdRunnerService::callMethodFromCdRequest()/08`);
       const controllerInstance = new ControllerClass();
-      CdLog.debug(`CICdRunnerService::callMethodFromCdRequest()/09`);
+
+      // 🔹 Run optional init()
+      if (typeof controllerInstance.init === 'function') {
+        try {
+          this.b.logWithContext(this, `callMethodFromCdRequest:trying init()`, {}, 'debug');
+          await controllerInstance.init();
+        } catch (initErr: any) {
+          CdLog.error(`Init failed in '${c}': ${(initErr as Error).message}`);
+          return {
+            state: false,
+            message: `Initialization failed in controller '${c}'`,
+            data: null,
+          };
+        }
+      }
+      else{
+
+        // this.b.logWithContext(this, `callMethodFromCdRequest:No init() method detected`, {}, 'debug');
+        // this.b.logWithContext(this, `callMethodFromCdRequest:controllerInstance`, inspect(controllerInstance, {depth:2}), 'debug');
+      }
+
+      // 🔹 Ensure target method exists
       if (typeof controllerInstance[a] !== 'function') {
-        CdLog.debug(`CICdRunnerService::callMethodFromCdRequest()/10`);
         return {
           state: false,
           message: `Method '${a}' not found on controller '${c}'`,
+          data: null,
         };
       }
 
-      CdLog.debug(`CICdRunnerService::callMethodFromCdRequest()/11`);
+      // 🔹 Invoke target method
       const argValues = args ? Object.values(args) : [];
       const resultControllerInstance: CdFxReturn<T> = await controllerInstance[a](
         ...argValues,
         dat,
       );
       this.b.logWithContext(this, 'resultControllerInstance', resultControllerInstance, 'debug');
-      CdLog.debug(`CICdRunnerService::callMethodFromCdRequest()/12`);
+
       return resultControllerInstance;
     } catch (e: any) {
-      CdLog.debug(`CICdRunnerService::callMethodFromCdRequest()/13`);
       CdLog.error(`CICdRunnerService::callMethodFromCdRequest error: ${(e as Error).message}`);
       return {
         state: false,
-        message: 'Failed to invoke method from cdRequest',
+        message: `Failed to invoke method from cdRequest:${(e as Error).message}`,
         data: null,
       };
     }

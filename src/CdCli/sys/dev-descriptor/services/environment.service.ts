@@ -20,7 +20,7 @@ import {
 } from '../models/workstations.model.js';
 /* eslint-disable style/operator-linebreak */
 /* eslint-disable style/brace-style */
-import { CD_FX_FAIL, type CdFxReturn, type IQuery } from '../../base/IBase.js';
+import { CD_FX_FAIL, type CdFxReturn, type IQuery } from '../../base/i-base.js';
 import { CdCliProfileController } from '../../cd-cli/controllers/cd-cli-profile.cointroller.js';
 import { ProgressTrackerService } from '../../cd-cli/services/progress-tracker.service.js';
 import CdLog from '../../cd-comm/controllers/cd-logger.controller.js';

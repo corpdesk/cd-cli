@@ -1,7 +1,7 @@
 import { Observable } from 'rxjs';
 import { BaseService } from '../src/CdCli/sys/base/base.service';
 import { AclModel } from '../src/CdCli/sys/moduleman/models/acl.model';
-import { ISessionDataExt } from '../src/CdCli/sys/base/IBase';
+import { ISessionDataExt } from '../src/CdCli/sys/base/i-base';
 import { AclModuleMemberViewModel } from '../src/CdCli/sys/moduleman/models/acl-module-member-view.model';
 import { Logging } from '../src/CdCli/sys/base/winston.log';
 /**

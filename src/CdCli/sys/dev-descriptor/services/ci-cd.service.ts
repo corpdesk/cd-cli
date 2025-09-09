@@ -10,7 +10,7 @@ import {
   knownCiCds,
 } from '../models/cicd-descriptor.model.js';
 /* eslint-disable style/brace-style */
-import { CD_FX_FAIL, CdFxStateLevel, type CdFxReturn } from '../../base/IBase.js';
+import { CD_FX_FAIL, CdFxStateLevel, type CdFxReturn } from '../../base/i-base.js';
 import CdLog from '../../cd-comm/controllers/cd-logger.controller.js';
 import { CdObjModel } from '../../moduleman/models/cd-obj.model.js';
 import { GenericService } from '../../base/generic-service.js';

@@ -16,7 +16,7 @@ import {
   CreateIParams,
   IServiceInput,
   IUser,
-} from '../../base/IBase.js';
+} from '../../base/i-base.js';
 import { ConsumerResourceModel } from '../models/consumer-resource.model.js';
 import { ConsumerResourceViewModel } from '../models/consumer-resource-view.model.js';
 import { ConsumerResourceTypeModel } from '../models/consumer-resource-type.model.js';

@@ -15,7 +15,7 @@ import {
   IServiceInput,
   ISessionDataExt,
   ObjectItem,
-} from '../../base/IBase.js';
+} from '../../base/i-base.js';
 import { Logging } from '../../base/winston.log.js';
 import { CdObjModel } from '../models/cd-obj.model.js';
 import { CdObjService } from './cd-obj.service.js';

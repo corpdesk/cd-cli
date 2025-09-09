@@ -1,4 +1,4 @@
-import { CdFxReturn } from "../../base/IBase.js";
+import { CdFxReturn } from "../../base/i-base.js";
 import CdLog from "../../cd-comm/controllers/cd-logger.controller.js";
 import { CICdRunnerService } from "../services/cd-ci-runner.service.js";
 

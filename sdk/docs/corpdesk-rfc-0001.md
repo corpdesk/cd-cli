@@ -121,7 +121,7 @@ await ctlCoopMember.init(optionalInput?);
 
 ### Examples:
 
-* `IBase.ts`: Shared interfaces
+* `i-base.ts`: Shared interfaces
 * `BaseService.ts`: Abstract class extended by most services
 
 ---

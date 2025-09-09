@@ -10,7 +10,7 @@ import {
   ICommConversationSub,
   ISocketItem,
   PushEvent,
-} from '../../base/IBase.js';
+} from '../../base/i-base.js';
 import config from '../../../../config.js';
 import { BaseService } from '../../base/base.service.js';
 import { Logging } from '../../base/winston.log.js';

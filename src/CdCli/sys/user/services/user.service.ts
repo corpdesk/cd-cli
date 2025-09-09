@@ -7,7 +7,7 @@ import {
   CdFxReturn,
   IQuery,
   IServiceInput,
-} from '../../base/IBase.js';
+} from '../../base/i-base.js';
 import { UserModel } from '../models/user.model.js';
 import CdLog from '../../cd-comm/controllers/cd-logger.controller.js';
 import { BaseService } from '../../base/base.service.js';

@@ -1,4 +1,4 @@
-import type { ISessResp } from './CdCli/sys/base/IBase.js';
+import type { ISessResp } from './CdCli/sys/base/i-base.js';
 import * as dotenv from "dotenv";
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
@@ -6,6 +6,7 @@ import fs from 'fs';
 /* eslint-disable node/prefer-global/process */
 import path, { join } from 'node:path';
 import { DataSource, DataSourceOptions } from 'typeorm';
+import { HOME } from './CdCli/sys/utils/fs.util.js';
 
 dotenv.config();
 
@@ -37,12 +38,35 @@ export const DEFAULT_SESS: ISessResp = {
 
 const entitiesConfigPath = path.join(__dirname, 'configs', 'module-entities.json');
 
-export function loadEntityPaths(): string[] {
+// export function loadEntityPaths(): string[] {
+//   try {
+//     const modules = JSON.parse(fs.readFileSync(entitiesConfigPath, 'utf8'));
+//     return modules
+//       .filter((m) => m.enabled)
+//       .map((m) => path.join(HOME, `/cd-projects/cd-api/src/CdApi/${m.ctx}/${m.moduleName}/models/*.model.ts`));
+//   } catch (err) {
+//     console.error('Failed to load entity modules:', err);
+//     return [];
+//   }
+// }
+
+export function loadEntityPaths() {
   try {
+    console.log(`loadEntityPaths()...start`)
     const modules = JSON.parse(fs.readFileSync(entitiesConfigPath, 'utf8'));
+    const isTs = __filename.endsWith('.ts') || process.env.NODE_ENV === 'development';
+    const ext = isTs ? '' : 'js';
+
     return modules
       .filter((m) => m.enabled)
-      .map((m) => path.join(__dirname, `CdApi/${m.ctx}/${m.moduleName}/models/*.model.ts`));
+      .map((m) =>
+        path.join(
+          HOME,
+          isTs
+            ? `/cd-projects/cd-api/src/CdApi/${m.ctx}/${m.moduleName}/models/*.model.${ext}`
+            : `/cd-projects/cd-api/dist/CdApi/${m.ctx}/${m.moduleName}/models/*.model.${ext}`
+        ),
+      );
   } catch (err) {
     console.error('Failed to load entity modules:', err);
     return [];
@@ -75,7 +99,7 @@ export const AppDataSource = new DataSource({
   ],
 });
 
-const mysqlConfig: DataSourceOptions = {
+export const mysqlConfig: DataSourceOptions = {
   name: 'default',
   type: 'mysql', // Ensures TypeORM understands it's MySQL and not Aurora MySQL
   port: parseInt(process.env.DB_PORT || '3306', 10), // Ensure port is a number

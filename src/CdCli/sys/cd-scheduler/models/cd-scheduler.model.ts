@@ -11,7 +11,7 @@ import {
 } from 'typeorm';
 import { v4 as uuidv4 } from 'uuid';
 import { BaseDescriptor, BashScriptDescriptor, EnvironmentDescriptor, EnvironmentService, MigrationDescriptor, TestingFrameworkDescriptor } from '../../dev-descriptor/index.js';
-import { CdFxReturn, CdFxStateLevel, FxStateSemantics, ICdRequest } from '../../base/IBase.js';
+import { CdFxReturn, CdFxStateLevel, FxStateSemantics, ICdRequest } from '../../base/i-base.js';
 import { CdVaultItem } from '../../cd-cli/index.js';
 import CdLog from '../../cd-comm/controllers/cd-logger.controller.js';
 

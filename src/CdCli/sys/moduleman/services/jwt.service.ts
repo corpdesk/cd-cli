@@ -2,7 +2,7 @@
 // import { JwtModel } from "../entities/JwtModel";
 
 import { ObjectLiteral } from 'typeorm';
-import { CD_FX_FAIL, CdFxReturn, IQuery } from '../../base/IBase.js';
+import { CD_FX_FAIL, CdFxReturn, IQuery } from '../../base/i-base.js';
 import CdLog from '../../cd-comm/controllers/cd-logger.controller.js';
 import { BaseService } from '../../base/base.service.js';
 import config from '../../../../config.js';

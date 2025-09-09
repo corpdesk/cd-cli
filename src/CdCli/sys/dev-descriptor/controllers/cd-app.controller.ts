@@ -1,4 +1,4 @@
-import type { CdFxReturn, CdRequest, IQuery } from '../../base/IBase.js';
+import type { CdFxReturn, CdRequest, IQuery } from '../../base/i-base.js';
 import type { CdDescriptor } from '../models/dev-descriptor.model.js';
 import { CdAppService } from '../services/cd-app.service.js';
 import { CdAppDescriptor } from '../models/cd-app.model.js';

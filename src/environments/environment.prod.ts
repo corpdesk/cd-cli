@@ -1,4 +1,4 @@
-import type { EnvConfig } from '../CdCli/sys/base/IBase.js';
+import type { EnvConfig } from '../CdCli/sys/base/i-base.js';
 
 const API_HOST = 'https://cd-api.co.ke';
 const API_ROUTE = '/api';

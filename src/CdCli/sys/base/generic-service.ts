@@ -7,7 +7,7 @@ import {
   CreateIParams,
   IQuery,
   IServiceInput,
-} from './IBase.js';
+} from './i-base.js';
 
 export class GenericService<T extends ObjectLiteral> {
   b: BaseService<T>;
