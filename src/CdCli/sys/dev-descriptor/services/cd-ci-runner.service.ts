@@ -335,6 +335,10 @@ export class CICdRunnerService {
           message: `CiCdRunnerService::getWorkFlowPath: could not resolve the location of the workflow file.`,
         };
       }
+
+      // if(workflowFile){
+      //   throw new Error(`Process stoped for observation!`);
+      // }
       return {
         state: true,
         data: { path: workflowFile, descriptor: descriptor },

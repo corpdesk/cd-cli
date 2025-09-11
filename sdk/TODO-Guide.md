@@ -1,47 +1,254 @@
 ## ISSUE
 
 ---
+I have a base service that is responsible for processing common tasks.
+At the moment, after processing a number of database processes, it fails midway while trying to save and entity called DocModel.
+I have extracted and shared:
+1. the logs around where the process fails
+2. the relevant methods in the BaseService class
+3. the relevant methods in the DocService
 
-Examing the information shared below and align your recommendations based on the existing structures.
+Let me know if you can tell how the error: "ConnectionNotFoundError: Connection 'default' was not found." is eventually thrown when other database processes was done ahead of this error.
 
-For example in your first step, you recommend "extend the descriptor contract with db metadata:"
+```ts
+export class BaseService{
+  async init(req, res) {
+    this.logger.logDebug("BaseService::init()/01:");
+    try {
+      if (!this.db) {
+        this.logger.logDebug("BaseService::init()/02:");
+        this.db = new TypeOrmDatasource();
+        this.ds = await this.db.getConnection(); // ✅ Store DataSource
+      }
+      this.logger.logDebug("BaseService::init()/this.models:", this.models);
+    } catch (e) {
+      this.logger.logDebug("BaseService::init()/03:");
+      this.logger.logDebug(
+        `BaseService::init() failed:${(e as Error).message}`
+      );
+      this.err.push(`BaseService::init() failed:${(e as Error).message}`);
+    }
+  }
 
-////////////////////////////////////////////////////////////
+  async setRepo(serviceInput: IServiceInput) {
+    this.repo = this.ds.getRepository(serviceInput.serviceModel);
+  }
 
-To integrate this in existing structures, the above 'attributes' is already represented by models[i].fields[] as per CdModelDescriptor(shared below)
-We can align with your proposal by making sure FieldDescriptor(shared below) has the fields as per your proposal.
-The method buildModel() can then be made to produce the data that is compliant to typeorm migration requrement.
-Next, you can aligh MigrationInstruction to
+  async read(req, res, serviceInput: IServiceInput): Promise<any> {
+    this.logger.logDebug("BaseService::read()/01");
+    await this.init(req, res);
+    this.logger.logDebug("BaseService::read()/02");
+    this.logger.logDebug(
+      "BaseService::read()/serviceInput:",
+      inspect(serviceInput, { depth: 2 })
+    );
+    // const repo: any = await this.repo(req, res, serviceInput.serviceModel);
 
-Method used to produce model data for CdModuleDescriptor to CdModelDescriptor definitions to satisfy columns and relations property. Note that these are already considered in the CdModelDescriptor and its associate descritors.
+    await this.setRepo(serviceInput);
 
-Having considered the above in terms of systematic structures, you then consider how buildModel() needs to be updated.
-From, my candid analysis so far, very little need to be done to make it compliant to expected migration data.
+    this.logger.logDebug("BaseService::read()/03");
+    let r: any = null;
+    switch (serviceInput.cmd.action) {
+      case "find":
+        try {
+          this.logger.logDebug("BaseService::read()/031");
+          this.logger.logDebug(
+            "BaseService::read()/04/serviceInput.serviceModel:",
+            serviceInput.serviceModel
+          );
+          this.logger.logDebug(
+            "BaseService::read()/04/serviceInput.modelName:",
+            {
+              modelName: serviceInput.modelName,
+            }
+          );
+          // await this.init(req, res);
+          // await this.setRepo(serviceInput);
+          this.logger.logDebug("BaseService::read()/041");
+          this.logger.logDebug("BaseService::read()/this.repo:", inspect(this.repo, { depth: 2 }));
+          r = await this.repo.find(serviceInput.cmd.query);
+          this.logger.logDebug("BaseService::read()/04/r:", r);
+          if (serviceInput.extraInfo) {
+            this.logger.logDebug("BaseService::read()/05");
+            return {
+              result: r,
+              fieldMap: await this.feildMap(serviceInput),
+            };
+          } else {
+            this.logger.logDebug("BaseService::read()/06");
+            return await r;
+          }
+        } catch (err) {
+          this.logger.logDebug("BaseService::read()/07");
+          return await this.serviceErr(req, res, err, "BaseService:read");
+        }
+        break;
+      case "count":
+        try {
+          r = await this.repo.count(serviceInput.cmd.query);
+          this.logger.logDebug("BaseService::read()/r:", r);
+          return r;
+        } catch (err) {
+          return await this.serviceErr(req, res, err, "BaseService:read");
+        }
+        break;
+    }
 
-Do your analysis and let me know what you think.
+    // this.serviceErr(res, err, 'BaseService:read');
+  }
+}
+```
 
-Example for data produced by buildModel()
-Note that it auto merges the custom and default data.
-The result is then sanitized.
+```ts
+export class DocService {
+  async getDocTypeId(req, res): Promise<number> {
+        this.logger.logDebug("DocService::getDocTypeId()/01");
+        let ret = 0;
+        const m = req.post.m;
+        const c = req.post.c;
+        const a = req.post.a;
+        const result: DocTypeModel[] = await this.getDocTypeByName(req, res, `${c}_${a}`)
+        this.logger.logDebug("DocService::getDocTypeId()/02");
+        this.logger.logDebug("DocService::getDocTypeId()/result:", result);
+        if (result.length > 0) {
+            ret = result[0].docTypeId;
+        } else {
+            const r:any = await this.createDocType(req, res);
+            ret = r.docTypeId;
+        }
+        return await ret;
+    }
 
+    async getDocTypeByName(req, res, docTypeName: string): Promise<DocTypeModel[]> {
+        this.logger.logDebug("DocService::getDocTypeByName()/01");
+        const serviceInput = {
+            serviceInstance: this,
+            serviceModel: DocTypeModel,
+            docName: 'DocService::getDocTypeByName',
+            cmd: {
+                action: 'find',
+                query: { where: { docTypeName: `${docTypeName}` } }
+            },
+            dSource: 1
+        }
+        return await this.b.read(req, res, serviceInput)
+    }
+}
+```
 
+```log
+[9/11/2025, 1:54:19 PM] [DEBUG]: BaseService::read()/01 [CONTEXT] -> {}
+[9/11/2025, 1:54:19 PM] [DEBUG]: BaseService::init()/01: [CONTEXT] -> {}
+[9/11/2025, 1:54:19 PM] [DEBUG]: BaseService::init()/02: [CONTEXT] -> {}
+[9/11/2025, 1:54:19 PM] [DEBUG]: TypeOrmDatasource::getConnection()/01: [CONTEXT] -> {}
+[9/11/2025, 1:54:19 PM] [DEBUG]: TypeOrmDatasource::getConnection()/03: [CONTEXT] -> {}
+[9/11/2025, 1:54:19 PM] [DEBUG]: BaseService::init()/this.models: [CONTEXT] -> 
 
-//////////////////////////////////////////
-I have set up the above ingredients.
-The only changes I have made is:
+[9/11/2025, 1:54:19 PM] [DEBUG]: BaseService::read()/02 [CONTEXT] -> {}
+[9/11/2025, 1:54:19 PM] [DEBUG]: BaseService::read()/serviceInput: [CONTEXT] -> 
+{
+  serviceInstance: DocService {
+    i: { messages: null, code: '', app_msg: '' },
+    cRules: { required: [Array], noDuplicate: [] },
+    b: BaseService {
+      err: [],
+      cuid: 1000,
+      debug: true,
+      i: [Object],
+      isInvalidFields: [],
+      isRegRequest: false,
+      models: [],
+      sqliteModels: [],
+      ds: [DataSource],
+      intersectionLegacy: [Function (anonymous)],
+      intersectMany: [Function (anonymous)],
+      entityAdapter: [EntityAdapter],
+      cdResp: [Object],
+      logger: [Logging],
+      svRedis: [RedisService],
+      db: [TypeOrmDatasource]
+    },
+    logger: Logging { _logger: [DerivedLogger] },
+    docModel: DocModel {}
+  },
+  serviceModel: [class DocTypeModel],
+  docName: 'DocService::getDocTypeByName',
+  cmd: { action: 'find', query: { where: [Object] } },
+  dSource: 1
+}
+[9/11/2025, 1:54:19 PM] [DEBUG]: BaseService::read()/03 [CONTEXT] -> {}
+[9/11/2025, 1:54:19 PM] [DEBUG]: BaseService::read()/031 [CONTEXT] -> {}
+[9/11/2025, 1:54:19 PM] [DEBUG]: BaseService::read()/04/serviceInput.serviceModel: [CONTEXT] -> 
+class DocTypeModel {
+}
+[9/11/2025, 1:54:19 PM] [DEBUG]: BaseService::read()/04/serviceInput.modelName: [CONTEXT] -> 
+[object Object]
+[9/11/2025, 1:54:19 PM] [DEBUG]: BaseService::read()/041 [CONTEXT] -> {}
+[9/11/2025, 1:54:19 PM] [DEBUG]: BaseService::read()/this.repo: [CONTEXT] -> 
+<ref *1> Repository {
+  target: [class DocTypeModel],
+  manager: <ref *2> EntityManager {
+    '@instanceof': Symbol(EntityManager),
+    repositories: Map(3) {
+      [class SessionModel] => [Repository],
+      [class CdAiModel] => [Repository],
+      [class DocTypeModel] => [Circular *1]
+    },
+    treeRepositories: [],
+    plainObjectToEntityTransformer: PlainObjectToNewEntityTransformer {},
+    connection: DataSource {
+      '@instanceof': Symbol(DataSource),
+      migrations: [],
+      subscribers: [],
+      entityMetadatas: [Array],
+      entityMetadatasMap: [Map],
+      name: 'default',
+      options: [Object],
+      logger: [AdvancedConsoleLogger],
+      driver: [MysqlDriver],
+      manager: [Circular *2],
+      namingStrategy: [DefaultNamingStrategy],
+      metadataTableName: 'typeorm_metadata',
+      queryResultCache: undefined,
+      relationLoader: [RelationLoader],
+      relationIdLoader: [RelationIdLoader],
+      isInitialized: true
+    }
+  },
+  queryRunner: undefined
+}
+query: SELECT `DocTypeModel`.`doc_type_id` AS `DocTypeModel_doc_type_id`, `DocTypeModel`.`doc_type_name` AS `DocTypeModel_doc_type_name`, `DocTypeModel`.`module_guid` AS `DocTypeModel_module_guid`, `DocTypeModel`.`doc_guid` AS `DocTypeModel_doc_guid`, `DocTypeModel`.`doc_id` AS `DocTypeModel_doc_id`, `DocTypeModel`.`doc_type_controller` AS `DocTypeModel_doc_type_controller`, `DocTypeModel`.`doc_type_action` AS `DocTypeModel_doc_type_action`, `DocTypeModel`.`doc_type_enabled` AS `DocTypeModel_doc_type_enabled`, `DocTypeModel`.`enable_notification` AS `DocTypeModel_enable_notification`, `DocTypeModel`.`nk_name` AS `DocTypeModel_nk_name`, `DocTypeModel`.`doc_type_icon` AS `DocTypeModel_doc_type_icon` FROM `doc_type` `DocTypeModel` WHERE ((`DocTypeModel`.`doc_type_name` = ?)) -- PARAMETERS: ["CdAi_Create"]
+[9/11/2025, 1:54:19 PM] [DEBUG]: BaseService::read()/04/r: [CONTEXT] -> 
 
-- becasue we already have gen-controller, gen-entity etc, I have created gen-schema
-  /home/emp-12/cd-cli/src/CdCli/app/app-craft/services/gen-schema.service.ts
-  So the class SchemaBuilderService becomes GenSchemaService.
+[9/11/2025, 1:54:19 PM] [DEBUG]: BaseService::read()/06 [CONTEXT] -> {}
+[9/11/2025, 1:54:19 PM] [DEBUG]: DocService::getDocTypeId()/02 [CONTEXT] -> {}
+[9/11/2025, 1:54:19 PM] [DEBUG]: DocService::getDocTypeId()/result: [CONTEXT] -> 
 
-So we have GenSchemaService.buildMigration() as the guy to call to produce the expected migration data.
-
-Remember the method to execute will be called from a workflow. So assuming I have a method that can call the the GenSchemaService.buildMigration(), how should it executed the typeorm migration to work on with the data via typeorm configs.
-
-///////////////////////////////////////////
-Below are the set of configurations for typeorm.
-
-
+[9/11/2025, 1:54:19 PM] [DEBUG]: BaseService::setAppState()/01 [CONTEXT] -> {}
+[9/11/2025, 1:54:19 PM] [DEBUG]: BaseService::setAppState()/ss: [CONTEXT] -> 
+[object Object]
+[9/11/2025, 1:54:19 PM] [INFO]: BaseService::create()/06 [CONTEXT] -> {}
+[9/11/2025, 1:54:19 PM] [DEBUG]: BaseService::setAppState()/01 [CONTEXT] -> {}
+[9/11/2025, 1:54:19 PM] [DEBUG]: BaseService::setAppState()/02 [CONTEXT] -> {}
+[9/11/2025, 1:54:19 PM] [DEBUG]: BaseService::setAppState()/ss: [CONTEXT] -> 
+[object Object]
+[9/11/2025, 1:54:19 PM] [INFO]: BaseService::create()/07 [CONTEXT] -> {}
+[9/11/2025, 1:54:19 PM] [INFO]: BaseService::create()/08 [CONTEXT] -> {}
+[9/11/2025, 1:54:19 PM] [INFO]: BaseService::create()/09 [CONTEXT] -> {}
+[9/11/2025, 1:54:19 PM] [INFO]: BaseService::create()/10 [CONTEXT] -> {}
+[9/11/2025, 1:54:19 PM] [INFO]: BaseService::newDocData.docId: [CONTEXT] -> {}
+[9/11/2025, 1:54:19 PM] [DEBUG]: BaseService::setAppState()/01 [CONTEXT] -> {}
+[9/11/2025, 1:54:19 PM] [DEBUG]: BaseService::setAppState()/02 [CONTEXT] -> {}
+[9/11/2025, 1:54:19 PM] [DEBUG]: BaseService::setAppState()/ss: [CONTEXT] -> {}
+[9/11/2025, 1:54:19 PM] [DEBUG]: **********starting respond(res)********* [CONTEXT] -> {}
+[9/11/2025, 1:54:19 PM] [DEBUG]: BaseService::respond(res)/this.pl: [CONTEXT] -> 
+[object Object]
+[9/11/2025, 1:54:19 PM] [DEBUG]: BaseService::respond(res)/this.cdResp: [CONTEXT] -> 
+[object Object]
+[9/11/2025, 1:54:19 PM] [DEBUG]: **********starting preFlight(res)********* [CONTEXT] -> {}
+[9/11/2025, 1:54:19 PM] [DEBUG]: BaseService::getPlData()/this.cdResp: [CONTEXT] -> 
+{"app_state":{"success":false,"info":{"messages":["ConnectionNotFoundError: Connection \"default\" was not found."],"code":"BaseService:create","app_msg":""},"sess":null,"cache":{},"sConfig":{"usePush":true,"usePolling":true,"useCacheStore":true}},"data":[]}
+```
 
 ---
 
@@ -49,320 +256,23 @@ Below are the set of configurations for typeorm.
 
 ---
 
-Milestone:
-
-- imports developed from descriptors working ok
-- file naming working ok with all the ComponentType's
-- class names and headers working ok
-
 ## TASKS IN PROGRESS:
-
----
-
-- auto generate initial methods
-- test if imports are correct
-  - imports still reading 'abcd'
-  - how to configure native import: eg importing service to controller
-- set queriable methods
-- populate methods for controllers and services
-- ensure attributes are included in the generated class
-- include 'constructor' as a method, in fetched template for scafolding
-- include 'constructor' as a method, in default items for both service and controller in scafolding descriptor data.
-  Redessigning TemplateSnippetService.buildMethodStubSnippets() and GenControllerImplementationService.implementMethods()
-
-1. to confirm that the input, finalCode, is ok
-
-- confirm the markers are set properly
-  ACTION 1:
-  Do a helper method that is able to:
-- validate and normalize the input stubs to confirm not have sytax errors
-- validate and normalize the markers to confirm they are functional. ie there is proper start and end marking and non has an orphan or hanging head or tail.
-
-2. If No 1 is successfull, then: develop Build take some meta data that can be used to assess the substitution progress and performance
-   ACTION 2:
-
-- Develop a new array that merges the template and the matching stubs. From this it should be possible to get analisis of stubs that do not have matching patners and template methods that are unutilized if any. This data can also be used later to verify the progress and identify problematic issues.
-  ACTION 3:
-
-3. Develop a substitution helper method.
-4. Develop a post substiturion validator method.
-
-- Confirm that we have a working formular for REPLACING a given stub. (Remember this is where we have been performing very poorly)
-
-Strategic intervention:
-All the procesess mentioned above should be organised within implementMethods() so as not to break the existing flow.
-The new helper methods can be stitched inside in form of a converyor belt with proper comments for easy debuging and progressive development.
-
-- correct import paths
-- double 'type' in model files:
-
-
-
-/////////////////////////////////////////////////
-Hey Chase!. Look at the method buildService() below and see if you can set beforeUpdate() as one of the default methods.
-Notice its signature.
-Do no worry about the dependency. That is set in a different class and method.
-
-/////////////////////////////////////////////////////////////////////////
-
-I am currently experiencing the error below when I try to initiate typeorm to sync database.
-What do you make of it?
-
-
-
-//////////////////////////////////////////////////////////////////////
-Adjust the following methods to do the scafold with Option 1 in place.
-The methods are working very ok except that. So just focus on implementing Option 1 fix.
-When you given your response, give me full version of the method with the correction.
-You ca leave the rest of codes as is complet with the comments and logs.
-
-
-
-////////////////////////////////////////////////////////
-We have move foward a little. But hit a snug.
-
-///////////////////////////////////////////////////////
-This is how the entity configs are wired to allow configurability from the cd-cli to controll cd-api project entities.
-You can commend on this based on your recommendations.
-/home/emp-12/cd-cli/dist/configs/module-entities.json
-
-
-//////////////////////////////////////////////
-I had to use const ext = isTs ? '' : 'js'; instead of const ext = isTs ? 'ts' : 'js';
-That is how the projects is set.
-We have then made some progress but still some issues to work on. See the log below:
-
-
-////////////////////////////////////////////////
-Having understood the issue, would embed this structural dimension in the descriptors definitions.
-We can have something that allow us to do something similar to enum eg
-
-fieldX: FieldType = f.mysql.int
-
-The configuration should allow us to apply FieldType in variety of situations but data remains the same yet versetile and configurable.
-I am just guiding on design.
-I hope you are able to figure something along these line.
-As you work on it, take below as your rationale:
-Corpdesk aim to resolve issues that developers grapple with everyday and set varied solutions.
-The solutions should be durable and easy to use.
-You notice in this case we would have gone ahead and use some quick fix.
-But embeding a versetile and configurable solution in the descriptors, we are resolving an issue in a manner that even if we start a new project, we can still reuse the descriptors as part of 'our' language.
-
-//////////////////////////////////////////////////////////////
-That has worked.
-Assess for me these logs to properly document the actual issue.
-I can then foloow up from the codes and get back to you.
-Note. This issue was coming up when writing typeorm entity files.
-Prettier could be detecting some type or syntax issue.
-
-//////////////////////////////////////////////
-We had worked on the issue below but the solution did not work very well.
-This error is coming up from already developed files in the testbed.
-Rather that start making corrections as we did earlier, I need us to appear to be correcting the developed file.
-We will then work backwards knowing the exact solution required.
-So look at the logs again and then compare with the entity file below.
-Suggest specific correction on the entity file.
-////////////////////////////////////////////////////
-sample entity file for correction.
-
-
-/////////////////////////////////////
-
-I am still experiencing the same issue after updating the file.
-At this stage, I am thinking it would be worth it to try and consider refactoring this method to allow us to see the content of the files being loaded.
-Is this possible?
-
-////////////////////////////////////////
-
-I am thinking we need to start by brainstorming on definition of MigrationInstruction. Current definition:
-
-
-When I think about a migration tool I see defferent ranges of migration:
-
-- migrating model to database schema
-  - syncing model with database schema eg change of field name or other properties
-- migrating database to model for backup or snapshot
-  - syncing database to model in terms of changes in the database detail properties (can be usefule for reverse engineering where necessary)
-- Other extensions may include database to buckup or the reverse
-- All the above may deal with different types of datbases sql and non-sql
-- Other passive capacities should include structural querys for diagnosis and state queries.
-  You can also assist me to brainstorm around this topic without veering out of context.
-
-
-///////////////////////////////////////////
-Below is the current setting of MigrationProfile.
-I have condensed MigrationProfile so that both source and destination are just of DataSourceConfig type.
-
-
-////////////////////////////////////////////
-
-You declared private mysql!: DataSource;
-At this point I assumed, you meant the DataSource we had just introduced.
-At the same time I noticed it can conflict with a number of plugings related to sql.
-So I changed the name to CdDataSource.
-
-Related to this is also a line in the method applyMigration():
-await this.mysql.query(sql);
-We have not defined query as a property.
-When I see this I ask myself, does a datasource have a query?
-I think it is the migration that can have a query.
-In this case, it we have to fit query in MigrationProfile.transformation.
-You can even see, we already had a sql.
-I think you can asses and sort this.
-Let me know your recommendation on how to handl this in applyMigration()
-
-
-//////////////////////////////////////////////
-You can assist me to review the class DbMigrationService.
-Especially the initialization.
-I would like to believe once the class is initialized, one should be able to just call migrateFromModel().
-In other words, can we say migrateFromModel() is ready for use in a workflow?
-
-
-///////////////////////////////////////////
-We need to make this method to be workflow compliant.
-It needs to return Promise<CdFxReturn<null>>
-
-
-////////////////////////////////////////////////////////////////////
-Assist me to modify the method below so it can run instance.init() if available.
-It also must be able to respond should there be an error. Perhaps via some try/catch.
-The error must be captured and reported well.
-
-
-
-///////////////////////////////////////////////////
-We have made some progress. Now the codes are executing.
-You can review the logs and recommend fix and any refinement.
-
-
-
-/////////////////////////////////////////////////
-Now below are the kind of issues that we must be able to deal with very carefully.
-They are the tests that makes good and bad tools.
-You must be having some reference that can guide though this.
-
-
-/////////////////////////////////////////
-I have corrected ColumnDescriptor to FieldDescriptor.
-Then RelationDescriptor to RelationshipDescriptor
-What I need you to assist me with is:
-
-1. Given the definition of RelationshipDescriptor, harmonize the isRelationEqual() to fit existing definition or modify where value is gained.
-   Where you make changes, also consider future usage.
-2. We still dont have IndexDescriptor. So you can define one that can work with isIndexEqual. Also consider future usage.
-
-
-
-/////////////////////////////////////////////
-We had earlier developed a mechanism for backing up a table if one is existing.
-At this point, there was a bug which was creating multiple tables in one process.
-We then developed mitigation for this.
-After creating the mitigation now we are back to where we started.
-Try and find out the issue and resolve as per requirement.
-
-
-
-/////////////////////////////////////////////////////////
-The two lines in the method below have an error:
-Object is possibly 'undefined'.ts(2532
-
-I have shared the definition of the relevant interface: RelationshipDescriptor
-
-//problematic lines:
-relMap[rel.CONSTRAINT_NAME].sourceColumns.push(rel.COLUMN_NAME);
-relMap[rel.CONSTRAINT_NAME].targetColumns.push(rel.REFERENCED_COLUMN_NAME);
-
-
-
-///////////////////////////////////////////////
-Assess the logs in relations to the method based on where the loging points are placed.
-The method is meant to fetch tables from the mysql and process them based on requirement.
-The connection is made via typeorm to mysql.
-There seem to be some issue with how the loop is initiated.
-Let me know how the code can be improved to fix the issue.
-
-
-
-//////////////////////////////////////////////
-Thanks that has worked.
-We are now in the loop but some issue to fix.
-See the logs.
-
-
-
-/////////////////////////////////////////////
-The class below is meant to:
-
-1. Take in model from an app
-2. Use the app to create requred database resources defined in the model.
-   The entry method is migrateFromModel().
-   While the process is running well, I am currently focusing on a proces that should happen when it finds existing say table.
-   It should:
-3. Backup the table
-4. Delete the table
-5. Create a new one
-   I have tried to implement the above process in the applyMigration() method.
-   Currently experiencing the log shown below.
-   Assist me to not only clear the issue but to assess and recomend if any modifiction need to be done for it to achieve the above requrement.
-
-
-
-////////////////////////////////////////////////////////////
-For some reason, it is crating multiple(3 to be exact) backups in one go.
-Are you able to tel how this is happening and how we can fix it.
-
-
-
-/////////////////////////////////////////////////////////////////
-Note that now instead of querying all the tables, we are just queryint where table_name = '<module-name>%'
-This allow us to get only the tables associated with the module(if any exists)
-Take a look at the codes and logs shared.
-Note what is existing in
-
-1. the database(see logs: igrateFromModel()/destSchemaResult:) and compare with
-2. the model 'tables'(see logs: migrateFromModel()/sourceSchema) and
-3. the output of compareSchemas(): see logs: migrateFromModel()/migrations:
-
-I would like to understand how the migration data is supposed to work.
-Given that
-
-1. in this process, it does not seem like there was an attampt to drop, buckup or replace existing tables
-2. Typeorm logs show create statements but some of those table where never created and there is not information as to why they were not created.
-
-
-
-/////////////////////////////////////////////////////////////////////////
-Below are the codes previous compareColumnsAndConstraints() and the new version.
-In the new version the return has been formalised into an interface ColumnDiff.
-But for us to maintain compatibility we may need to maintain the return interface.
-But if introcuction of new properties are being helpful, it is ok to add the new interfaces eg 'type'.
-What is not clear is the new method uses 'column' as object and actually hosts multiple columns.
-This need to be clarified and how this is going to affect the consuming entity.
-Are these changes part of solutions, or we can still resolve the normalization of names and maintain the return interface.
-If you are to make correction, use the version contained here. Some errors were corrected in the version you produced.
-
-
-
-/////////////////////////////////////////////////////////
-Refactor the method compareColumnsAndConstraints() so that all the table names and columns for database are normalized via normalizeTableName() and normalizeColumnName().
-Assume that the source input is build from model data and dest input is built from database data.
-The model names are usualy in kebab case but the database table and field names are in snake case.
-That s where normalizeTableName() and normalizeColumnName() are meant to assit.
-When done give me the full verion of compareColumnsAndConstraints().
-
 
 ```ts
 MissingPrimaryColumnError: Entity "CdAiUsageLogsTypeModel" does not have a primary column. Primary column is required to have in all your entities. Use @PrimaryColumn decorator to add a primary column to your entity.
 ```
 
-- typeorm is not updating the view
-- gen-entities are not setting id property correctly
-- use migration instead of 'sycronization'
-- migration should add initial test data for testing validation
+- after migration, auto add initial test data for testing validation...done
 - initial test data should be automated and reported
   - The test should include internal and http crud tests
+  - test should auto update changelog
 - all cd-cli modules should have internal test that can be run everytime a new feature is added.
+- set up user data via cd-cli wizard or cli
+  - this can be done in registration session
+- set up initial instruction via wizard or cli
+
+---
+
 - cd-api should also have a way of testing each module and system operations.
 
 ## TO DO:
@@ -370,6 +280,19 @@ MissingPrimaryColumnError: Entity "CdAiUsageLogsTypeModel" does not have a prima
 ---
 
 - test cd-ai module
+- add import for inspect to service
+- uncomment logger in the service
+- add Logging in the dependencies: // import { Logging } from "../../../sys/base/winston.log";
+- comment on the service on line: // .mustExist("userId", CdAiModel)
+- AiModel.doc_id' in 'field list'"
+  - field cd_ai_doc_id being create instead of doc_id
+  - {
+      name: 'cdAiTypeDocId', // need to be corrected to DocId
+      type: 'number',
+      required: false,
+      default: true,
+      dbName: 'doc_id'
+    },
 - fine tune roadmap for cd-api for actuall testing
 - test version auto update for CdApp (cd-api) and CdModule (cd-ai)
 - package.json can be downgraded without warning but one should not be able to downgrade in comparison to git records
@@ -401,3 +324,22 @@ upgrade --cd-module --name cd-ai --o-env workshop --repo cd-ai --version 0.1.0;
 upgrade --cd-module --name cd-ai --o-env test-bed --repo cd-ai --version 0.1.0 --test true;
 
 ```
+
+## Target Demos
+1. Register multiple users
+2. Create new application via cd-cli
+3. Create testbed instance
+4. Update testbed and database objects
+5. Run confirmation tests
+6. Create online package
+7. Install on test phone
+8. Output:
+  - workshop files
+  - git repository
+  - testbed version
+  - databse objects
+  - online package
+  - installed instance
+9. Review testing standards
+10. Review security issues
+11. Review IP security
