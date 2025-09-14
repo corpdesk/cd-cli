@@ -223,6 +223,11 @@ export interface EnvelopFValItem {
   data?: any;
   extData?: any;
   jsonUpdate?: any;
+  /**
+   * Developer-specific objects (like cdObj, userObj, etc.)
+   * Any additional property is allowed here.
+   */
+  [key: string]: any;
 }
 
 export interface ICdResponse {

@@ -54,25 +54,7 @@ export interface ValidationDescriptor extends BaseDescriptor {
   custom?: string; // Custom validation logic or reference
 }
 
-// Relationship Descriptor
-// export interface RelationshipDescriptor extends BaseDescriptor {
-//   type: 'one-to-one' | 'one-to-many' | 'many-to-one' | 'many-to-many'; // Relationship type
-//   relatedModel: string; // Name of the related model
-//   foreignKey?: string; // Key used for the relationship
-// }
-// export interface RelationshipDescriptor extends BaseDescriptor {
-//   type: 'one-to-one' | 'one-to-many' | 'many-to-one' | 'many-to-many' | 'foreign-key'; // Relationship type
-//   relatedModel?: string; // Name of the related model
-//   foreignKey?: string; // Key used for the relationship
-//   onDelete?: boolean;
-//   onUpdate?: boolean;
-//   // columns?: FieldDescriptor[];
-//   sourceColumns?: FieldDescriptor[];
-//   // referencedColumns?: FieldDescriptor[];
-//   targetColumns?: FieldDescriptor[];
-//   sourceTable?: string;
-//   targetTable?: string;
-// }
+
 export interface RelationshipDescriptor extends BaseDescriptor {
   type: 'one-to-one' | 'one-to-many' | 'many-to-one' | 'many-to-many' | 'foreign-key'; // Relationship type
   relatedModel?: string; // Name of the related model
@@ -166,17 +148,30 @@ export const f = {
   },
 };
 
+// export interface MigrationProfile {
+//   id: string;
+//   source: CdDataSource;
+//   destination: CdDataSource;
+//   transformation: {
+//     type: 'create' | 'alter' | 'drop' | 'sync' | 'custom';
+//     target: 'table' | 'column' | 'relation' | 'index' | 'data';
+//     descriptor?: any;
+//     sql?: string;
+//   };
+//   description?: string;
+// }
 export interface MigrationProfile {
   id: string;
   source: CdDataSource;
   destination: CdDataSource;
   transformation: {
     type: 'create' | 'alter' | 'drop' | 'sync' | 'custom';
-    target: 'table' | 'column' | 'relation' | 'index' | 'data';
+    target: 'table' | 'view' | 'column' | 'relation' | 'index' | 'data'; // 👈 add 'view'
     descriptor?: any;
     sql?: string;
   };
   description?: string;
+  relations?: RelationshipDescriptor[]; // 👈 add relations for views
 }
 
 export interface CdDataSource extends BaseDescriptor {
@@ -194,14 +189,23 @@ export interface DataSourceSchema extends BaseDescriptor {
   metadata?: Record<string, any>; // free-form annotations
 }
 
-export interface TableDescriptor extends BaseDescriptor {
+// export interface TableDescriptor extends BaseDescriptor {
+//   name: string;
+//   fields: FieldDescriptor[];
+//   primaryKey?: string[]; // allow composite PKs
+//   indexes?: IndexDescriptor[];
+//   relations?: RelationshipDescriptor[];
+//   engine?: string; // MySQL/MariaDB engines (InnoDB/MyISAM), optional
+//   charset?: string; // table charset, optional
+// }
+export interface TableDescriptor {
   name: string;
-  fields: FieldDescriptor[];
-  primaryKey?: string[]; // allow composite PKs
+  tableName?: string; // actual DB table name if different
+  kind: 'table' | 'view'; // 👈 NEW
+  fields?: FieldDescriptor[];
   indexes?: IndexDescriptor[];
   relations?: RelationshipDescriptor[];
-  engine?: string; // MySQL/MariaDB engines (InnoDB/MyISAM), optional
-  charset?: string; // table charset, optional
+  definitionSQL?: string; 
 }
 
 export interface CollectionDescriptor extends BaseDescriptor {

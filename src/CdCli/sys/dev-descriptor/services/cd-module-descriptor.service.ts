@@ -20,6 +20,7 @@ import {
   getLanguageByName,
   LanguageName,
   languages,
+  RelationshipDescriptor,
 } from '../index.js';
 import { basename, join } from 'path';
 import { readFileSync } from 'fs';
@@ -815,137 +816,292 @@ export class CdModuleDescriptorService {
   //   };
   // }
 
-  private ensureCounterparts(data: CdModuleDescriptor): CdModuleDescriptor {
-    // 🛠 Helper: normalize filename for each component
-    const ensureFileName = (comp: ComponentDescriptor): string => {
-      const fileName = `${comp.name}.${comp.type}.ts`;
-      this.b.logWithContext(this, `ensureCounterparts()/fileName:`, { fileName }, 'debug');
-      return fileName;
-    };
+  // private ensureCounterparts(data: CdModuleDescriptor): CdModuleDescriptor {
+  //   // 🛠 Helper: normalize filename for each component
+  //   const ensureFileName = (comp: ComponentDescriptor): string => {
+  //     const fileName = `${comp.name}.${comp.type}.ts`;
+  //     this.b.logWithContext(this, `ensureCounterparts()/fileName:`, { fileName }, 'debug');
+  //     return fileName;
+  //   };
 
-    // 🛠 Helper: convert kebab-case to PascalCase
+  //   // 🛠 Helper: convert kebab-case to PascalCase
+  //   const kebabToPascal = (str: string): string =>
+  //     str
+  //       .split('-')
+  //       .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
+  //       .join('');
+
+  //   const adjustFieldsForType = (
+  //     baseName: string,
+  //     fields: FieldDescriptor[],
+  //     typeSuffix: string,
+  //   ): FieldDescriptor[] => {
+  //     const camelBaseName = toCamelCase(baseName);
+  //     const pascalSuffix = kebabToPascal(typeSuffix);
+
+  //     return fields.map((f) => {
+  //       // 🎯 REFACTORED LINE: use case-insensitive flag 'i'
+  //       const adjustedName = f.name.replace(
+  //         new RegExp(`^${camelBaseName}`, 'i'),
+  //         `${camelBaseName}${pascalSuffix}`,
+  //       );
+  //       return {
+  //         ...f,
+  //         name: adjustedName,
+  //         dbName: f.dbName,
+  //       };
+  //     });
+  //   };
+
+  //   const processList = (
+  //     list: ComponentDescriptor[] | undefined,
+  //     type: ComponentType,
+  //   ): ComponentDescriptor[] => {
+  //     if (!list) return [];
+
+  //     const enriched: ComponentDescriptor[] | CdModelDescriptor = [];
+
+  //     for (const comp of list) {
+  //       const base: ComponentDescriptor = {
+  //         ...comp,
+  //         fileName: comp.fileName ?? ensureFileName(comp),
+  //       };
+  //       enriched.push(base);
+
+  //       // --- Counterparts rules ---
+  //       if (type === 'controller' || type === 'service') {
+  //         const typeName = base.name.endsWith('-type') ? base.name : `${base.name}-type`;
+
+  //         if (!list.some((c) => c.name === typeName && c.type === `${type}-type`)) {
+  //           enriched.push({
+  //             ...base,
+  //             name: typeName,
+  //             type: `${type}-type` as ComponentType,
+  //             fileName: `${typeName}.${type}-type.ts`,
+  //           });
+  //         }
+  //       }
+
+  //       if (type === 'model') {
+  //         const typeName = base.name.endsWith('-type') ? base.name : `${base.name}-type`;
+
+  //         // 🔹 Add -type counterpart
+  //         if (!list.some((c) => c.name === typeName && c.type === 'model-type')) {
+  //           const modelBase = base as CdModelDescriptor;
+  //           enriched.push({
+  //             ...modelBase,
+  //             name: typeName,
+  //             type: ComponentType.ModelType,
+  //             fileName: `${typeName}.model-type.ts`,
+  //             fields: adjustFieldsForType(modelBase.name, modelBase.fields, 'type'),
+  //           } as CdModelDescriptor);
+  //         }
+
+  //         // 🔹 Add -view counterpart
+  //         const viewName = base.name.endsWith('-view') ? base.name : `${base.name}-view`;
+
+  //         if (!list.some((c) => c.name === viewName && c.type === 'model-view')) {
+  //           enriched.push({
+  //             ...base,
+  //             name: viewName,
+  //             type: ComponentType.ModelView,
+  //             fileName: `${viewName}.model-view.ts`,
+  //           });
+  //         }
+  //       }
+  //     }
+
+  //     return enriched;
+  //   };
+
+  //   const enrichedModels = processList(data.models, ComponentType.Model) as CdModelDescriptor[];
+  //   this.b.logWithContext(
+  //     this,
+  //     `ensureCounterparts:()fileName1:`,
+  //     { enrichedModels: enrichedModels[1]?.fileName },
+  //     'debug',
+  //   );
+  //   this.b.logWithContext(
+  //     this,
+  //     `ensureCounterparts:()enrichedFields1:`,
+  //     { enrichedModels: enrichedModels[1]?.fields },
+  //     'debug',
+  //   );
+  //   this.b.logWithContext(
+  //     this,
+  //     `ensureCounterparts:()fileName2:`,
+  //     { enrichedModels: enrichedModels[2]?.fileName },
+  //     'debug',
+  //   );
+  //   this.b.logWithContext(
+  //     this,
+  //     `ensureCounterparts:()enrichedFields2:`,
+  //     { enrichedModels: enrichedModels[2]?.fields },
+  //     'debug',
+  //   );
+
+  //   return {
+  //     ...data,
+  //     controllers: processList(
+  //       data.controllers,
+  //       ComponentType.Controller,
+  //     ) as CdControllerDescriptor[],
+  //     services: processList(data.services, ComponentType.Service) as CdServiceDescriptor[],
+  //     models: enrichedModels,
+  //   };
+  // }
+
+  private ensureCounterparts(data: CdModuleDescriptor): CdModuleDescriptor {
+    // ──────────────────────────────
+    // Helpers
+    // ──────────────────────────────
+
+    const ensureFileName = (comp: ComponentDescriptor): string =>
+      comp.fileName ?? `${comp.name}.${comp.type}.ts`;
+
     const kebabToPascal = (str: string): string =>
       str
         .split('-')
         .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
         .join('');
 
-    const adjustFieldsForType = (
-      baseName: string,
-      fields: FieldDescriptor[],
-      typeSuffix: string,
-    ): FieldDescriptor[] => {
-      const camelBaseName = toCamelCase(baseName);
-      const pascalSuffix = kebabToPascal(typeSuffix);
+    const addTypeSuffix = (baseName: string, fields: FieldDescriptor[]): FieldDescriptor[] => {
+      const camelBase = toCamelCase(baseName);
+      const pascalSuffix = kebabToPascal('type');
 
       return fields.map((f) => {
-        // 🎯 REFACTORED LINE: use case-insensitive flag 'i'
         const adjustedName = f.name.replace(
-          new RegExp(`^${camelBaseName}`, 'i'),
-          `${camelBaseName}${pascalSuffix}`,
+          new RegExp(`^${camelBase}`, 'i'),
+          `${camelBase}${pascalSuffix}`,
         );
-        return {
-          ...f,
-          name: adjustedName,
-          dbName: f.dbName,
-        };
+        return { ...f, name: adjustedName };
       });
     };
 
-    const processList = (
-      list: ComponentDescriptor[] | undefined,
-      type: ComponentType,
-    ): ComponentDescriptor[] => {
-      if (!list) return [];
+    const addDefaultRelationship = (
+      modelBase: CdModelDescriptor,
+      typeName: string,
+    ): CdModelDescriptor => {
+      const fkField: FieldDescriptor = {
+        name: `${toCamelCase(typeName)}Id`,
+        dbName: `${modelBase.name.replace(/-/g, '_')}_type_id`,
+        type: 'number',
+        required: true,
+      };
 
-      const enriched: ComponentDescriptor[] | CdModelDescriptor = [];
-
-      for (const comp of list) {
-        const base: ComponentDescriptor = {
-          ...comp,
-          fileName: comp.fileName ?? ensureFileName(comp),
-        };
-        enriched.push(base);
-
-        // --- Counterparts rules ---
-        if (type === 'controller' || type === 'service') {
-          const typeName = base.name.endsWith('-type') ? base.name : `${base.name}-type`;
-
-          if (!list.some((c) => c.name === typeName && c.type === `${type}-type`)) {
-            enriched.push({
-              ...base,
-              name: typeName,
-              type: `${type}-type` as ComponentType,
-              fileName: `${typeName}.${type}-type.ts`,
-            });
-          }
-        }
-
-        if (type === 'model') {
-          const typeName = base.name.endsWith('-type') ? base.name : `${base.name}-type`;
-
-          // 🔹 Add -type counterpart
-          if (!list.some((c) => c.name === typeName && c.type === 'model-type')) {
-            const modelBase = base as CdModelDescriptor;
-            enriched.push({
-              ...modelBase,
-              name: typeName,
-              type: ComponentType.ModelType,
-              fileName: `${typeName}.model-type.ts`,
-              fields: adjustFieldsForType(modelBase.name, modelBase.fields, 'type'),
-            } as CdModelDescriptor);
-          }
-
-          // 🔹 Add -view counterpart
-          const viewName = base.name.endsWith('-view') ? base.name : `${base.name}-view`;
-
-          if (!list.some((c) => c.name === viewName && c.type === 'model-view')) {
-            enriched.push({
-              ...base,
-              name: viewName,
-              type: ComponentType.ModelView,
-              fileName: `${viewName}.model-view.ts`,
-            });
-          }
-        }
+      if (!modelBase.fields.some((f) => f.name === fkField.name)) {
+        modelBase.fields.push(fkField);
       }
 
+      const rel: RelationshipDescriptor = {
+        name: `${modelBase.name}_to_${typeName}`,
+        type: 'foreign-key',
+        relatedModel: typeName,
+        foreignKey: fkField.name,
+        sourceColumns: [fkField],
+        targetColumns: [{ name: `${toCamelCase(typeName)}Id`, type: 'number' }],
+        sourceTable: modelBase.tableName ?? modelBase.name.replace(/-/g, '_'),
+        targetTable: typeName.replace(/-/g, '_'),
+      };
+
+      modelBase.relationships = [...(modelBase.relationships ?? []), rel];
+      return modelBase;
+    };
+
+    const processControllersOrServices = (
+      list: ComponentDescriptor[] | undefined,
+      type: ComponentType.Controller | ComponentType.Service,
+    ): ComponentDescriptor[] => {
+      if (!list) return [];
+      const enriched: ComponentDescriptor[] = [];
+
+      for (const comp of list) {
+        const base = { ...comp, fileName: ensureFileName(comp) };
+        enriched.push(base);
+
+        const typeName = base.name.endsWith('-type') ? base.name : `${base.name}-type`;
+        if (!list.some((c) => c.name === typeName && c.type === `${type}-type`)) {
+          enriched.push({
+            ...base,
+            name: typeName,
+            type: `${type}-type` as ComponentType,
+            fileName: `${typeName}.${type}-type.ts`,
+          });
+        }
+      }
       return enriched;
     };
 
-    const enrichedModels = processList(data.models, ComponentType.Model) as CdModelDescriptor[];
+    const processModels = (list: ComponentDescriptor[] | undefined): CdModelDescriptor[] => {
+      if (!list) return [];
+      const enriched: CdModelDescriptor[] = [];
+
+      for (const comp of list) {
+        const modelBase = {
+          ...comp,
+          fileName: ensureFileName(comp),
+        } as CdModelDescriptor;
+
+        enriched.push(modelBase);
+
+        // Add -type counterpart
+        const typeName = modelBase.name.endsWith('-type')
+          ? modelBase.name
+          : `${modelBase.name}-type`;
+        if (!list.some((c) => c.name === typeName && c.type === 'model-type')) {
+          enriched.push({
+            ...modelBase,
+            name: typeName,
+            type: ComponentType.ModelType,
+            fileName: `${typeName}.model-type.ts`,
+            fields: addTypeSuffix(modelBase.name, modelBase.fields),
+          });
+        }
+
+        // Add default relationship to type
+        addDefaultRelationship(modelBase, typeName);
+
+        // Add -view counterpart
+        const viewName = modelBase.name.endsWith('-view')
+          ? modelBase.name
+          : `${modelBase.name}-view`;
+        if (!list.some((c) => c.name === viewName && c.type === 'model-view')) {
+          enriched.push({
+            ...modelBase,
+            name: viewName,
+            type: ComponentType.ModelView,
+            fileName: `${viewName}.model-view.ts`,
+          });
+        }
+      }
+      return enriched;
+    };
+
+    // ──────────────────────────────
+    // Enrichment process
+    // ──────────────────────────────
+
+    const enrichedModels = processModels(data.models);
+
     this.b.logWithContext(
       this,
-      `ensureCounterparts:()fileName1:`,
-      { enrichedModels: enrichedModels[1]?.fileName },
-      'debug',
-    );
-    this.b.logWithContext(
-      this,
-      `ensureCounterparts:()enrichedFields1:`,
-      { enrichedModels: enrichedModels[1]?.fields },
-      'debug',
-    );
-    this.b.logWithContext(
-      this,
-      `ensureCounterparts:()fileName2:`,
-      { enrichedModels: enrichedModels[2]?.fileName },
-      'debug',
-    );
-    this.b.logWithContext(
-      this,
-      `ensureCounterparts:()enrichedFields2:`,
-      { enrichedModels: enrichedModels[2]?.fields },
+      `ensureCounterparts()`,
+      {
+        sampleModel: enrichedModels[0],
+      },
       'debug',
     );
 
     return {
       ...data,
-      controllers: processList(
+      controllers: processControllersOrServices(
         data.controllers,
         ComponentType.Controller,
       ) as CdControllerDescriptor[],
-      services: processList(data.services, ComponentType.Service) as CdServiceDescriptor[],
+      services: processControllersOrServices(
+        data.services,
+        ComponentType.Service,
+      ) as CdServiceDescriptor[],
       models: enrichedModels,
     };
   }
@@ -1315,6 +1471,69 @@ export class CdModuleDescriptorService {
     controllerSnake: string,
   ): CdModelDescriptor {
     this.b.logWithContext(this, `buildModel()/controllerName:`, { controllerName }, 'debug');
+    // const defaultModel: CdModelDescriptor = {
+    //   name: controllerKebab,
+    //   type: ComponentType.Model,
+    //   parentController: controllerName,
+    //   fileName: `${controllerKebab}.model.ts`,
+    //   tableName: controllerSnake,
+    //   fields: [
+    //     {
+    //       name: `${controllerCamel}Id`,
+    //       type: 'number',
+    //       required: true,
+    //       default: true,
+    //       primary: true,
+    //       autoIncrement: true,
+    //       dbName: `${controllerSnake}_id`,
+    //     },
+    //     {
+    //       name: `${controllerCamel}Guid`,
+    //       type: 'string',
+    //       required: true,
+    //       default: true,
+    //       unique: true,
+    //       defaultValue: 'uuid',
+    //       dbName: `${controllerSnake}_guid`,
+    //     },
+    //     {
+    //       name: `${controllerCamel}Name`,
+    //       type: 'string',
+    //       required: true,
+    //       default: true,
+    //       dbName: `${controllerSnake}_name`,
+    //     },
+    //     {
+    //       name: `${controllerCamel}Description`,
+    //       type: 'string',
+    //       required: true,
+    //       default: true,
+    //       dbName: `${controllerSnake}_description`,
+    //     },
+    //     {
+    //       name: `${controllerCamel}TypeId`,
+    //       type: 'number',
+    //       required: true,
+    //       default: true,
+    //       dbName: `${controllerSnake}_type_id`,
+    //     },
+    //     {
+    //       name: `docId`,
+    //       type: 'number',
+    //       required: true,
+    //       default: true,
+    //       dbName: `doc_id`,
+    //     },
+    //     {
+    //       name: `${controllerCamel}Enabled`,
+    //       type: 'boolean',
+    //       required: true,
+    //       default: true,
+    //       defaultValue: true,
+    //       dbName: `${controllerSnake}_enabled`,
+    //     },
+    //   ],
+    // };
     const defaultModel: CdModelDescriptor = {
       name: controllerKebab,
       type: ComponentType.Model,
@@ -1326,55 +1545,56 @@ export class CdModuleDescriptorService {
           name: `${controllerCamel}Id`,
           type: 'number',
           required: true,
-          default: false,
           primary: true,
           autoIncrement: true,
           dbName: `${controllerSnake}_id`,
+          nullable: false,
+          // 🚫 No default or defaultValue for autoIncrement
         },
         {
           name: `${controllerCamel}Guid`,
           type: 'string',
           required: true,
-          default: true,
           unique: true,
-          defaultValue: 'uuid',
+          defaultValue: 'uuid', // ✅ only this matters
           dbName: `${controllerSnake}_guid`,
+          nullable: true,
         },
         {
           name: `${controllerCamel}Name`,
           type: 'string',
-          required: false,
-          default: true,
+          required: true,
           dbName: `${controllerSnake}_name`,
+          nullable: true,
         },
         {
           name: `${controllerCamel}Description`,
           type: 'string',
           required: true,
-          default: true,
           dbName: `${controllerSnake}_description`,
+          nullable: true,
         },
         {
           name: `${controllerCamel}TypeId`,
-          type: 'string',
-          required: false,
-          default: true,
+          type: 'number',
+          required: true,
           dbName: `${controllerSnake}_type_id`,
+          nullable: true,
         },
         {
-          name: `DocId`,
+          name: `docId`,
           type: 'number',
-          required: false,
-          default: true,
+          required: true,
           dbName: `doc_id`,
+          nullable: true,
         },
         {
           name: `${controllerCamel}Enabled`,
           type: 'boolean',
-          required: false,
-          default: true,
-          defaultValue: true,
+          required: true,
+          defaultValue: true, // ✅ correct: will normalize to 1
           dbName: `${controllerSnake}_enabled`,
+          nullable: true,
         },
       ],
     };

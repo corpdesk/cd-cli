@@ -270,10 +270,13 @@ export class CICdRunnerService {
           }
           descriptor = result.data;
           // check for conuterparts...
+          CdLog.debug(`CICdRunnerService::loadModuleDescriptorAndWorkflow()/descriptor.models:${inspect(descriptor.models, {depth: 4})}`,);
+          CdLog.debug(`CICdRunnerService::loadModuleDescriptorAndWorkflow()/descriptor.models[0]:${inspect(descriptor.models[0], {depth: 4})}`,);
+          CdLog.debug(`CICdRunnerService::loadModuleDescriptorAndWorkflow()/descriptor.models[0].relationships:${inspect(descriptor.models[0].relationships, {depth: 4})}`,);
           this.b.logWithContext(
             this,
-            'loadModuleDescriptorAndWorkflow()/descriptor',
-            descriptor,
+            'loadModuleDescriptorAndWorkflow()/descriptor.models[0]3',
+            descriptor.models[0],
             'debug',
           );
           // check for dependencies...
