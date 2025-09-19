@@ -203,6 +203,7 @@ export class BaseService<T extends ObjectLiteral> extends AbstractBaseService<T>
   }
 
   async invokeCdRequest<T = any>(cdRequest?: ICdRequest): Promise<CdFxReturn<T>> {
+    
     this.logger.logDebug('BaseService::invokeCdRequest() → Starting dispatch...');
 
     if (!cdRequest) {
@@ -237,8 +238,6 @@ export class BaseService<T extends ObjectLiteral> extends AbstractBaseService<T>
       }
 
       const result = await controllerInstance[a](...(args ? Object.values(args) : []), dat);
-      // const { _, ...cleanArgs } = args || {};
-      // const result = await controllerInstance[a](...Object.values(cleanArgs), dat);
 
       if (!result?.state) {
         this.logger.logError(`BaseService::invokeCdRequest() → Task failed: ${result.message}`);

@@ -4,27 +4,33 @@
 /* eslint-disable node/prefer-global/process */
 import repl from 'node:repl';
 /* eslint-disable style/brace-style */
-import chalk from 'chalk';    
+import chalk from 'chalk';
 import { createCommand } from 'commander';
 import nodeCleanup from 'node-cleanup';
-import updateNotifier from 'update-notifier'; 
+import updateNotifier from 'update-notifier';
 // import pkg from '../package.json' with { type: 'json' };
 import { readFile } from 'fs/promises';
 import { CdCli } from './CdCli/sys/cd-cli/models/cd-cli.model.js';
 import CdLog from './CdCli/sys/cd-comm/controllers/cd-logger.controller.js';
 import { setLogLevel } from './CdCli/sys/cd-comm/controllers/cd-winston.js';
 import config from './config.js';
-import 'zx/globals'; 
+import 'zx/globals';
+import { ProfileStoreService } from './CdCli/sys/cd-cli/services/profile-store.service.js';
 
-const pkg = JSON.parse(
-  await readFile(new URL('../package.json', import.meta.url), 'utf-8')
-);
-
+const pkg = JSON.parse(await readFile(new URL('../package.json', import.meta.url), 'utf-8'));
 
 export class App {
   async run() {
     const startAt = Date.now();
     const { name, version } = pkg;
+
+    // ✅ Load profiles once at app startup
+    const profileInitResult = await ProfileStoreService.init();
+    if (!profileInitResult.state) {
+      console.error(`App.run()/Failed to load profiles: ${profileInitResult.message}`);
+      return; // 🚨 stop bootstrapping if profiles aren’t available
+    }
+
     // Cleanup handler
     nodeCleanup((exitCode) => {
       const message = exitCode
@@ -63,11 +69,7 @@ export class App {
         .action(async (...args) => {
           if (command.name === 'dev' && args.length === 1) {
             // Only 'dev' was provided, no additional arguments or subcommands
-            console.log(
-              chalk.green(
-                'Entering REPL mode (no extra arguments detected)...',
-              ),
-            );
+            console.log(chalk.green('Entering REPL mode (no extra arguments detected)...'));
             const replServer = repl.start({
               prompt: chalk.blueBright('cd-dev> '),
               eval: async (input, context, filename, callback) => {
@@ -78,16 +80,10 @@ export class App {
                     console.log(chalk.yellow('Exiting development mode...'));
                     process.exit(0);
                   } else {
-                    callback(
-                      new Error(`Unknown command: ${command}`),
-                      undefined,
-                    );
+                    callback(new Error(`Unknown command: ${command}`), undefined);
                   }
                 } catch (error) {
-                  callback(
-                    error instanceof Error ? error : new Error(String(error)),
-                    undefined,
-                  );
+                  callback(error instanceof Error ? error : new Error(String(error)), undefined);
                 }
               },
             });
@@ -127,10 +123,7 @@ export class App {
                   const options = args.pop();
                   await subcommand.action.execute(options);
                 } catch (error) {
-                  console.error(
-                    chalk.red('Error executing subcommand:'),
-                    error,
-                  );
+                  console.error(chalk.red('Error executing subcommand:'), error);
                 }
               }
             });

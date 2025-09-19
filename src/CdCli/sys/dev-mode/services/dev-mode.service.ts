@@ -71,8 +71,6 @@ export class DevModeService {
   }
 
   async executeCrudCommand(action: DevModeAction, options: any): Promise<CdFxReturn<null>> {
-    // o-env/oEnv is the output environment
-    // const { name, ['o-env']: oEnv } = options;
     const { name, ['o-env']: oEnv, repo } = options;
 
     CdLog.debug(
@@ -132,11 +130,10 @@ export class DevModeService {
     let registryResult: CdFxReturn<IDevModeInstructionDescriptor[]>;
     try {
       registryResult = await this.getRegistryForCdObj(action, actionTargetName, oEnv, name, repo);
-      CdLog.debug(
-        `DevModeService::executeCrudCommand()/registryResult:${inspect(registryResult, { depth: 2 })}`,
-      );
+      // CdLog.debug(
+      //   `DevModeService::executeCrudCommand()/registryResult:${inspect(registryResult, { depth: 2 })}`,
+      // );
 
-      // registryResult = await this.getRegistryForCdObj(action, actionTargetName, oEnv, name);
     } catch (err: any) {
       return {
         state: false,
@@ -154,7 +151,7 @@ export class DevModeService {
     }
 
     const registry = registryResult.data;
-    CdLog.debug(`DevModeService::executeCrudCommand()/registry:${inspect(registry, { depth: 2 })}`);
+    CdLog.debug(`DevModeService::executeCrudCommand()/registryCount:${registry.length}`);
     const selectedItem = registry.find((item) => options[item.flag]);
 
     if (!selectedItem) {
@@ -201,26 +198,10 @@ export class DevModeService {
         args,
       };
 
+      CdLog.debug(`DevModeService::executeCrudCommand()/request:${inspect(request, { depth: 3})}`);
+
       const b = new BaseService();
       const responseCdRequest = await b.invokeCdRequest(request);
-      // CdLog.debug(
-      //   `DevModeService::executeCrudCommand()/responseCdRequest:${inspect(responseCdRequest, { depth: 2 })}`,
-      // );
-
-      // if (responseCdRequest?.state === true || responseCdRequest.state === CdFxStateLevel.Success) {
-      //   return {
-      //     state: true,
-      //     data: responseCdRequest.data,
-      //     // message: `✔ ${selectedItem.label} "${name}" ${DevModeAction[action].toLowerCase()}d successfully.`,
-      //     message: responseCdRequest.message
-      //   };
-      // } else {
-      //   return {
-      //     state: false,
-      //     data: responseCdRequest.data,
-      //     message: `❌ Failed to ${DevModeAction[action].toLowerCase()} ${selectedItem.label}: ${responseCdRequest.message}`,
-      //   };
-      // }
       return responseCdRequest;
     } catch (err: any) {
       return {

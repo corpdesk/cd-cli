@@ -899,7 +899,7 @@ export class CrudTestService {
 
       actions.forEach((action) => {
         const response = this.runTest(action, c);
-        console.log(`Action: ${DevModeAction[action]}`, response);
+        this.logger.logInfo(`Action: ${DevModeAction[action]}`, response);
       });
     });
   }
@@ -3769,9 +3769,11 @@ Earlier log for an idea on how the model data is set:
 ```log
 [2025-09-13 14:30:51] 🛠️ CICdRunnerService::loadModuleDescriptorAndWorkflow()/descriptor.models[0]:{ name: 'cd-ai', type: 'model', parentController: 'cd-ai', fileName: 'cd-ai.model.ts', tableName: 'cd_ai', fields: [ { name: 'cdAiId', type: 'number', required: true, default: true, primary: true, autoIncrement: true, dbName: 'cd_ai_id' }, { name: 'cdAiGuid', type: 'string', required: true, default: true, unique: true, defaultValue: 'uuid', dbName: 'cd_ai_guid' }, { name: 'cdAiName', type: 'string', required: true, default: true, dbName: 'cd_ai_name' }, { name: 'cdAiDescription', type: 'string', required: true, default: true, dbName: 'cd_ai_description' }, { name: 'cdAiTypeId', type: 'number', required: true, default: true, dbName: 'cd_ai_type_id' }, { name: 'docId', type: 'number', required: true, default: true, dbName: 'doc_id' }, { name: 'cdAiEnabled', type: 'boolean', required: true, default: true, defaultValue: true, dbName: 'cd_ai_enabled' } ], dependencies: [ { name: 'BaseService', category: 'core', source: 'local', scope: 'module', targetApp: 'cd-api', isCdModule: true, cdCtx: 'sys', resolution: { method: 'import', path: '../../../sys/base/base.service' }, usage: { usageContext: 'core', classesUsed: [ 'BaseService' ] } }, { name: 'Logging', category: 'core', source: 'local', scope: 'module', targetApp: 'cd-api', isCdModule: true, cdCtx: 'sys', resolution: { method: 'import', path: '../../../sys/base/winston.log' }, usage: { usageContext: 'core', classesUsed: [ 'Logging' ] } } ], relationships: [ { name: 'cd-ai_to_cd-ai-type', type: 'foreign-key', relatedModel: 'cd-ai-type', foreignKey: 'cdAiTypeId', sourceColumns: [ { name: 'cdAiTypeId', dbName: 'cd_ai_type_id', type: 'number', required: true } ], targetColumns: [ { name: 'cdAiTypeId', type: 'number' } ], sourceTable: 'cd_ai', targetTable: 'cd_ai_type' } ] } [2025-09-13 14:30:51] 🛠️ CICdRunnerService::loadModuleDescriptorAndWorkflow()/descriptor.models[0].relationships:[ { name: 'cd-ai_to_cd-ai-type', type: 'foreign-key', relatedModel: 'cd-ai-type', foreignKey: 'cdAiTypeId', sourceColumns: [ { name: 'cdAiTypeId', dbName: 'cd_ai_type_id', type: 'number', required: true } ], targetColumns: [ { name: 'cdAiTypeId', type: 'number' } ], sourceTable: 'cd_ai', targetTable: 'cd_ai_type' } ]
 ```
+
 //////////////////////////////////////////////////////////////
 
 Error: Property 'tableName' does not exist on type 'TableDescriptor'
+
 ```ts
 const baseAlias = this.sanitizeObjectName(view.tableName ?? view.name);
 ```
@@ -3891,6 +3893,7 @@ export interface TableDescriptor {
 
 ////////////////////////////////////////////////////
 I am suggestiong you review generateCreateViewSQL() shared below but more importantly, put loging points that can assist you to detect the exact cause of the issue.
+
 ```log
 [13/09/2025, 23:39:38] [DbMigrationService::DbMigrationService():133]: applyMigration:start — { id: 'create-cd-ai', type: 'create', target: 'table' }
 [13/09/2025, 23:39:38] [DbMigrationService::DbMigrationService():133]: applyMigration:objectName — { objectName: 'cd_ai' }
@@ -4000,10 +4003,10 @@ query: DROP VIEW IF EXISTS `vw_cd_ai_with_cd_ai_type`
     '    FROM `vw_cd_ai_with_cd_ai_type`'
 }
 query: CREATE OR REPLACE VIEW `vw_cd_ai_with_cd_ai_type` AS
-    SELECT 
+    SELECT
     FROM `vw_cd_ai_with_cd_ai_type`
 query failed: CREATE OR REPLACE VIEW `vw_cd_ai_with_cd_ai_type` AS
-    SELECT 
+    SELECT
     FROM `vw_cd_ai_with_cd_ai_type`
 error: Error: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'FROM `vw_cd_ai_with_cd_ai_type`' at line 3
 [13/09/2025, 23:39:40] [CICdRunnerService::process():95]: resultControllerInstance — {
@@ -4015,6 +4018,7 @@ error: Error: You have an error in your SQL syntax; check the manual that corres
   message: "Failed to apply migration create-vw_cd_ai_with_cd-ai-type: You have an error in your SQL syntax; check the manual that corresponds to your MySQL server version for the right syntax to use near 'FROM `vw_cd_ai_with_cd_ai_type`' at line 3"
 }
 ```
+
 ```ts
 private generateCreateViewSQL(view: TableDescriptor): string {
     const selectColumns: string[] = [];
@@ -4237,26 +4241,4419 @@ private buildSchemaFromModel(module: CdModuleDescriptor): DataSourceSchema {
 }
 ```
 
+//////////////////////////////////////////////////////////
+The methods below work together to migrate data from model to database.
+We need to reuse what is already available to auto build reliable methods that can purge the module from the database via sql drop scripts.
+The method should drop all the tables and views from the database based on the model data and if possible reusing any reusable feature that is alredy used in the migration.
+Important: not that eventy time a table is created, it makes a backup in the pattern <table-name>_backup_<timestamp>. All these tables need to be dropped in the purge process.
+
+```ts
+export class DbMigrationService {
+  async migrateFromModel(module: CdModuleDescriptor): Promise<CdFxReturn<null>> {
+    try {
+      this.b.logWithContext(this, `migrateFromModel()...start`, {}, 'debug');
+      if (!this.db || !this.db.isInitialized) {
+        return {
+          state: false,
+          data: null,
+          message: 'DbMigrationService not initialized. Call init() first.',
+        };
+      }
+
+      // 1. Build schema from model
+      const sourceSchema = this.buildSchemaFromModel(module);
+      this.b.logWithContext(
+        this,
+        `migrateFromModel()/sourceSchema:`,
+        { sourceSchema: sourceSchema.tables },
+        'debug',
+      );
+      // 2. Load schema from database
+      const destSchemaResult = await this.loadSchemaFromDatabase(module);
+      this.b.logWithContext(
+        this,
+        `migrateFromModel()/destSchemaResult:`,
+        { destSchemaResult: destSchemaResult.data?.tables },
+        'debug',
+      );
+
+      if (!destSchemaResult.state || !destSchemaResult.data) {
+        return {
+          state: false,
+          message: destSchemaResult.message,
+        };
+      }
+      const destSchema = destSchemaResult.data;
+
+      // 3. Compare schemas → MigrationProfiles
+      const migrationsResult = await this.compareSchemas(sourceSchema, destSchema);
+
+      if (!migrationsResult.state || !migrationsResult.data) {
+        return {
+          state: false,
+          message: migrationsResult.message,
+        };
+      }
+
+      const migrations = migrationsResult.data;
+      this.b.logWithContext(
+        this,
+        `migrateFromModel()/migrations:`,
+        { migrations: inspect(migrations, { depth: 2 }) },
+        'debug',
+      );
+
+      // 4. Execute migrations
+      for (const migration of migrations) {
+        const migResult = await this.applyMigration(migration);
+        if (!migResult.state) {
+          return {
+            state: false,
+            message: migResult.message,
+          };
+        }
+      }
+
+      // if (migrations) {
+      //   throw new Error(`Process stoped for observation!`);
+      // }
+
+      // 5. Insert dummy data
+      const dummyDataResult = await this.insertDummyData(module);
+      if (!dummyDataResult.state) {
+        this.b.logWithContext(
+          this,
+          `migrateFromModel:dummyDataError`,
+          { message: dummyDataResult.message },
+          'error',
+        );
+        // Decide if you want to return an error or continue
+        // return { state: false, message: dummyDataResult.message };
+      } else {
+        this.b.logWithContext(this, `migrateFromModel:dummyDataSuccess`, {}, 'info');
+      }
+
+      await this.closeConnection();
+      return {
+        state: true,
+        data: null,
+        message: `Migration and dummy data insertion completed successfully for module: ${module.name}`,
+      };
+
+      // await this.closeConnection();
+      // return {
+      //   state: true,
+      //   data: null,
+      //   message: `Migration completed successfully for module: ${module.name}`,
+      // };
+    } catch (error: any) {
+      return {
+        state: false,
+        data: null,
+        message: `Migration failed: ${error.message ?? error}`,
+      };
+    }
+  }
+
+  private buildSchemaFromModel(module: CdModuleDescriptor): DataSourceSchema {
+    const tables: TableDescriptor[] = [];
+    const views: TableDescriptor[] = [];
+
+    this.b.logWithContext(
+      this,
+      `buildSchemaFromModel()/module.models:`,
+      { models: module.models },
+      'debug',
+    );
+
+    for (const m of module.models) {
+      const isViewModel = m.name.endsWith('-view');
+
+      if (isViewModel) {
+        // 🔹 Directly register it as a view
+        this.b.logWithContext(
+          this,
+          `buildSchemaFromModel():detected view model`,
+          { model: m.name },
+          'debug',
+        );
+        views.push({
+          name: m.name,
+          tableName: m.tableName ?? undefined,
+          kind: 'view',
+          fields: m.fields,
+          indexes: [],
+          relations: m.relationships ?? [],
+        });
+      } else {
+        // 🔹 Normal table
+        this.b.logWithContext(
+          this,
+          `buildSchemaFromModel():detected table model`,
+          { model: m.name },
+          'debug',
+        );
+        tables.push({
+          name: m.name,
+          tableName: m.tableName ?? undefined,
+          kind: 'table',
+          fields: m.fields,
+          indexes: [],
+          relations: m.relationships ?? [],
+        });
+
+        // 🔹 Generate companion views from relationships (if applicable)
+        for (const rel of m.relationships ?? []) {
+          const viewName = `${m.tableName}_view`;
+          this.b.logWithContext(
+            this,
+            `buildSchemaFromModel():generated view from relation`,
+            { table: m.tableName, view: viewName },
+            'debug',
+          );
+          views.push({
+            name: viewName,
+            tableName: m.tableName ?? undefined,
+            kind: 'view',
+            relations: m.relationships ?? [],
+            definitionSQL: this.generateViewSQL(m, rel),
+          });
+        }
+      }
+    }
+
+    return { name: module.name, tables: [...tables, ...views] };
+  }
+  private async loadSchemaFromDatabase(
+    module: CdModuleDescriptor,
+  ): Promise<CdFxReturn<{ tables: TableDescriptor[] }>> {
+    if (!this.db) {
+      return { state: false, data: { tables: [] }, message: 'DB not initialized' };
+    }
+
+    try {
+      const stmt = `
+      SELECT table_name, table_type 
+      FROM information_schema.tables 
+      WHERE table_schema = DATABASE() 
+        AND table_name LIKE '${toSnakeCase(module.name)}%'
+    `;
+      this.b.logWithContext(this, `loadSchemaFromDatabase()/stmt:`, { stmt }, 'debug');
+      const tables: any[] = await this.db.query(stmt);
+
+      if (!Array.isArray(tables)) {
+        throw new Error('tables result is not a valid array');
+      }
+
+      const tableDescriptors: TableDescriptor[] = [];
+
+      for (const row of tables) {
+        const tableName = row.TABLE_NAME;
+        const tableType = row.TABLE_TYPE; // 👈 BASE TABLE or VIEW
+        const kind: 'table' | 'view' = tableType === 'VIEW' ? 'view' : 'table';
+
+        // 🔹 Fields (only if table)
+        let fields: FieldDescriptor[] = [];
+        if (kind === 'table') {
+          const queryResult: any[] = await this.db.query(
+            `SELECT column_name, column_type, is_nullable, column_default, extra
+           FROM information_schema.columns
+           WHERE table_schema = DATABASE() AND table_name = ?`,
+            [tableName],
+          );
+
+          const columns = queryResult;
+          if (!Array.isArray(columns)) {
+            throw new Error('columns result is not a valid array');
+          }
+
+          fields = columns.map((c: any) => ({
+            name: c.COLUMN_NAME,
+            type: c.COLUMN_TYPE,
+            nullable: c.IS_NULLABLE === 'YES',
+            default: c.COLUMN_DEFAULT,
+            autoIncrement: c.EXTRA.includes('auto_increment'),
+          }));
+        }
+
+        // 🔹 Indexes (skip for views)
+        let idxDescriptors: IndexDescriptor[] = [];
+        if (kind === 'table') {
+          const indexes: any[] = await this.db.query(`SHOW INDEX FROM \`${tableName}\``);
+          const idxMap: Record<string, IndexDescriptor> = {};
+
+          for (const idx of indexes) {
+            const keyName = idx.Key_name;
+            if (!idxMap[keyName]) {
+              idxMap[keyName] = {
+                name: keyName,
+                unique: idx.Non_unique === 0,
+                columns: [],
+              };
+            }
+            idxMap[keyName].columns.push(idx.Column_name);
+          }
+
+          idxDescriptors = Object.values(idxMap);
+        }
+
+        // 🔹 Relations (FKs — skip for views)
+        let relDescriptors: RelationshipDescriptor[] = [];
+        if (kind === 'table') {
+          const relations: any[] = await this.db.query(
+            `SELECT
+             rc.CONSTRAINT_NAME,
+             kcu.TABLE_NAME,
+             kcu.COLUMN_NAME,
+             kcu.REFERENCED_TABLE_NAME,
+             kcu.REFERENCED_COLUMN_NAME,
+             rc.UPDATE_RULE,
+             rc.DELETE_RULE
+           FROM information_schema.referential_constraints rc
+           JOIN information_schema.key_column_usage kcu
+             ON rc.constraint_name = kcu.constraint_name
+            AND rc.constraint_schema = kcu.constraint_schema
+           WHERE rc.constraint_schema = DATABASE()
+             AND kcu.table_name = ?`,
+            [tableName],
+          );
+
+          const relMap: Record<string, RelationshipDescriptor> = {};
+          for (const rel of relations) {
+            if (!relMap[rel.CONSTRAINT_NAME]) {
+              relMap[rel.CONSTRAINT_NAME] = {
+                name: rel.CONSTRAINT_NAME,
+                type: 'foreign-key',
+                sourceTable: rel.TABLE_NAME,
+                sourceColumns: [],
+                targetTable: rel.REFERENCED_TABLE_NAME,
+                targetColumns: [],
+                onDelete: rel.DELETE_RULE,
+                onUpdate: rel.UPDATE_RULE,
+              };
+            }
+            relMap[rel.CONSTRAINT_NAME].sourceColumns.push(rel.COLUMN_NAME);
+            relMap[rel.CONSTRAINT_NAME].targetColumns.push(rel.REFERENCED_COLUMN_NAME);
+          }
+
+          relDescriptors = Object.values(relMap);
+        }
+
+        // 🔹 Push descriptor (tables vs views)
+        tableDescriptors.push({
+          name: tableName,
+          kind, // 'table' | 'view'
+          fields,
+          indexes: idxDescriptors,
+          relations: relDescriptors,
+        });
+      }
+
+      return {
+        state: true,
+        data: { tables: tableDescriptors },
+        message: 'Loaded database schema successfully',
+      };
+    } catch (err: any) {
+      return {
+        state: false,
+        data: { tables: [] },
+        message: `Failed to load schema: ${err.message}`,
+      };
+    }
+  }
+
+  private async compareSchemas(
+    source: DataSourceSchema,
+    dest: DataSourceSchema,
+  ): Promise<CdFxReturn<MigrationProfile[]>> {
+    try {
+      this.b.logWithContext(this, `compareSchemas:start`, {}, 'debug');
+      const migrations: MigrationProfile[] = [];
+
+      for (const table of source.tables ?? []) {
+        const dbTable = (dest.tables ?? []).find((t) => t.name === table.name);
+
+        // 🎯 Prevent duplicate migrations for same descriptor
+        const existingMigration = migrations.find(
+          (m) =>
+            m.transformation.target === table.kind &&
+            m.transformation.descriptor?.name === table.name,
+        );
+        if (existingMigration) continue;
+
+        if (!dbTable) {
+          this.b.logWithContext(
+            this,
+            `compareSchemas:create`,
+            { name: table.name, kind: table.kind },
+            'info',
+          );
+          migrations.push({
+            id: `create-${table.name}`,
+            source: { type: 'model', dsConfig: {}, dsSchema: { tables: [table] } },
+            destination: { type: 'database', dsConfig: {}, dsSchema: dest },
+            transformation: { type: 'create', target: table.kind, descriptor: table }, // 👈 keep kind
+            description: `Create ${table.kind} ${table.name}`,
+          });
+        } else if (table.kind === 'table') {
+          // Only compare columns/indexes/relations for tables
+          const columnDiffs = this.compareColumnsAndConstraints(table, dbTable);
+
+          if (columnDiffs.length > 0) {
+            this.b.logWithContext(
+              this,
+              `compareSchemas:alter`,
+              { table: table.name, diffs: columnDiffs },
+              'warn',
+            );
+            migrations.push({
+              id: `alter-${table.name}`,
+              source: { type: 'model', dsConfig: {}, dsSchema: { tables: [table] } },
+              destination: { type: 'database', dsConfig: {}, dsSchema: dest },
+              transformation: { type: 'alter', target: 'table', descriptor: columnDiffs },
+              description: `Alter table ${table.name}`,
+            });
+          } else {
+            this.b.logWithContext(this, `compareSchemas:sync`, { table: table.name }, 'debug');
+            migrations.push({
+              id: `sync-${table.name}`,
+              source: { type: 'model', dsConfig: {}, dsSchema: { tables: [table] } },
+              destination: { type: 'database', dsConfig: {}, dsSchema: dest },
+              transformation: { type: 'sync', target: 'table', descriptor: table },
+              description: `Table ${table.name} already in sync`,
+            });
+          }
+        } else if (table.kind === 'view') {
+          // Views: always recreate, no diffing needed
+          this.b.logWithContext(this, `compareSchemas:sync-view`, { view: table.name }, 'info');
+          migrations.push({
+            id: `sync-${table.name}`,
+            source: { type: 'model', dsConfig: {}, dsSchema: { tables: [table] } },
+            destination: { type: 'database', dsConfig: {}, dsSchema: dest },
+            transformation: { type: 'create', target: 'view', descriptor: table },
+            description: `Ensure view ${table.name} exists/updated`,
+            relations: table.relations,
+          });
+        }
+      }
+
+      return {
+        state: true,
+        data: migrations,
+        message: `Schema comparison completed (${migrations.length} migration(s) found).`,
+      };
+    } catch (err: any) {
+      return { state: false, data: [], message: `compareSchemas failed: ${err.message ?? err}` };
+    }
+  }
+
+  private async applyMigration(migration: MigrationProfile): Promise<CdFxReturn<null>> {
+    try {
+      this.b.logWithContext(
+        this,
+        `applyMigration:start`,
+        {
+          id: migration.id,
+          type: migration.transformation.type,
+          target: migration.transformation.target,
+        },
+        'debug',
+      );
+
+      // Handle no-op syncs
+      if (migration.transformation.type === 'sync' && migration.transformation.target === 'table') {
+        this.b.logWithContext(
+          this,
+          `applyMigration:noop`,
+          { table: migration.transformation.descriptor?.name },
+          'info',
+        );
+        return { state: true, data: null, message: `No migration required for ${migration.id}.` };
+      }
+
+      const sourceTable = migration.source.dsSchema?.tables?.[0];
+      if (!sourceTable) {
+        return {
+          state: false,
+          data: null,
+          message: `Cannot determine descriptor for migration ${migration.id}`,
+        };
+      }
+
+      const objectName = this.normalizeTableName(sourceTable.name);
+      this.b.logWithContext(this, `applyMigration:objectName`, { objectName }, 'debug');
+
+      let sql: string | undefined;
+
+      // 🔹 CASE 1: TABLE
+      if (migration.transformation.target === 'table') {
+        // Check if table exists
+        const tableExistsResult: any[] = await this.db!.query(
+          `SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?`,
+          [objectName],
+        );
+        const tableExists = tableExistsResult.length > 0;
+
+        if (tableExists) {
+          // Backup existing table
+          const timestamp = new Date().toISOString().replace(/[-:.]/g, '');
+          const backupTableName = `${objectName}_backup_${timestamp}`;
+
+          this.b.logWithContext(
+            this,
+            `applyMigration:backup:start`,
+            { table: objectName, backup: backupTableName },
+            'warn',
+          );
+          await this.db!.query(
+            `CREATE TABLE \`${backupTableName}\` AS SELECT * FROM \`${objectName}\``,
+          );
+          await this.db!.query(`DROP TABLE \`${objectName}\``);
+          this.b.logWithContext(this, `applyMigration:backup:done`, { table: objectName }, 'warn');
+        }
+
+        if (
+          migration.transformation.type === 'create' ||
+          migration.transformation.type === 'alter'
+        ) {
+          this.b.logWithContext(
+            this,
+            `applyMigration:CREATE TABLE SQL:start`,
+            { migrationType: migration.transformation.type, table: objectName },
+            'warn',
+          );
+          sql = this.generateCreateTableSQL(sourceTable);
+        } else if (migration.transformation.type === 'drop') {
+          sql = `DROP TABLE IF EXISTS \`${objectName}\``;
+        }
+      }
+
+      // 🔹 CASE 2: VIEW
+      else if (migration.transformation.target === 'view') {
+        this.b.logWithContext(this, `applyMigration:drop-view`, { view: objectName }, 'warn');
+        await this.db!.query(`DROP VIEW IF EXISTS \`${objectName}\``);
+
+        if (
+          migration.transformation.type === 'create' ||
+          migration.transformation.type === 'alter'
+        ) {
+          this.b.logWithContext(
+            this,
+            `applyMigration:CREATE VIEW SQL:start`,
+            { migrationType: migration.transformation.type, view: objectName },
+            'warn',
+          );
+          sql = this.generateCreateViewSQL(sourceTable); // ✅ generates aliased view SQL
+        } else if (migration.transformation.type === 'drop') {
+          sql = `DROP VIEW IF EXISTS \`${objectName}\``;
+        }
+      }
+
+      // 🔹 Unsupported
+      if (!sql) {
+        return {
+          state: false,
+          data: null,
+          message: `Unsupported migration type: ${migration.transformation.type} for ${migration.transformation.target}`,
+        };
+      }
+
+      // Execute SQL
+      this.b.logWithContext(this, `applyMigration:executeSQL`, { sql }, 'debug');
+      await this.db!.query(sql);
+
+      this.b.logWithContext(this, `applyMigration:success`, { id: migration.id }, 'info');
+      return {
+        state: true,
+        data: null,
+        message: `Migration ${migration.id} applied successfully.`,
+      };
+    } catch (err: any) {
+      return {
+        state: false,
+        data: null,
+        message: `Failed to apply migration ${migration.id}: ${err.message ?? err}`,
+      };
+    }
+  }
+}
+```
+
+//////////////////////////////////////////////////////
+Below is the command faunction.
+Kindly assist to make the post exectuon a common function that can be consumed by any 'create', 'read' or any action faile
+
+```ts
+export const createCommand = {
+  name: 'create',
+  description: 'Setup environments, modules, controllers, or models dynamically.',
+  options: SHARED_OPTIONS,
+  action: {
+    execute: async (options: any) => {
+      const svCiCdService = new CiCdService();
+      const svDevMode = new DevModeService();
+      this.logger.logInfo(`create.command::execute()/starting`);
+      const response = await svDevMode.executeCrudCommand(DevModeAction.CREATE, options);
+      this.logger.logInfo(`create.command::execute()/ending`);
+      this.logger.logInfo(`create.command::execute()/response:${inspect(response, { depth: 2 })}`);
+      if (Array.isArray(response?.data)) {
+        this.logger.logInfo(`create.command::execute()/isArray-01`);
+        const { failCount } = svCiCdService.printTaskSummary(response.data);
+        if (failCount > 0) {
+          this.logger.logInfo(`create.command::execute()/isArray-02`);
+          console.error(chalk.red(`❌ Some tasks failed`));
+          process.exit(1);
+        } else {
+          this.logger.logInfo(`create.command::execute()/isArray-03`);
+          this.logger.logInfo(chalk.green(`✅ All tasks completed successfully`));
+        }
+      } else {
+        this.logger.logInfo(`create.command::execute()/isNotArray-01`);
+        // Fallback to old behavior
+        if (response.state) {
+          this.logger.logInfo(response.message);
+        } else {
+          console.error(response.message);
+          process.exit(1);
+        }
+      }
+    },
+  },
+};
+```
+
+/////////////////////////////////////////////////////
+Two areas of improvements:
+
+1. svCiCdService is only used in post execution proces so can be resident to function as opposed to being supplied from consumer.
+
+```ts
+const svCiCdService = new CiCdService();
+```
+
+2. Below is the signture of executeCrudCommand(), so the return has a consistent and known return type.
+
+```ts
+async executeCrudCommand(action: DevModeAction, options: any): Promise<CdFxReturn<null>>
+```
+
+////////////////////////////////////////////
+Any idea on how to fix this?
+
+```log
+emp-12@emp-12 ~/cd-cli (main)> cd-cli dev --debug 4
+loadEntityPaths()...start
+file:///home/emp-12/cd-cli/dist/CdCli/sys/dev-mode/dev-mode-commands/utils/command-utils.js:49
+    create: createCommand,
+            ^
+
+ReferenceError: Cannot access 'createCommand' before initialization
+    at file:///home/emp-12/cd-cli/dist/CdCli/sys/dev-mode/dev-mode-commands/utils/command-utils.js:49:13
+    at ModuleJob.run (node:internal/modules/esm/module_job:195:25)
+    at async ModuleLoader.import (node:internal/modules/esm/loader:337:24)
+    at async loadESM (node:internal/process/esm_loader:34:7)
+    at async handleMainPromise (node:internal/modules/run_main:106:12)
+
+Node.js v18.20.1
+```
+
+// src/CdCli/sys/dev-mode/dev-mode-commands/utils/command-utils.ts
+
+```ts
+import { CdFxReturn } from '../../../../sys/base/i-base.js';
+import { createCommand } from '../subcommands/create.command.js';
+import { deleteCommand } from '../subcommands/delete.command.js';
+import { deriveCommand } from '../subcommands/derive.command.js';
+import { exitCommand } from '../subcommands/exit.command.js';
+import { migrateCommand } from '../subcommands/migrate.command.js';
+import { readCommand } from '../subcommands/read.command.js';
+import { showCommand } from '../subcommands/show.command.js';
+import { syncCommand } from '../subcommands/sync.command.js';
+import { updateCommand } from '../subcommands/update.command.js';
+import { upgradeCommand } from '../subcommands/upgrade.command.js';
+import { CiCdService } from '../../../../sys/dev-descriptor/index.js';
+
+export function getSubcommand(name: string) {
+  this.logger.logInfo(`sub-command name: ${name}`);
+  return SUBCOMMANDS[name] || null;
+}
+
+// ✅ Shared post-execution handler
+export function handleCommandResponse(response: CdFxReturn<null>) {
+  const svCiCdService = new CiCdService();
+  this.logger.logInfo(`handleCommandResponse()/start`);
+
+  if (Array.isArray(response?.data)) {
+    this.logger.logInfo(`handleCommandResponse()/isArray-01`);
+    const { failCount } = svCiCdService.printTaskSummary(response.data);
+    if (failCount > 0) {
+      this.logger.logInfo(`handleCommandResponse()/isArray-02`);
+      console.error(chalk.red(`❌ Some tasks failed`));
+      process.exit(1);
+    } else {
+      this.logger.logInfo(`handleCommandResponse()/isArray-03`);
+      this.logger.logInfo(chalk.green(`✅ All tasks completed successfully`));
+    }
+  } else {
+    this.logger.logInfo(`handleCommandResponse()/isNotArray-01`);
+    if (response.state) {
+      this.logger.logInfo(response.message);
+    } else {
+      console.error(response.message);
+      process.exit(1);
+    }
+  }
+
+  this.logger.logInfo(`handleCommandResponse()/end`);
+}
+
+const SUBCOMMANDS = {
+  show: showCommand,
+  sync: syncCommand,
+  exit: exitCommand,
+  create: createCommand,
+  read: readCommand,
+  update: updateCommand,
+  delete: deleteCommand,
+  upgrade: upgradeCommand,
+  migrate: migrateCommand,
+  derive: deriveCommand,
+};
+```
+
+src/CdCli/sys/dev-mode/dev-mode-commands/subcommands/create.command.ts
+
+```ts
+import { printTaskSummary } from '../../../../sys/utils/taks.utils.js';
+import { CiCdService } from '../../../../sys/dev-descriptor/index.js';
+import { DevModeAction, SHARED_OPTIONS } from '../../models/dev-mode.model.js';
+import { DevModeService } from '../../services/dev-mode.service.js';
+import { inspect } from 'util';
+import { handleCommandResponse } from '../utils/command-utils.js';
+
+export const createCommand = {
+  name: 'create',
+  description: 'Setup environments, modules, controllers, or models dynamically.',
+  options: SHARED_OPTIONS,
+  action: {
+    execute: async (options: any) => {
+      const svCiCdService = new CiCdService();
+      const svDevMode = new DevModeService();
+      this.logger.logInfo(`create.command::execute()/starting`);
+      const result = await svDevMode.executeCrudCommand(DevModeAction.CREATE, options);
+      this.logger.logInfo(`create.command::execute()/ending`);
+      this.logger.logInfo(`create.command::execute()/result:${inspect(result, { depth: 2 })}`);
+      handleCommandResponse(result);
+    },
+  },
+};
+```
+
+///////////////////////////////////////////////////////
+
+```ts
+export class CdCliProfileController {
+  async init() {
+    CdLog.debug('DevDescriptorService::init()/starting...');
+    const createCdCliProfile = new CdCliProfileController();
+    // const ctlSession = new SessonController();
+    const result = await createCdCliProfile.getSessionData();
+    CdLog.debug('DevDescriptorService::init()/result:' + JSON.stringify(result));
+    if (!result) {
+      CdLog.error(`could not get valid session`);
+      return;
+    }
+
+    if (!result.state && result.message) {
+      CdLog.error(result.message);
+      return;
+    }
+
+    if (result.data) {
+      CdLog.debug('DevDescriptorService::init():01');
+      const sid = result.data;
+      CdLog.debug('DevDescriptorService::init():02');
+      this.cdToken = sid;
+      CdLog.debug('DevDescriptorService::init():03');
+      const httpService = new HttpService(true); // Enable debug mode
+      CdLog.debug('DevDescriptorService::init():04');
+      const ret = await httpService.getCdApiUrl(config.cdApiLocal);
+      CdLog.debug(`DevDescritorService::init()/ret:${JSON.stringify(ret)}`);
+      if (ret) {
+        this.baseUrl = ret;
+        CdLog.debug(`DevDescritorService::init()/this.baseUrl:${this.baseUrl}`);
+      }
+    } else {
+      CdLog.error('Session is invalid');
+    }
+  }
+}
+```
+
+///////////////////////////////////////////////////////
+What is your analisis of this log.
+It seem like a cyclic process.
+
+```log
+[2025-09-15 22:19:38] 🛠️ DevDescriptorService::init()/result:{"data":"d33bb2d3-f4d5-42b4-8e31-44fed3e29826","state":true,"message":"Successfully retrieved value for key 'cd_token'."}
+[2025-09-15 22:19:38] 🛠️ DevDescriptorService::init():01
+[2025-09-15 22:19:38] 🛠️ DevDescriptorService::init():02
+[2025-09-15 22:19:38] 🛠️ DevDescriptorService::init():03
+[2025-09-15 22:19:38] 🛠️ starting loadCdCliConfig()
+[2025-09-15 22:19:38] 🛠️ HttpService::getCdApiUrl():01
+[2025-09-15 22:19:38] 🛠️ CdCliProfileController::checkProfileAndLogin():01
+[2025-09-15 22:19:38] 🛠️ CdCliProfileController::checkProfileAndLogin():03
+[2025-09-15 22:19:38] 🛠️ CdCliProfileController::checkProfileAndLogin():04
+[2025-09-15 22:19:38] 🛠️ CdCliProfileController::checkProfileAndLogin():05
+[2025-09-15 22:19:38] 🛠️ CdCliProfileController::checkProfileAndLogin():06
+[2025-09-15 22:19:38] ℹ️ Valid session token found. Proceeding...
+[2025-09-15 22:19:38] 🛠️ CdCliProfileController::checkProfileAndLogin():07
+[2025-09-15 22:19:38] ℹ️ Preset Axios instance for profile: cdApiLocal
+[2025-09-15 22:19:38] 🛠️ DevDescriptorService::init():04
+[2025-09-15 22:19:38] 🛠️ HttpService::getCdApiUrl():01
+[2025-09-15 22:19:38] 🛠️ starting loadCdCliConfig()
+[2025-09-15 22:19:38] 🛠️ HttpService::getCdApiUrl():01
+[2025-09-15 22:19:38] 🛠️ CdCliProfileController::checkProfileAndLogin():01
+[2025-09-15 22:19:38] 🛠️ CdCliProfileController::checkProfileAndLogin():03
+[2025-09-15 22:19:38] 🛠️ CdCliProfileController::checkProfileAndLogin():04
+[2025-09-15 22:19:38] 🛠️ CdCliProfileController::checkProfileAndLogin():05
+[2025-09-15 22:19:38] 🛠️ CdCliProfileController::checkProfileAndLogin():06
+[2025-09-15 22:19:38] ℹ️ Valid session token found. Proceeding...
+[2025-09-15 22:19:38] 🛠️ CdCliProfileController::checkProfileAndLogin():07
+[2025-09-15 22:19:38] 🛠️ DevDescriptorService::init()/result:{"data":"d33bb2d3-f4d5-42b4-8e31-44fed3e29826","state":true,"message":"Successfully retrieved value for key 'cd_token'."}
+[2025-09-15 22:19:38] 🛠️ DevDescriptorService::init():01
+[2025-09-15 22:19:38] 🛠️ DevDescriptorService::init():02
+[2025-09-15 22:19:38] 🛠️ DevDescriptorService::init():03
+[2025-09-15 22:19:38] 🛠️ starting loadCdCliConfig()
+[2025-09-15 22:19:38] 🛠️ HttpService::getCdApiUrl():01
+[2025-09-15 22:19:38] 🛠️ CdCliProfileController::checkProfileAndLogin():01
+[2025-09-15 22:19:38] 🛠️ CdCliProfileController::checkProfileAndLogin():03
+[2025-09-15 22:19:38] 🛠️ CdCliProfileController::checkProfileAndLogin():04
+[2025-09-15 22:19:38] 🛠️ CdCliProfileController::checkProfileAndLogin():05
+[2025-09-15 22:19:38] 🛠️ CdCliProfileController::checkProfileAndLogin():06
+[2025-09-15 22:19:38] ℹ️ Valid session token found. Proceeding...
+[2025-09-15 22:19:38] 🛠️ CdCliProfileController::checkProfileAndLogin():07
+[2025-09-15 22:19:38] ℹ️ Preset Axios instance for profile: cdApiLocal
+[2025-09-15 22:19:38] 🛠️ DevDescriptorService::init():04
+[2025-09-15 22:19:38] 🛠️ HttpService::getCdApiUrl():01
+[2025-09-15 22:19:38] 🛠️ starting loadCdCliConfig()
+[2025-09-15 22:19:38] 🛠️ HttpService::getCdApiUrl():01
+[2025-09-15 22:19:38] 🛠️ CdCliProfileController::checkProfileAndLogin():01
+[2025-09-15 22:19:38] 🛠️ CdCliProfileController::checkProfileAndLogin():03
+[2025-09-15 22:19:38] 🛠️ CdCliProfileController::checkProfileAndLogin():04
+[2025-09-15 22:19:38] 🛠️ CdCliProfileController::checkProfileAndLogin():05
+[2025-09-15 22:19:38] 🛠️ CdCliProfileController::checkProfileAndLogin():06
+[2025-09-15 22:19:38] ℹ️ Valid session token found. Proceeding...
+[2025-09-15 22:19:38] 🛠️ CdCliProfileController::checkProfileAndLogin():07
+[2025-09-15 22:19:38] 🛠️ HttpService::getCdApiUrl():02
+[2025-09-15 22:19:38] 🛠️ HttpService::getCdApiUrl():03
+[2025-09-15 22:19:38] 🛠️ HttpService::getCdApiUrl():04
+[2025-09-15 22:19:38] 🛠️ HttpService::getCdApiUrl():05
+[2025-09-15 22:19:38] 🛠️ HttpService::getCdApiUrl():06
+[2025-09-15 22:19:38] 🛠️ HttpService::getCdApiUrl():02
+[2025-09-15 22:19:38] 🛠️ HttpService::getCdApiUrl():03
+[2025-09-15 22:19:38] 🛠️ HttpService::getCdApiUrl():04
+[2025-09-15 22:19:38] 🛠️ HttpService::getCdApiUrl():05
+[2025-09-15 22:19:38] 🛠️ HttpService::getCdApiUrl():06
+[2025-09-15 22:19:38] 🛠️ HttpService::getCdApiUrl():02
+[2025-09-15 22:19:38] 🛠️ HttpService::getCdApiUrl():03
+[2025-09-15 22:19:38] 🛠️ HttpService::getCdApiUrl():04
+[2025-09-15 22:19:38] 🛠️ HttpService::getCdApiUrl():05
+[2025-09-15 22:19:38] 🛠️ HttpService::getCdApiUrl():06
+[2025-09-15 22:19:38] 🛠️ HttpService::getCdApiUrl():02
+[2025-09-15 22:19:38] 🛠️ HttpService::getCdApiUrl():03
+[2025-09-15 22:19:38] 🛠️ HttpService::getCdApiUrl():04
+[2025-09-15 22:19:38] 🛠️ HttpService::getCdApiUrl():05
+[2025-09-15 22:19:38] 🛠️ HttpService::getCdApiUrl():06
+[2025-09-15 22:19:38] 🛠️ starting loadCdCliConfig()
+[2025-09-15 22:19:38] 🛠️ HttpService::getCdApiUrl():01
+[2025-09-15 22:19:38] 🛠️ CdCliProfileController::checkProfileAndLogin():01
+[2025-09-15 22:19:38] 🛠️ CdCliProfileController::checkProfileAndLogin():03
+[2025-09-15 22:19:38] 🛠️ CdCliProfileController::checkProfileAndLogin():04
+[2025-09-15 22:19:38] 🛠️ CdCliProfileController::checkProfileAndLogin():05
+[2025-09-15 22:19:38] 🛠️ CdCliProfileController::checkProfileAndLogin():06
+[2025-09-15 22:19:38] ℹ️ Valid session token found. Proceeding...
+[2025-09-15 22:19:38] 🛠️ CdCliProfileController::checkProfileAndLogin():07
+[2025-09-15 22:19:38] 🛠️ starting loadCdCliConfig()
+[2025-09-15 22:19:38] 🛠️ HttpService::getCdApiUrl():01
+[2025-09-15 22:19:38] 🛠️ CdCliProfileController::checkProfileAndLogin():01
+[2025-09-15 22:19:38] 🛠️ CdCliProfileController::checkProfileAndLogin():03
+[2025-09-15 22:19:38] 🛠️ CdCliProfileController::checkProfileAndLogin():04
+[2025-09-15 22:19:38] 🛠️ CdCliProfileController::checkProfileAndLogin():05
+[2025-09-15 22:19:38] 🛠️ CdCliProfileController::checkProfileAndLogin():06
+[2025-09-15 22:19:38] ℹ️ Valid session token found. Proceeding...
+[2025-09-15 22:19:38] 🛠️ CdCliProfileController::checkProfileAndLogin():07
+handleCommandResponse()/start
+handleCommandResponse()/isNotArray-01
+Failed!
+error Command failed with exit code 1.
+```
+
+//////////////////////////////////////////////////
+The logs for loadProfiles() was not labeled properly. I have corrected and rerun. You can reasess the new logs and the methods shared.
+
+```ts
+export class CdCliProfileController {
+  async checkProfileAndLogin(): Promise<CdFxReturn<void>> {
+    CdLog.debug('CdCliProfileController::checkProfileAndLogin():01');
+    try {
+      // Resolve the path to the configuration file
+      const configFilePath = CONFIG_FILE_PATH; // Assuming this constant points to ~/.cd-cli/cd-cli.profiles.json
+      // CdLog.debug(`config file: ${configFilePath}`);
+
+      // Step 1: Check if the configuration file exists
+      if (!existsSync(configFilePath)) {
+        CdLog.warning(
+          `Configuration file ${configFilePath} not found. Initiating login process...`,
+        );
+        CdLog.debug('CdCliProfileController::checkProfileAndLogin():02');
+        const userController = new UserController();
+        await userController.loginWithRetry();
+
+        // Verify if the configuration file was created after login
+        if (!existsSync(configFilePath)) {
+          return {
+            data: null,
+            state: false,
+            message: 'Configuration file not found after login attempt.',
+          };
+        }
+      }
+
+      // Step 2: Load and parse the configuration file
+      CdLog.debug('CdCliProfileController::checkProfileAndLogin():03');
+      const cdCliConfig = JSON.parse(fs.readFileSync(configFilePath, 'utf-8'));
+      // CdLog.debug(`cdCliConfig: ${JSON.stringify(cdCliConfig)}`);
+
+      // Step 3: Validate profiles section
+      if (!cdCliConfig.items || cdCliConfig.items.length === 0) {
+        CdLog.warning('No profiles available in the configuration. Consider creating one.');
+        return {
+          data: null,
+          state: false,
+          message: 'No profiles available in the configuration.',
+        };
+      }
+
+      // Step 4: Look for the "cd-api-local" profile
+      CdLog.debug('CdCliProfileController::checkProfileAndLogin():04');
+      const cdApiProfile = cdCliConfig.items.find(
+        (profile: any) => profile.cdCliProfileName === config.cdApiLocal,
+      );
+
+      if (!cdApiProfile || !cdApiProfile.cdCliProfileData) {
+        return {
+          data: null,
+          state: false,
+          message:
+            'Profile "cd-api-local" is missing or invalid. Please log in to create the profile.',
+        };
+      }
+
+      // Step 5: Check for a valid session token in the "cd-api-local" profile
+      CdLog.debug('CdCliProfileController::checkProfileAndLogin():05');
+      const session: ISessResp = cdApiProfile.cdCliProfileData.details?.session;
+      if (
+        !session ||
+        !session.cd_token
+        // ||
+        // new Date(session.initTime) <= new Date()
+      ) {
+        CdLog.info('Session token is missing or expired. Initiating login process...');
+
+        const userController = new UserController();
+        await userController.loginWithRetry();
+
+        // Re-check the profile after login
+        const updatedConfig = JSON.parse(fs.readFileSync(configFilePath, 'utf-8'));
+        const updatedProfile = updatedConfig.profiles.items.find(
+          (profile: any) => profile.cdCliProfileName === config.cdApiLocal,
+        );
+
+        if (!updatedProfile || !updatedProfile.cdCliProfileData?.details?.session) {
+          return {
+            data: null,
+            state: false,
+            message:
+              'Session token is still missing after login. Please check your login credentials.',
+          };
+        }
+
+        CdLog.success('Session token renewed successfully.');
+      } else {
+        CdLog.debug('CdCliProfileController::checkProfileAndLogin():06');
+        CdLog.info('Valid session token found. Proceeding...');
+        this.cdToken = session.cd_token;
+      }
+
+      CdLog.debug('CdCliProfileController::checkProfileAndLogin():07');
+      return { data: null, state: true, message: 'Profile check successful.' };
+    } catch (error) {
+      CdLog.error(`Error during profile check or login: ${(error as Error).message}`);
+      return {
+        data: null,
+        state: false,
+        message: `Error during profile check or login: ${(error as Error).message}`,
+      };
+    }
+  }
+
+  async loadProfiles(): Promise<CdFxReturn<ProfileContainer>> {
+    CdLog.debug('starting CdCliProfileController::loadProfiles()');
+
+    try {
+      CdLog.debug('CdCliProfileController::loadProfiles():01');
+      // Ensure profile check and login before loading config
+      const profileCheck = await this.checkProfileAndLogin();
+      CdLog.debug('CdCliProfileController::loadProfiles():02');
+      if (!profileCheck.state) {
+        return {
+          data: null,
+          state: false,
+          message: `Profile check failed: ${profileCheck.message}`,
+        };
+      }
+      CdLog.debug('CdCliProfileController::loadProfiles():03');
+      // Check if configuration file exists
+      if (!existsSync(CONFIG_FILE_PATH)) {
+        return {
+          data: null,
+          state: false,
+          message: `Configuration file not found at ${CONFIG_FILE_PATH}.`,
+        };
+      }
+
+      CdLog.debug('CdCliProfileController::loadProfiles():04');
+      // Load and parse the configuration file
+      const configContent = fs.readFileSync(CONFIG_FILE_PATH, 'utf-8');
+      CdLog.debug('CdCliProfileController::loadProfiles():05');
+      const parsedConfig = JSON.parse(configContent);
+      CdLog.debug('CdCliProfileController::loadProfiles():06');
+      return {
+        data: parsedConfig,
+        state: true,
+        message: 'Configuration loaded successfully.',
+      };
+    } catch (error) {
+      CdLog.error(`Error loading configuration: ${(error as Error).message}`);
+      return {
+        data: null,
+        state: false,
+        message: `Error loading configuration: ${(error as Error).message}`,
+      };
+    }
+  }
+}
+```
+
+```log
+[2025-09-15 22:41:01] 🛠️ extractVaultValue()/key: cd_token
+[2025-09-15 22:41:01] 🛠️ extractVaultValue()/vaultItem: {
+  name: 'cd_token',
+  value: 'd33bb2d3-f4d5-42b4-8e31-44fed3e29826',
+  description: 'cd-api token',
+  isEncrypted: false,
+  encryptedValue: null,
+  encryptionMeta: null
+}
+[9/15/2025, 10:41:01 PM] [ERROR]: BaseService::invokeCdRequest() → Task failed: Failed! [CONTEXT] -> {}
+[2025-09-15 22:41:01] 🛠️ DevDescriptorService::init()/result:{"data":"d33bb2d3-f4d5-42b4-8e31-44fed3e29826","state":true,"message":"Successfully retrieved value for key 'cd_token'."}
+[2025-09-15 22:41:01] 🛠️ DevDescriptorService::init():01
+[2025-09-15 22:41:01] 🛠️ DevDescriptorService::init():02
+[2025-09-15 22:41:01] 🛠️ DevDescriptorService::init():03
+[2025-09-15 22:41:01] 🛠️ starting CdCliProfileController::loadProfiles()
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::loadProfiles():01
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::checkProfileAndLogin():01
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::checkProfileAndLogin():03
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::checkProfileAndLogin():04
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::checkProfileAndLogin():05
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::checkProfileAndLogin():06
+[2025-09-15 22:41:01] ℹ️ Valid session token found. Proceeding...
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::checkProfileAndLogin():07
+[2025-09-15 22:41:01] ℹ️ Preset Axios instance for profile: cdApiLocal
+[2025-09-15 22:41:01] 🛠️ DevDescriptorService::init():04
+[2025-09-15 22:41:01] 🛠️ HttpService::getCdApiUrl():01
+[2025-09-15 22:41:01] 🛠️ starting CdCliProfileController::loadProfiles()
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::loadProfiles():01
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::checkProfileAndLogin():01
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::checkProfileAndLogin():03
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::checkProfileAndLogin():04
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::checkProfileAndLogin():05
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::checkProfileAndLogin():06
+[2025-09-15 22:41:01] ℹ️ Valid session token found. Proceeding...
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::checkProfileAndLogin():07
+[2025-09-15 22:41:01] 🛠️ DevDescriptorService::init()/result:{"data":"d33bb2d3-f4d5-42b4-8e31-44fed3e29826","state":true,"message":"Successfully retrieved value for key 'cd_token'."}
+[2025-09-15 22:41:01] 🛠️ DevDescriptorService::init():01
+[2025-09-15 22:41:01] 🛠️ DevDescriptorService::init():02
+[2025-09-15 22:41:01] 🛠️ DevDescriptorService::init():03
+[2025-09-15 22:41:01] 🛠️ starting CdCliProfileController::loadProfiles()
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::loadProfiles():01
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::checkProfileAndLogin():01
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::checkProfileAndLogin():03
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::checkProfileAndLogin():04
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::checkProfileAndLogin():05
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::checkProfileAndLogin():06
+[2025-09-15 22:41:01] ℹ️ Valid session token found. Proceeding...
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::checkProfileAndLogin():07
+[2025-09-15 22:41:01] ℹ️ Preset Axios instance for profile: cdApiLocal
+[2025-09-15 22:41:01] 🛠️ DevDescriptorService::init():04
+[2025-09-15 22:41:01] 🛠️ HttpService::getCdApiUrl():01
+[2025-09-15 22:41:01] 🛠️ starting CdCliProfileController::loadProfiles()
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::loadProfiles():01
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::checkProfileAndLogin():01
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::checkProfileAndLogin():03
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::checkProfileAndLogin():04
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::checkProfileAndLogin():05
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::checkProfileAndLogin():06
+[2025-09-15 22:41:01] ℹ️ Valid session token found. Proceeding...
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::checkProfileAndLogin():07
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::loadProfiles():02
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::loadProfiles():03
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::loadProfiles():04
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::loadProfiles():05
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::loadProfiles():06
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::loadProfiles():02
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::loadProfiles():03
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::loadProfiles():04
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::loadProfiles():05
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::loadProfiles():06
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::loadProfiles():02
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::loadProfiles():03
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::loadProfiles():04
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::loadProfiles():05
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::loadProfiles():06
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::loadProfiles():02
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::loadProfiles():03
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::loadProfiles():04
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::loadProfiles():05
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::loadProfiles():06
+[2025-09-15 22:41:01] 🛠️ starting CdCliProfileController::loadProfiles()
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::loadProfiles():01
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::checkProfileAndLogin():01
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::checkProfileAndLogin():03
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::checkProfileAndLogin():04
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::checkProfileAndLogin():05
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::checkProfileAndLogin():06
+[2025-09-15 22:41:01] ℹ️ Valid session token found. Proceeding...
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::checkProfileAndLogin():07
+[2025-09-15 22:41:01] 🛠️ starting CdCliProfileController::loadProfiles()
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::loadProfiles():01
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::checkProfileAndLogin():01
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::checkProfileAndLogin():03
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::checkProfileAndLogin():04
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::checkProfileAndLogin():05
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::checkProfileAndLogin():06
+[2025-09-15 22:41:01] ℹ️ Valid session token found. Proceeding...
+[2025-09-15 22:41:01] 🛠️ CdCliProfileController::checkProfileAndLogin():07
+handleCommandResponse()/start
+handleCommandResponse()/isNotArray-01
+Failed!
+error Command failed with exit code 1.
+```
+
+/////////////////////////////////////////////////////
+
+"If the profile is static for the whole runtime (e.g., it won’t change while the CLI process is running), then you don’t want checkProfileAndLogin() + loadProfiles() to hit disk and parse JSON over and over. That’s both redundant and error-prone."
+
+These process must be executed but only during launch: checkProfileAndLogin() + loadProfiles().
+When the profile data is set the first time, it is saved at the back end. To avoid server trips, a section is kept in the disk (nano ~/.cd-cli/cd-cli.profiles.json)
+checkProfileAndLogin() assumes that it is possible, you have not set the profiles or the profile data has been modified since last check.
+loadProfiles() can be run only once.
+
+/////////////////////////////////////////////////////
+
+Because all the commands are intiated in the same pattern:
+const svDevMode = new DevModeService();
+const result = await svDevMode.executeCrudCommand(DevModeAction.CREATE, options);
+The common initiation class being DevModeService.
+What is we focus on integrating ProfileStore in this class.
+Or rather the other way of addressing the current case is? If we have ProfileStore in DevModeService, is there need to have it inside the App.run()?
+
+/////////////////////////////////////////////////
+At the ProfileStoreService class, I am currently getting the following error:
+Property 'loadProfiles' does not exist on type 'typeof CdCliProfileController'.ts(2339)
+
+The loadProfiles() is actually available in CdCliProfileController and its signature is:
+
+```ts
+async loadProfiles(): Promise<CdFxReturn<ProfileContainer>>
+```
+
+I guess this is because the way it has been called expects it to be defined as static.
+NOTE: I have changed the name to ProfileStoreService to fit corpdesk compliance. For simplicity, it can either be a controller, model or service.
+If any applies, the naming convention of class and file must follow corpdesk-rfc-0001.
+
+```ts
+import { CdCliProfileController } from '../controllers/cd-cli-profile.cointroller.js';
+
+export class ProfileStoreService {
+  private static profiles: any = null;
+
+  /** Load profiles only once */
+  static async init() {
+    if (!this.profiles) {
+      this.logger.logInfo(`ProfileStore::init()/loading profiles...`);
+      this.profiles = await CdCliProfileController.loadProfiles();
+      this.logger.logInfo(`ProfileStore::init()/profiles loaded`);
+    }
+    return this.profiles;
+  }
+
+  /** Get already loaded profiles */
+  static getProfiles() {
+    if (!this.profiles) {
+      throw new Error(`ProfileStore not initialized. Call ProfileStore.init() first.`);
+    }
+    return this.profiles;
+  }
+
+  /** Reload profiles if needed (e.g. after updates) */
+  static async reload() {
+    this.logger.logInfo(`ProfileStore::reload()/reloading profiles...`);
+    this.profiles = await CdCliProfileController.loadProfiles();
+    return this.profiles;
+  }
+}
+```
+
+///////////////////////////////////////////////////////////
+Compare the logs and the codes and see if you can identify where things are going wrong
+```log
+[2025-09-16 15:25:53] 🛠️ DevModeService::executeCrudCommand()/registryCount:35
+[2025-09-16 15:25:53] 🛠️ DevModeService::executeCrudCommand()/{ actionTargetName, name, oEnv, repo },:{
+  actionTargetName: 'cd-module',
+  name: 'cd-ai',
+  oEnv: 'test-bed',
+  repo: 'cd-ai'
+}
+[2025-09-16 15:25:53] 🛠️ DevModeService::executeCrudCommand()/options:{
+  _: [
+    '--cd-module',
+    '--name',
+    'cd-ai',
+    '--o-env',
+    'test-bed',
+    '--repo',
+    'cd-ai'
+  ],
+  'cd-module': true,
+  name: 'cd-ai',
+  'o-env': 'test-bed',
+  repo: 'cd-ai'
+}
+[2025-09-16 15:25:53] 🛠️ DevModeService::executeCrudCommand()/selectedItem:{
+  name: 'cd-module',
+  flag: 'cd-module',
+  label: 'cd-module',
+  description: 'Delete a developer cd-module environment',
+  action: 4,
+  actionTarget: {
+    cdObjTypeId: 3,
+    cdObjTypeName: 'cd-module',
+    cdObjTypeGuid: '8b4cf8de-1ffc-4575-9e73-4ccf45a7756b',
+    modCraftController: 'CdModule'
+  },
+  requiredOptions: [ 'name', 'o-env' ],
+  targetName: 'cd-ai',
+  targetType: 'cd-module',
+  cdRequest: {
+    ctx: 'app',
+    m: 'app-craft',
+    c: 'CdModule',
+    a: 'delete',
+    dat: { f_vals: [Array], token: '' },
+    args: null
+  }
+}
+[2025-09-16 15:25:53] 🛠️ DevModeService::executeCrudCommand()/args:{
+  actionTargetName: 'cd-module',
+  name: 'cd-ai',
+  oEnv: 'test-bed',
+  repo: 'cd-ai'
+}
+[2025-09-16 15:25:53] 🛠️ DevModeService::executeCrudCommand()/request:{
+  ctx: 'app',
+  m: 'app-craft',
+  c: 'CdModule',
+  a: 'delete',
+  dat: { f_vals: [ { data: null } ], token: '' },
+  args: {
+    actionTargetName: 'cd-module',
+    name: 'cd-ai',
+    oEnv: 'test-bed',
+    repo: 'cd-ai'
+  }
+}
+[2025-09-16 15:25:53] 🛠️ DevDescriptorService::init()/starting...
+[2025-09-16 15:25:53] 🛠️ DevDescriptorService::init()/starting...
+[9/16/2025, 3:25:53 PM] [ERROR]: BaseService::invokeCdRequest() → Task failed: Failed! [CONTEXT] -> {}
+[2025-09-16 15:25:53] 🛠️ starting CdCliProfileController::loadProfiles()
+[2025-09-16 15:25:53] 🛠️ CdCliProfileController::loadProfiles():01
+[2025-09-16 15:25:53] 🛠️ CdCliProfileController::checkProfileAndLogin():01
+[2025-09-16 15:25:53] 🛠️ CdCliProfileController::checkProfileAndLogin():03
+[2025-09-16 15:25:53] 🛠️ CdCliProfileController::checkProfileAndLogin():04
+[2025-09-16 15:25:53] 🛠️ CdCliProfileController::checkProfileAndLogin():05
+[2025-09-16 15:25:53] 🛠️ CdCliProfileController::checkProfileAndLogin():06
+[2025-09-16 15:25:53] ℹ️ Valid session token found. Proceeding...
+[2025-09-16 15:25:53] 🛠️ CdCliProfileController::checkProfileAndLogin():07
+[2025-09-16 15:25:53] 🛠️ starting CdCliProfileController::loadProfiles()
+[2025-09-16 15:25:53] 🛠️ CdCliProfileController::loadProfiles():01
+[2025-09-16 15:25:53] 🛠️ CdCliProfileController::checkProfileAndLogin():01
+[2025-09-16 15:25:53] 🛠️ CdCliProfileController::checkProfileAndLogin():03
+[2025-09-16 15:25:53] 🛠️ CdCliProfileController::checkProfileAndLogin():04
+[2025-09-16 15:25:53] 🛠️ CdCliProfileController::checkProfileAndLogin():05
+[2025-09-16 15:25:53] 🛠️ CdCliProfileController::checkProfileAndLogin():06
+[2025-09-16 15:25:53] ℹ️ Valid session token found. Proceeding...
+[2025-09-16 15:25:53] 🛠️ CdCliProfileController::checkProfileAndLogin():07
+handleCommandResponse()/start
+handleCommandResponse()/isNotArray-04
+Failed!
+error Command failed with exit code 1.
+```
+
+```ts
+
+export const deleteCommand = {
+  name: 'delete',
+  description: 'Delete environments, modules, controllers, or models.',
+  options: SHARED_OPTIONS,
+  action: {
+    execute: async (options: any) => {
+      const svDevMode = new DevModeService();
+      const result = await svDevMode.executeCrudCommand(DevModeAction.DELETE, options);
+      handleCommandResponse(result);
+    },
+  },
+};
+
+export function handleCommandResponse(response: CdFxReturn<null>) {
+  const svCiCdService = new CiCdService();
+  this.logger.logInfo(`handleCommandResponse()/start`);
+
+  if (Array.isArray(response?.data)) {
+    this.logger.logInfo(`handleCommandResponse()/isArray-01`);
+    const { failCount } = svCiCdService.printTaskSummary(response.data);
+    if (failCount > 0) {
+      this.logger.logInfo(`handleCommandResponse()/isArray-02`);
+      console.error(chalk.red(`❌ Some tasks failed`));
+      process.exit(1);
+    } else {
+      this.logger.logInfo(`handleCommandResponse()/isArray-03`);
+      this.logger.logInfo(chalk.green(`✅ All tasks completed successfully`));
+    }
+  } else {
+    this.logger.logInfo(`handleCommandResponse()/isNotArray-04`);
+    if (response.state) {
+      this.logger.logInfo(response.message);
+    } else {
+      console.error(response.message);
+      process.exit(1);
+    }
+  }
+
+  this.logger.logInfo(`handleCommandResponse()/end`);
+}
+
+export class DevModeService {
+async executeCrudCommand(action: DevModeAction, options: any): Promise<CdFxReturn<null>> {
+    const { name, ['o-env']: oEnv, repo } = options;
+
+    CdLog.debug(
+      `DevModeService::executeCrudCommand() action=${DevModeAction[action]}, name=${name}, o-env=${oEnv}, options=${inspect(options, { depth: 2 })}`,
+    );
+
+    // Validate repo
+    const projResult = this.validateProject(repo);
+    if (projResult.state !== CdFxStateLevel.Success) {
+      console.error(`[repo Error] ${projResult.message}`);
+      process.exit(1);
+    }
+
+    CdLog.debug(
+      `DevModeService::executeCrudCommand()/projResult:${inspect(projResult, { depth: 2 })}`,
+    );
+
+    // Validate output environment
+    const resultValidEnv = this.validateOutputEnv(oEnv);
+    CdLog.debug(
+      `DevModeService::executeCrudCommand()/resultValidEnv:${inspect(resultValidEnv, { depth: 2 })}`,
+    );
+    if (resultValidEnv.state !== CdFxStateLevel.Success) {
+      console.error(`[o-env Error] ${resultValidEnv.message}`);
+      process.exit(1);
+    }
+
+    ////////////////////////////////////////
+
+    if (!name || !oEnv) {
+      return {
+        state: false,
+        data: null,
+        message: '❌ Missing --name or --o-env.',
+      };
+    }
+
+    CdLog.debug(`DevModeService::executeCrudCommand()/name:${name}`);
+    CdLog.debug(`DevModeService::executeCrudCommand()/oEnv:${oEnv}`);
+
+    const selectedTarget = actionTargets.find((t) => options[t.cdObjTypeName]);
+    if (!selectedTarget) {
+      return {
+        state: false,
+        data: null,
+        message: '❌ No valid object type (e.g., --cd-module, --model) specified.',
+      };
+    }
+
+    CdLog.debug(
+      `DevModeService::executeCrudCommand()/selectedTarget:${inspect(selectedTarget, { depth: 2 })})`,
+    );
+
+    const actionTargetName = selectedTarget.cdObjTypeName;
+    CdLog.debug(`DevModeService::executeCrudCommand()/actionTargetName:${actionTargetName}`);
+
+    let registryResult: CdFxReturn<IDevModeInstructionDescriptor[]>;
+    try {
+      registryResult = await this.getRegistryForCdObj(action, actionTargetName, oEnv, name, repo);
+      CdLog.debug(
+        `DevModeService::executeCrudCommand()/registryResult:${inspect(registryResult, { depth: 2 })}`,
+      );
+
+    } catch (err: any) {
+      return {
+        state: false,
+        data: null,
+        message: `❌ ${err.message}`,
+      };
+    }
+
+    if (!registryResult.state || !registryResult.data) {
+      return {
+        state: false,
+        data: null,
+        message: registryResult.message || '❌ Invalid registry.',
+      };
+    }
+
+    const registry = registryResult.data;
+    CdLog.debug(`DevModeService::executeCrudCommand()/registryCount:${registry.length}`);
+    const selectedItem = registry.find((item) => options[item.flag]);
+
+    if (!selectedItem) {
+      return {
+        state: false,
+        data: null,
+        message: `❌ Invalid item to ${DevModeAction[action].toLowerCase()}.`,
+      };
+    }
+
+    const missing = selectedItem.requiredOptions.filter((key) => !options[key]);
+    if (missing.length > 0) {
+      return {
+        state: false,
+        data: null,
+        message: `❌ Missing required options: ${missing.join(', ')}`,
+      };
+    }
+
+    try {
+      const sessionService = new SessionService();
+      const cdToken = await sessionService.sessData.cdToken;
+
+      CdLog.debug(
+        `DevModeService::executeCrudCommand()/{ actionTargetName, name, oEnv, repo },:${inspect({ actionTargetName, name, oEnv, repo }, { depth: 2 })}`,
+      );
+      CdLog.debug(`DevModeService::executeCrudCommand()/options:${inspect(options, { depth: 2 })}`);
+      CdLog.debug(
+        `DevModeService::executeCrudCommand()/selectedItem:${inspect(selectedItem, { depth: 2 })}`,
+      );
+      const args = this.buildCdRequestArgs(
+        { actionTargetName, name, oEnv, repo },
+        options,
+        selectedItem,
+      );
+      CdLog.debug(`DevModeService::executeCrudCommand()/args:${inspect(args, { depth: 2 })}`);
+
+      const request: ICdRequest = {
+        ...selectedItem.cdRequest,
+        dat: {
+          ...selectedItem.cdRequest.dat,
+          token: cdToken,
+        },
+        args,
+      };
+
+      CdLog.debug(`DevModeService::executeCrudCommand()/request:${inspect(request, { depth: 3})}`);
+
+      const b = new BaseService();
+      const responseCdRequest = await b.invokeCdRequest(request);
+      return responseCdRequest;
+    } catch (err: any) {
+      return {
+        state: false,
+        data: null,
+        message: `❌ Error during ${DevModeAction[action].toLowerCase()}: ${err.message}`,
+      };
+    }
+  }
+}
 
 
+export class BaseService<T extends ObjectLiteral> extends AbstractBaseService<T> {
+    logTimeStamp(arg0: string) {
+    throw new Error('Method not implemented.');
+  }
+
+  cdResp!: ICdResponse; // cd response
+  pl;
+  i: IRespInfo = {
+    messages: [],
+    code: '',
+    app_msg: '',
+  };
+  isRegRequest = false;
+  // svSess: SessionService = new SessionService();
+  sess: SessionModel | any;
+  logger: Logging;
+
+  entityAdapter!: EntityAdapter;
+
+  constructor() {
+    super();
+    this.logger = new Logging();
+    this.entityAdapter = new EntityAdapter();
+    this.cdResp = this.initCdResp();
+  }
+
+  initCdResp(): ICdResponse {
+    return {
+      app_state: {
+        success: false,
+        info: {
+          messages: [],
+          code: '',
+          app_msg: '',
+        },
+        sess: {
+          cd_token: this.getGuid(),
+          jwt: null,
+          ttl: 0,
+        },
+        cache: {},
+        sConfig: {
+          usePush: config.usePolling,
+          usePolling: config.usePush,
+          useCacheStore: config.useCacheStore,
+        },
+      },
+      data: null,
+    };
+  }
+    async invokeCdRequest<T = any>(cdRequest?: ICdRequest): Promise<CdFxReturn<T>> {
+
+    this.logger.logDebug('BaseService::invokeCdRequest() → Starting dispatch...');
+
+    if (!cdRequest) {
+      return { state: false, message: 'cdRequest is undefined or null.' };
+    }
+
+    const { ctx, m, c, a, args, dat } = cdRequest;
+
+    try {
+      const contextRoot = ctx.toLowerCase() === 'sys' ? 'sys' : 'app';
+      // const moduleName = `${m}`;
+      const controllerName = `${c}Controller`;
+      const controllerkebab = toKebabCase(c);
+      const modulePath = `../../${contextRoot}/${m}/controllers/${controllerkebab}.controller.js`;
+
+      this.logger.logDebug(`BaseService::invokeCdRequest() → Importing: ${modulePath}`);
+
+      const importedModule = await import(modulePath);
+      const ControllerClass = importedModule?.[controllerName];
+
+      if (!ControllerClass) {
+        return {
+          state: false,
+          message: `Controller not found: ${controllerName} at ${modulePath}`,
+        };
+      }
+
+      const controllerInstance = new ControllerClass();
+
+      if (typeof controllerInstance[a] !== 'function') {
+        return { state: false, message: `Action method not found: ${a}` };
+      }
+
+      const result = await controllerInstance[a](...(args ? Object.values(args) : []), dat);
+
+      if (!result?.state) {
+        this.logger.logError(`BaseService::invokeCdRequest() → Task failed: ${result.message}`);
+        return result;
+      }
+
+      return result as CdFxReturn<T>;
+    } catch (err: any) {
+      const message = `Error executing cdRequest: ${err.message}`;
+      this.logger.logError(`BaseService::invokeCdRequest() → ${message}`);
+      return {
+        state: false,
+        message,
+      };
+    }
+  }
+  }
+```
+
+////////////////////////////////////////////////////////////////
+I need you to shif context for a moment.
+The codes I am sharing are not for cd-cli but for cd-api.
+I have set it up according to basic corpdesk coding conventions.
+Some are specific to cd-api. Eg use of req, res as inputs.
+The steps comments guides on the objectives of the method.
+What I need you to help me with is some way of capturing errors at any stage and returning with response.
+It should not proceed if any stage fails. But the captured error should be saved with the pattern:
+this.b.err.push(e.toString());
+and:
+i.app_msg in the catch block can be used as the general response message.
+In the catch block I have set up the process of capuring, saving in the BaseService and executing response.
+Note that it is also possible to set eventual sucess messages using the pattern:
+this.b.i.app_msg = 'purge was successful';
+            this.b.setAppState(true, this.b.i, svSess.sessResp);
+            this.b.cdResp.data = await respData;
+            const r = await this.b.respond(req, res);
+
+```ts
+export class ModuleService{
+async purgeModule(req, res) {
+    this.logger.logInfo("ModuleService::purgeModule()/Start");
+    try {
+      /**
+       * step 1: confirm module existence
+       * step 2: delete module menus
+       * step 3: delete module consumer resource
+       * step 4: delete module cdObj
+       * step 5: delete module group members
+       * step 6: delete module group
+       * step 7: delete module
+       * step 8: delete module application data (optional)
+       */
+      const pl = await this.b.getPlData(req);
+      this.logger.logInfo("ModuleService::purgeModule()/pl:", inspect(pl, { depth: 2 }));
+      const moduleName = pl.moduleName;
+      this.logger.logInfo("ModuleService::purgeModule()/moduleName:", moduleName);
+      const foundModule = await this.getModuleByName(req, res, moduleName);
+      this.logger.logInfo("ModuleService::purgeModule()/foundModule:", foundModule);
+      if (foundModule.length > 0) {
+        const svSess = new SessionService();
+        const svMenu = new MenuService();
+        const svCdObj = new CdObjService();
+        const svGroup = new GroupService();
+        const svGroupMember = new GroupMemberService();
+        const svConsumerResource = new ConsumerResourceService();
+        const foundMenu = await svMenu.getMenu(req, res, {
+          where: { moduleId: foundModule[0].moduleId },
+        });
+        this.logger.logInfo("ModuleService::purgeModule()/foundMenu:", foundMenu);
+        const delMenuResult = await svMenu.deleteI(req, res, {
+          where: { moduleId: foundModule[0].moduleId },
+        });
+        this.logger.logInfo(
+          "ModuleService::purgeModule()/delMenuResult:",
+          delMenuResult
+        );
+        const foundCdObj = await svCdObj.getCdObjI(req, res, {
+          where: {
+            cdObjName: moduleName,
+            cdObjTypeGuid: "809a6e31-9fb1-4874-b61a-38cf2708a3bb",
+          },
+        });
+        this.logger.logInfo("ModuleService::purgeModule()/foundCdObj:", foundCdObj);
+        const delConsumerResourceResult = await svConsumerResource.deleteI(
+          req,
+          res,
+          { where: { cdObjId: foundCdObj[0].cdObjId } }
+        );
+        this.logger.logInfo(
+          "ModuleService::purgeModule()/delConsumerResourceResult:",
+          delConsumerResourceResult
+        );
+        const delCdObjResult = await svCdObj.deleteI(req, res, {
+          where: { cdObjId: foundCdObj[0].cdObjId },
+        });
+        this.logger.logInfo(
+          "ModuleService::purgeModule()/delCdObjResult:",
+          delCdObjResult
+        );
+        const foundGroup = await svGroup.getGroupI(req, res, {
+          where: { groupGuid: foundModule[0].moduleGuid },
+        });
+        this.logger.logInfo("ModuleService::purgeModule()/foundGroup:", foundGroup);
+        const delGroupMembersResult = await svGroupMember.deleteI(req, res, {
+          where: { groupIdParent: foundGroup[0].groupId },
+        });
+        this.logger.logInfo(
+          "ModuleService::purgeModule()/delGroupMembersResult:",
+          delGroupMembersResult
+        );
+        const delGroupResult = await svGroup.deleteI(req, res, {
+          where: { groupId: foundGroup[0].groupId },
+        });
+        this.logger.logInfo(
+          "ModuleService::purgeModule()/delGroupResult:",
+          delGroupResult
+        );
+        const delModuleResult = await this.deleteI(req, res, {
+          where: { moduleId: foundModule[0].moduleId },
+        });
+        this.logger.logInfo(
+          "ModuleService::purgeModule()/delModuleResult:",
+          delModuleResult
+        );
+
+        this.b.i.app_msg = `module ${moduleName} purged successfully`;
+        await this.b.setAppState(true, this.b.i, svSess.sessResp);
+        this.b.cdResp.data = {
+          moduleData: foundModule,
+          menuData: foundMenu,
+          delMenuResult: delMenuResult,
+          cdObjData: foundCdObj,
+          delConsumerResourceResult: delConsumerResourceResult,
+          delCdObjResult: delCdObjResult,
+          groupData: foundGroup,
+          delGroupMembersResult: delGroupMembersResult,
+          delGroupResult: delGroupResult,
+          delModuleResult: delModuleResult,
+        };
+        const r = await this.b.respond(req, res);
+      }
+    } catch (e) {
+      this.logger.logInfo("CoopService::read$()/e:", e);
+      this.b.err.push(e.toString());
+      const i = {
+        messages: this.b.err,
+        code: "BaseService:update",
+        app_msg: "Purge Module Failed",
+      };
+      await this.b.serviceErr(req, res, e, i.code);
+      await this.b.respond(req, res);
+    }
+  }
+}
+```
+
+////////////////////////////////////////////////////////////
+Below are logs from cd-api during purge of existing module 'cd-api'.
+The end result is a little confusing:
+One result shows success of all the purging process.
+Another result shows failure with the message array: "messages":["TypeError: Cannot read properties of undefined (reading 'where')","TypeError: Cannot read properties of undefined (reading 'where')"]
+I need you to just focus of getting any clue that can lead us to the codes that could have created the undefined error.
+In order to post to you, I am limited to the amount of logs I can send, so I have deliberately deleted some logs that could be redundant.
+```log
+ModuleController::PurgeModule()/Start
+[9/18/2025, 10:21:09 AM] [INFO]: ModuleService::purgeModule()/Start [CONTEXT] -> {}
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::getData()/ret: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 10:21:09 AM] [INFO]: ModuleService::purgeModule()/pl: [CONTEXT] -> 
+{ moduleName: 'cd-ai' }
+[9/18/2025, 10:21:09 AM] [INFO]: ModuleService::purgeModule()/moduleName: [CONTEXT] -> 
+cd-ai
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::read()/serviceInput: [CONTEXT] -> 
+{
+  serviceInstance: ModuleService {
+    retMenuCollection: [],
+    cRules: { required: [Array], noDuplicate: [Array] },
+    b: BaseService {
+      err: [],
+      cuid: 1000,
+      debug: true,
+      i: [Object],
+      isInvalidFields: [],
+      isRegRequest: false,
+      models: [],
+      sqliteModels: [],
+      ds: [DataSource],
+      intersectionLegacy: [Function (anonymous)],
+      intersectMany: [Function (anonymous)],
+      entityAdapter: [EntityAdapter],
+      cdResp: [Object],
+      logger: [Logging],
+      svRedis: [RedisService],
+      db: [TypeOrmDatasource]
+    },
+    logger: Logging { _logger: [DerivedLogger] },
+    serviceModel: ModuleModel {}
+  },
+  serviceModel: [class ModuleViewModel],
+  docName: 'ModuleService::getModuleByName',
+  cmd: { action: 'find', query: { where: [Object] } },
+  dSource: 1
+}
+
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::read()/this.repo: [CONTEXT] -> 
+<ref *1> Repository {
+  target: [class ModuleViewModel],
+  manager: <ref *2> EntityManager {
+    '@instanceof': Symbol(EntityManager),
+    repositories: Map(13) {
+      [class SessionModel] => [Repository],
+      [class ModuleModel] => [Repository],
+      [class UserModel] => [Repository],
+      [class ConsumerModel] => [Repository],
+      [class CompanyViewModel] => [Repository],
+      [class DocTypeModel] => [Repository],
+      [class GroupModel] => [Repository],
+      [class GroupMemberModel] => [Repository],
+      [class CdObjTypeModel] => [Repository],
+      [class CdObjModel] => [Repository],
+      [class ConsumerResourceModel] => [Repository],
+      [class MenuModel] => [Repository],
+      [class ModuleViewModel] => [Circular *1]
+    },
+    treeRepositories: [],
+    plainObjectToEntityTransformer: PlainObjectToNewEntityTransformer {},
+    connection: DataSource {
+      '@instanceof': Symbol(DataSource),
+      migrations: [],
+      subscribers: [],
+      entityMetadatas: [Array],
+      entityMetadatasMap: [Map],
+      name: 'default',
+      options: [Object],
+      logger: [AdvancedConsoleLogger],
+      driver: [MysqlDriver],
+      manager: [Circular *2],
+      namingStrategy: [DefaultNamingStrategy],
+      metadataTableName: 'typeorm_metadata',
+      queryResultCache: undefined,
+      relationLoader: [RelationLoader],
+      relationIdLoader: [RelationIdLoader],
+      isInitialized: true
+    }
+  },
+  queryRunner: undefined
+}
+query: SELECT `ModuleViewModel`.`module_id` AS `ModuleViewModel_module_id`, `ModuleViewModel`.`module_guid` AS `ModuleViewModel_module_guid`, `ModuleViewModel`.`module_name` AS `ModuleViewModel_module_name`, `ModuleViewModel`.`module_description` AS `ModuleViewModel_module_description`, `ModuleViewModel`.`module_type_id` AS `ModuleViewModel_module_type_id`, `ModuleViewModel`.`module_is_public` AS `ModuleViewModel_module_is_public`, `ModuleViewModel`.`is_sys_module` AS `ModuleViewModel_is_sys_module`, `ModuleViewModel`.`doc_id` AS `ModuleViewModel_doc_id`, `ModuleViewModel`.`module_enabled` AS `ModuleViewModel_module_enabled`, `ModuleViewModel`.`group_guid` AS `ModuleViewModel_group_guid`, `ModuleViewModel`.`group_name` AS `ModuleViewModel_group_name`, `ModuleViewModel`.`group_owner_id` AS `ModuleViewModel_group_owner_id`, `ModuleViewModel`.`group_type_id` AS `ModuleViewModel_group_type_id`, `ModuleViewModel`.`company_id` AS `ModuleViewModel_company_id` FROM `module_view` `ModuleViewModel` WHERE ((`ModuleViewModel`.`module_name` = ?)) -- PARAMETERS: ["cd-ai"]
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::read()/04/r: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::read()/06 [CONTEXT] -> {}
+[9/18/2025, 10:21:09 AM] [INFO]: ModuleService::purgeModule()/foundModule: [CONTEXT] -> 
+[
+  ModuleViewModel {
+    moduleId: 473,
+    moduleGuid: 'a7d99cbc-d318-44c5-956e-2e56ce28b18b',
+    moduleName: 'cd-ai',
+    moduleDescription: null,
+    moduleTypeId: null,
+    moduleIsPublic: null,
+    isSysModule: 0,
+    docId: 21788,
+    moduleEnabled: 1,
+    groupGuid: 'a7d99cbc-d318-44c5-956e-2e56ce28b18b',
+    groupName: 'cd-ai',
+    groupOwnerId: 1010,
+    groupTypeId: 2,
+    companyId: 85
+  }
+]
+[9/18/2025, 10:21:09 AM] [INFO]: MenuService::getMenu/q: [CONTEXT] -> 
+[object Object]
+
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::read()/serviceInput: [CONTEXT] -> 
+{
+  serviceModel: [class MenuViewModel],
+  docName: 'MenuService::getMenu',
+  cmd: { action: 'find', query: { where: [Object] } },
+  dSource: 1
+}
+
+class MenuViewModel {
+}
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::read()/04/serviceInput.modelName: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::read()/041 [CONTEXT] -> {}
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::read()/this.repo: [CONTEXT] -> 
+<ref *1> Repository {
+  target: [class MenuViewModel],
+  manager: <ref *2> EntityManager {
+    '@instanceof': Symbol(EntityManager),
+    repositories: Map(14) {
+      [class SessionModel] => [Repository],
+      [class ModuleModel] => [Repository],
+      [class UserModel] => [Repository],
+      [class ConsumerModel] => [Repository],
+      [class CompanyViewModel] => [Repository],
+      [class DocTypeModel] => [Repository],
+      [class GroupModel] => [Repository],
+      [class GroupMemberModel] => [Repository],
+      [class CdObjTypeModel] => [Repository],
+      [class CdObjModel] => [Repository],
+      [class ConsumerResourceModel] => [Repository],
+      [class MenuModel] => [Repository],
+      [class ModuleViewModel] => [Repository],
+      [class MenuViewModel] => [Circular *1]
+    },
+    treeRepositories: [],
+    plainObjectToEntityTransformer: PlainObjectToNewEntityTransformer {},
+    connection: DataSource {
+      '@instanceof': Symbol(DataSource),
+      migrations: [],
+      subscribers: [],
+      entityMetadatas: [Array],
+      entityMetadatasMap: [Map],
+      name: 'default',
+      options: [Object],
+      logger: [AdvancedConsoleLogger],
+      driver: [MysqlDriver],
+      manager: [Circular *2],
+      namingStrategy: [DefaultNamingStrategy],
+      metadataTableName: 'typeorm_metadata',
+      queryResultCache: undefined,
+      relationLoader: [RelationLoader],
+      relationIdLoader: [RelationIdLoader],
+      isInitialized: true
+    }
+  },
+  queryRunner: undefined
+}
+query: SELECT `MenuViewModel`.`menu_id` AS `MenuViewModel_menu_id`, `MenuViewModel`.`menu_name` AS `MenuViewModel_menu_name`, `MenuViewModel`.`menu_label` AS `MenuViewModel_menu_label`, `MenuViewModel`.`menu_guid` AS `MenuViewModel_menu_guid`, `MenuViewModel`.`closet_file` AS `MenuViewModel_closet_file`, `MenuViewModel`.`cd_obj_id` AS `MenuViewModel_cd_obj_id`, `MenuViewModel`.`menu_enabled` AS `MenuViewModel_menu_enabled`, `MenuViewModel`.`menu_description` AS `MenuViewModel_menu_description`, `MenuViewModel`.`menu_icon` AS `MenuViewModel_menu_icon`, `MenuViewModel`.`icon_type` AS `MenuViewModel_icon_type`, `MenuViewModel`.`doc_id` AS `MenuViewModel_doc_id`, `MenuViewModel`.`menu_parent_id` AS `MenuViewModel_menu_parent_id`, `MenuViewModel`.`path` AS `MenuViewModel_path`, `MenuViewModel`.`is_title` AS `MenuViewModel_is_title`, `MenuViewModel`.`badge` AS `MenuViewModel_badge`, `MenuViewModel`.`is_layout` AS `MenuViewModel_is_layout`, `MenuViewModel`.`module_id` AS `MenuViewModel_module_id`, `MenuViewModel`.`module_guid` AS `MenuViewModel_module_guid`, `MenuViewModel`.`module_name` AS `MenuViewModel_module_name`, `MenuViewModel`.`module_is_public` AS `MenuViewModel_module_is_public`, `MenuViewModel`.`is_sys_module` AS `MenuViewModel_is_sys_module`, `MenuViewModel`.`children` AS `MenuViewModel_children`, `MenuViewModel`.`menu_action` AS `MenuViewModel_menu_action`, `MenuViewModel`.`cd_obj_name` AS `MenuViewModel_cd_obj_name`, `MenuViewModel`.`last_sync_date` AS `MenuViewModel_last_sync_date`, `MenuViewModel`.`cd_obj_disp_name` AS `MenuViewModel_cd_obj_disp_name`, `MenuViewModel`.`cd_obj_guid` AS `MenuViewModel_cd_obj_guid`, `MenuViewModel`.`cd_obj_type_guid` AS `MenuViewModel_cd_obj_type_guid`, `MenuViewModel`.`last_modification_date` AS `MenuViewModel_last_modification_date`, `MenuViewModel`.`parent_module_guid` AS `MenuViewModel_parent_module_guid`, `MenuViewModel`.`parent_class_guid` AS `MenuViewModel_parent_class_guid`, `MenuViewModel`.`parent_obj` AS `MenuViewModel_parent_obj`, `MenuViewModel`.`show_name` AS `MenuViewModel_show_name`, `MenuViewModel`.`icon` AS `MenuViewModel_icon`, `MenuViewModel`.`show_icon` AS `MenuViewModel_show_icon`, `MenuViewModel`.`curr_val` AS `MenuViewModel_curr_val`, `MenuViewModel`.`cd_obj_enabled` AS `MenuViewModel_cd_obj_enabled`, `MenuViewModel`.`menu_is_public` AS `MenuViewModel_menu_is_public` FROM `menu_view` `MenuViewModel` WHERE ((`MenuViewModel`.`module_id` = ?)) -- PARAMETERS: [473]
+
+
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::delete()/repo/model: [CONTEXT] -> 
+class MenuModel {
+}
+query: DELETE FROM `menu` WHERE `module_id` = ? -- PARAMETERS: [473]
+[9/18/2025, 10:21:09 AM] [INFO]: ModuleService::purgeModule()/delMenuResult: [CONTEXT] -> 
+DeleteResult { raw: [], affected: 0 }
+CdObjService::getCdObjI/f: {
+  where: {
+    cdObjName: 'cd-ai',
+    cdObjTypeGuid: '809a6e31-9fb1-4874-b61a-38cf2708a3bb'
+  }
+}
+
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::read()/serviceInput: [CONTEXT] -> 
+{
+  serviceModel: [class CdObjViewModel],
+  docName: 'CdObjService::getCdObjI',
+  cmd: { action: 'find', query: { where: [Object] } },
+  dSource: 1
+}
+
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::read()/04/serviceInput.serviceModel: [CONTEXT] -> 
+class CdObjViewModel {
+}
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::read()/04/serviceInput.modelName: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::read()/041 [CONTEXT] -> {}
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::read()/this.repo: [CONTEXT] -> 
+<ref *1> Repository {
+  target: [class CdObjViewModel],
+  manager: <ref *2> EntityManager {
+    '@instanceof': Symbol(EntityManager),
+    repositories: Map(15) {
+      [class SessionModel] => [Repository],
+      [class ModuleModel] => [Repository],
+      [class UserModel] => [Repository],
+      [class ConsumerModel] => [Repository],
+      [class CompanyViewModel] => [Repository],
+      [class DocTypeModel] => [Repository],
+      [class GroupModel] => [Repository],
+      [class GroupMemberModel] => [Repository],
+      [class CdObjTypeModel] => [Repository],
+      [class CdObjModel] => [Repository],
+      [class ConsumerResourceModel] => [Repository],
+      [class MenuModel] => [Repository],
+      [class ModuleViewModel] => [Repository],
+      [class MenuViewModel] => [Repository],
+      [class CdObjViewModel] => [Circular *1]
+    },
+    treeRepositories: [],
+    plainObjectToEntityTransformer: PlainObjectToNewEntityTransformer {},
+    connection: DataSource {
+      '@instanceof': Symbol(DataSource),
+      migrations: [],
+      subscribers: [],
+      entityMetadatas: [Array],
+      entityMetadatasMap: [Map],
+      name: 'default',
+      options: [Object],
+      logger: [AdvancedConsoleLogger],
+      driver: [MysqlDriver],
+      manager: [Circular *2],
+      namingStrategy: [DefaultNamingStrategy],
+      metadataTableName: 'typeorm_metadata',
+      queryResultCache: undefined,
+      relationLoader: [RelationLoader],
+      relationIdLoader: [RelationIdLoader],
+      isInitialized: true
+    }
+  },
+  queryRunner: undefined
+}
+query: SELECT `CdObjViewModel`.`cd_obj_id` AS `CdObjViewModel_cd_obj_id`, `CdObjViewModel`.`cd_obj_guid` AS `CdObjViewModel_cd_obj_guid`, `CdObjViewModel`.`cd_obj_name` AS `CdObjViewModel_cd_obj_name`, `CdObjViewModel`.`cd_obj_type_guid` AS `CdObjViewModel_cd_obj_type_guid`, `CdObjViewModel`.`last_sync_date` AS `CdObjViewModel_last_sync_date`, `CdObjViewModel`.`last_modification_date` AS `CdObjViewModel_last_modification_date`, `CdObjViewModel`.`parent_module_guid` AS `CdObjViewModel_parent_module_guid`, `CdObjViewModel`.`parent_class_guid` AS `CdObjViewModel_parent_class_guid`, `CdObjViewModel`.`parent_obj` AS `CdObjViewModel_parent_obj`, `CdObjViewModel`.`cd_obj_disp_name` AS `CdObjViewModel_cd_obj_disp_name`, `CdObjViewModel`.`cd_obj_type_id` AS `CdObjViewModel_cd_obj_type_id`, `CdObjViewModel`.`cd_obj_type_name` AS `CdObjViewModel_cd_obj_type_name`, `CdObjViewModel`.`module_name` AS `CdObjViewModel_module_name`, `CdObjViewModel`.`show_name` AS `CdObjViewModel_show_name`, `CdObjViewModel`.`icon` AS `CdObjViewModel_icon`, `CdObjViewModel`.`show_icon` AS `CdObjViewModel_show_icon`, `CdObjViewModel`.`curr_val` AS `CdObjViewModel_curr_val`, `CdObjViewModel`.`cd_obj_enabled` AS `CdObjViewModel_cd_obj_enabled` FROM `cd_obj_view` `CdObjViewModel` WHERE ((`CdObjViewModel`.`cd_obj_name` = ?) AND (`CdObjViewModel`.`cd_obj_type_guid` = ?)) -- PARAMETERS: ["cd-ai","809a6e31-9fb1-4874-b61a-38cf2708a3bb"]
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::read()/04/r: [CONTEXT] -> 
+[object Object],[object Object]
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::read()/06 [CONTEXT] -> {}
+[9/18/2025, 10:21:09 AM] [INFO]: ModuleService::purgeModule()/foundCdObj: [CONTEXT] -> 
+[
+  CdObjViewModel {
+    cdObjId: 93145,
+    cdObjGuid: '983fb073-9bf7-4cd1-a5af-c903cdea6440',
+    cdObjName: 'cd-ai',
+    cdObjTypeGuid: '809a6e31-9fb1-4874-b61a-38cf2708a3bb',
+    lastSyncDate: null,
+    lastModificationDate: null,
+    parentModuleGuid: '48753f8a-b262-471f-b175-1f0ec9e5206d',
+    parentClassGuid: null,
+    parentObj: null,
+    cdObjDispName: null,
+    cdObjTypeId: 39,
+    cdObjTypeName: 'CdModule',
+    moduleName: 'file_sys',
+    showName: null,
+    icon: null,
+    showIcon: null,
+    currVal: null,
+    cdObjEnabled: 1
+  },
+  CdObjViewModel {
+    cdObjId: 93146,
+    cdObjGuid: '1b81e29c-1190-4486-b3bd-97073e077aae',
+    cdObjName: 'cd-ai',
+    cdObjTypeGuid: '809a6e31-9fb1-4874-b61a-38cf2708a3bb',
+    lastSyncDate: null,
+    lastModificationDate: null,
+    parentModuleGuid: '48753f8a-b262-471f-b175-1f0ec9e5206d',
+    parentClassGuid: null,
+    parentObj: null,
+    cdObjDispName: null,
+    cdObjTypeId: 39,
+    cdObjTypeName: 'CdModule',
+    moduleName: 'file_sys',
+    showName: null,
+    icon: null,
+    showIcon: null,
+    currVal: null,
+    cdObjEnabled: 1
+  }
+]
+ConsumerResourceService::deleteI()/q: { where: { cdObjId: 93145 } }
+
+
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::delete()/repo/model: [CONTEXT] -> 
+class ConsumerResourceModel {
+}
+query: DELETE FROM `consumer_resource` WHERE `cd_obj_id` = ? -- PARAMETERS: [93145]
+[9/18/2025, 10:21:09 AM] [INFO]: ModuleService::purgeModule()/delConsumerResourceResult: [CONTEXT] -> 
+DeleteResult { raw: [], affected: 0 }
+CdObjService::delete()/q: { where: { cdObjId: 93145 } }
+
+
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::delete()/repo/model: [CONTEXT] -> 
+class CdObjModel {
+}
+query: DELETE FROM `cd_obj` WHERE `cd_obj_id` = ? -- PARAMETERS: [93145]
+[9/18/2025, 10:21:09 AM] [INFO]: ModuleService::purgeModule()/delCdObjResult: [CONTEXT] -> 
+DeleteResult { raw: [], affected: 1 }
+GroupService::getGroupI/f: { where: { groupGuid: 'a7d99cbc-d318-44c5-956e-2e56ce28b18b' } }
+
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::read()/serviceInput: [CONTEXT] -> 
+{
+  serviceModel: [class GroupModel],
+  docName: 'GroupService::getGroupI',
+  cmd: { action: 'find', query: { where: [Object] } },
+  dSource: 1
+}
+
+class GroupModel {
+}
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::read()/04/serviceInput.modelName: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::read()/041 [CONTEXT] -> {}
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::read()/this.repo: [CONTEXT] -> 
+<ref *1> Repository {
+  target: [class GroupModel],
+  manager: <ref *2> EntityManager {
+    '@instanceof': Symbol(EntityManager),
+    repositories: Map(15) {
+      [class SessionModel] => [Repository],
+      [class ModuleModel] => [Repository],
+      [class UserModel] => [Repository],
+      [class ConsumerModel] => [Repository],
+      [class CompanyViewModel] => [Repository],
+      [class DocTypeModel] => [Repository],
+      [class GroupModel] => [Circular *1],
+      [class GroupMemberModel] => [Repository],
+      [class CdObjTypeModel] => [Repository],
+      [class CdObjModel] => [Repository],
+      [class ConsumerResourceModel] => [Repository],
+      [class MenuModel] => [Repository],
+      [class ModuleViewModel] => [Repository],
+      [class MenuViewModel] => [Repository],
+      [class CdObjViewModel] => [Repository]
+    },
+    treeRepositories: [],
+    plainObjectToEntityTransformer: PlainObjectToNewEntityTransformer {},
+    connection: DataSource {
+      '@instanceof': Symbol(DataSource),
+      migrations: [],
+      subscribers: [],
+      entityMetadatas: [Array],
+      entityMetadatasMap: [Map],
+      name: 'default',
+      options: [Object],
+      logger: [AdvancedConsoleLogger],
+      driver: [MysqlDriver],
+      manager: [Circular *2],
+      namingStrategy: [DefaultNamingStrategy],
+      metadataTableName: 'typeorm_metadata',
+      queryResultCache: undefined,
+      relationLoader: [RelationLoader],
+      relationIdLoader: [RelationIdLoader],
+      isInitialized: true
+    }
+  },
+  queryRunner: undefined
+}
+query: SELECT `GroupModel`.`group_id` AS `GroupModel_group_id`, `GroupModel`.`group_guid` AS `GroupModel_group_guid`, `GroupModel`.`group_name` AS `GroupModel_group_name`, `GroupModel`.`group_description` AS `GroupModel_group_description`, `GroupModel`.`doc_id` AS `GroupModel_doc_id`, `GroupModel`.`group_owner_id` AS `GroupModel_group_owner_id`, `GroupModel`.`group_type_id` AS `GroupModel_group_type_id`, `GroupModel`.`module_guid` AS `GroupModel_module_guid`, `GroupModel`.`company_id` AS `GroupModel_company_id`, `GroupModel`.`consumer_guid` AS `GroupModel_consumer_guid`, `GroupModel`.`group_is_public` AS `GroupModel_group_is_public`, `GroupModel`.`group_enabled` AS `GroupModel_group_enabled` FROM `group` `GroupModel` WHERE ((`GroupModel`.`group_guid` = ?)) -- PARAMETERS: ["a7d99cbc-d318-44c5-956e-2e56ce28b18b"]
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::read()/04/r: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::read()/06 [CONTEXT] -> {}
+[9/18/2025, 10:21:09 AM] [INFO]: ModuleService::purgeModule()/foundGroup: [CONTEXT] -> 
+[
+  GroupModel {
+    groupId: 1445,
+    groupGuid: 'a7d99cbc-d318-44c5-956e-2e56ce28b18b',
+    groupName: 'cd-ai',
+    groupDescription: null,
+    docId: 21789,
+    groupOwnerId: 1010,
+    groupTypeId: 2,
+    moduleGuid: 'a7d99cbc-d318-44c5-956e-2e56ce28b18b',
+    companyId: 85,
+    consumerGuid: null,
+    groupIsPublic: null,
+    groupEnabled: true
+  }
+]
+GroupMemberService::deleteI()/q: { where: { groupIdParent: 1445 } }
+
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::delete()/repo/model: [CONTEXT] -> 
+class GroupMemberModel {
+}
+query: DELETE FROM `group_member` WHERE `group_id_parent` = ? -- PARAMETERS: [1445]
+[9/18/2025, 10:21:09 AM] [INFO]: ModuleService::purgeModule()/delGroupMembersResult: [CONTEXT] -> 
+DeleteResult { raw: [], affected: 1 }
+GroupService::deleteI()/q: { where: { groupId: 1445 } }
+
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::delete()/repo/model: [CONTEXT] -> 
+class GroupModel {
+}
+query: DELETE FROM `group` WHERE `group_id` = ? -- PARAMETERS: [1445]
+[9/18/2025, 10:21:09 AM] [INFO]: ModuleService::purgeModule()/delGroupResult: [CONTEXT] -> 
+DeleteResult { raw: [], affected: 1 }
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::delete()/01 [CONTEXT] -> {}
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::init()/01: [CONTEXT] -> {}
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::init()/this.models: [CONTEXT] -> 
+
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::delete()/repo/model: [CONTEXT] -> 
+class ModuleModel {
+}
+[9/18/2025, 10:21:09 AM] [ERROR]: ModuleService::purgeModule()/delModuleResult/error: [CONTEXT] -> 
+TypeError: Cannot read properties of undefined (reading 'where')
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::setAppState()/01 [CONTEXT] -> {}
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::setAppState()/ss: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::setAppState()/01 [CONTEXT] -> {}
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::setAppState()/02 [CONTEXT] -> {}
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::setAppState()/ss: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 10:21:09 AM] [DEBUG]: **********starting respond(res)********* [CONTEXT] -> {}
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::respond(res)/this.pl: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::respond(res)/this.cdResp: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 10:21:09 AM] [DEBUG]: **********starting preFlight(res)********* [CONTEXT] -> {}
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::getPlData()/this.cdResp: [CONTEXT] -> 
+{"app_state":{"success":false,"info":{"messages":["TypeError: Cannot read properties of undefined (reading 'where')","TypeError: Cannot read properties of undefined (reading 'where')"],"code":"delModuleResult","app_msg":"Error at delModuleResult: TypeError: Cannot read properties of undefined (reading 'where')"},"sess":{"cd_token":"d33bb2d3-f4d5-42b4-8e31-44fed3e29826","jwt":null,"ttl":600},"cache":{},"sConfig":{"usePush":true,"usePolling":true,"useCacheStore":true}},"data":[]}
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::getPlData()/15 [CONTEXT] -> {}
+[9/18/2025, 10:21:09 AM] [DEBUG]: **********starting respond(res)********* [CONTEXT] -> {}
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::respond(res)/this.pl: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::respond(res)/this.cdResp: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 10:21:09 AM] [DEBUG]: **********starting preFlight(res)********* [CONTEXT] -> {}
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::getPlData()/this.cdResp: [CONTEXT] -> 
+{"app_state":{"success":false,"info":{"messages":["TypeError: Cannot read properties of undefined (reading 'where')","TypeError: Cannot read properties of undefined (reading 'where')"],"code":"delModuleResult","app_msg":"Error at delModuleResult: TypeError: Cannot read properties of undefined (reading 'where')"},"sess":{"cd_token":"d33bb2d3-f4d5-42b4-8e31-44fed3e29826","jwt":null,"ttl":600},"cache":{},"sConfig":{"usePush":true,"usePolling":true,"useCacheStore":true}},"data":[]}
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::getPlData()/15 [CONTEXT] -> {}
+[9/18/2025, 10:21:09 AM] [INFO]: ModuleService::purgeModule()/All steps completed successfully [CONTEXT] -> {}
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::setAppState()/01 [CONTEXT] -> {}
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::setAppState()/ss: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 10:21:09 AM] [DEBUG]: **********starting respond(res)********* [CONTEXT] -> {}
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::respond(res)/this.pl: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::respond(res)/this.cdResp: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 10:21:09 AM] [DEBUG]: **********starting preFlight(res)********* [CONTEXT] -> {}
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::getPlData()/this.cdResp: [CONTEXT] -> 
+{"app_state":{"success":true,"info":{"messages":[],"code":"","app_msg":"module cd-ai purged successfully","respState":{"cdLevel":null,"cdDescription":null,"httpCode":null,"httpDescription":null}},"sess":{"cd_token":"","jwt":null,"ttl":600},"cache":{},"sConfig":{"usePush":true,"usePolling":true,"useCacheStore":true}},"data":{"moduleData":[{"moduleId":473,"moduleGuid":"a7d99cbc-d318-44c5-956e-2e56ce28b18b","moduleName":"cd-ai","moduleDescription":null,"moduleTypeId":null,"moduleIsPublic":null,"isSysModule":0,"docId":21788,"moduleEnabled":1,"groupGuid":"a7d99cbc-d318-44c5-956e-2e56ce28b18b","groupName":"cd-ai","groupOwnerId":1010,"groupTypeId":2,"companyId":85}],"foundMenu":[],"delMenuResult":{"raw":[],"affected":0},"foundCdObj":[{"cdObjId":93145,"cdObjGuid":"983fb073-9bf7-4cd1-a5af-c903cdea6440","cdObjName":"cd-ai","cdObjTypeGuid":"809a6e31-9fb1-4874-b61a-38cf2708a3bb","lastSyncDate":null,"lastModificationDate":null,"parentModuleGuid":"48753f8a-b262-471f-b175-1f0ec9e5206d","parentClassGuid":null,"parentObj":null,"cdObjDispName":null,"cdObjTypeId":39,"cdObjTypeName":"CdModule","moduleName":"file_sys","showName":null,"icon":null,"showIcon":null,"currVal":null,"cdObjEnabled":1},{"cdObjId":93146,"cdObjGuid":"1b81e29c-1190-4486-b3bd-97073e077aae","cdObjName":"cd-ai","cdObjTypeGuid":"809a6e31-9fb1-4874-b61a-38cf2708a3bb","lastSyncDate":null,"lastModificationDate":null,"parentModuleGuid":"48753f8a-b262-471f-b175-1f0ec9e5206d","parentClassGuid":null,"parentObj":null,"cdObjDispName":null,"cdObjTypeId":39,"cdObjTypeName":"CdModule","moduleName":"file_sys","showName":null,"icon":null,"showIcon":null,"currVal":null,"cdObjEnabled":1}],"delConsumerResourceResult":{"raw":[],"affected":0},"delCdObjResult":{"raw":[],"affected":1},"foundGroup":[{"groupId":1445,"groupGuid":"a7d99cbc-d318-44c5-956e-2e56ce28b18b","groupName":"cd-ai","groupDescription":null,"docId":21789,"groupOwnerId":1010,"groupTypeId":2,"moduleGuid":"a7d99cbc-d318-44c5-956e-2e56ce28b18b","companyId":85,"consumerGuid":null,"groupIsPublic":null,"groupEnabled":true}],"delGroupMembersResult":{"raw":[],"affected":1},"delGroupResult":{"raw":[],"affected":1}}}
+[9/18/2025, 10:21:09 AM] [DEBUG]: BaseService::getPlData()/15 [CONTEXT] -> {}
+```
+
+////////////////////////////////////////////////////////////////
+Analise the logs against the codes and let me know:
+1. Why is the results of menu showing undefined.
+I expected either an empty array or and array with MenuModel items.
+I have also scrutinized but have so far not seen why the 'undefined' should be the return.
+2. Why are there two lines of:
+[9/18/2025, 8:45:13 PM] [INFO]: ModuleService::purgeModule()/foundMenu: [CONTEXT] -> 
+undefined
+When in the code, there is only one log point.
+3. In the line where we have:
+[9/18/2025, 8:45:14 PM] [ERROR]: ModuleService::purgeModule()/delConsumerResourceResult/error: [CONTEXT] -> 
+TypeError: Cannot read properties of undefined (reading '0')
+...and everywhere where we are getting: Cannot read properties of undefined (reading '0'), what is the logical explanation.
+```ts
+async purgeModule(req, res) {
+    this.logger.logInfo("ModuleService::purgeModule()/Start");
+    try {
+      // step 1: confirm module existence
+      const pl = await this.b.getPlData(req);
+      this.logger.logInfo(
+        "ModuleService::purgeModule()/pl:",
+        inspect(pl, { depth: 2 })
+      );
+
+      const moduleName = pl.moduleName;
+      this.logger.logInfo(
+        "ModuleService::purgeModule()/moduleName:",
+        moduleName
+      );
+
+      const foundModule: ModuleModel[] = await this.getModuleByName(
+        req,
+        res,
+        moduleName
+      );
+      this.logger.logInfo(
+        "ModuleService::purgeModule()/foundModule:",
+        inspect(foundModule, { depth: 2 })
+      );
+
+      if (!foundModule || foundModule.length === 0) {
+        throw new Error(`Module ${moduleName} not found`);
+      }
+
+      // prepare services
+      const svSess = new SessionService();
+      const svMenu = new MenuService();
+      const svCdObj = new CdObjService();
+      const svGroup = new GroupService();
+      const svGroupMember = new GroupMemberService();
+      const svConsumerResource = new ConsumerResourceService();
+
+      // results collector
+      const results: any = { moduleData: foundModule };
+
+      // ---- step runner utility ----
+      const runStep = async (label: string, fn: () => Promise<any>) => {
+        try {
+          const result = await fn();
+          this.logger.logInfo(
+            `ModuleService::purgeModule()/${label}:`,
+            inspect(result, { depth: 3 })
+          );
+          results[label] = result;
+          return result;
+        } catch (e) {
+          this.logger.logError(
+            `ModuleService::purgeModule()/${label}/error:`,
+            e
+          );
+          this.b.err.push(e.toString());
+          this.b.i.app_msg = `Failed at step: ${label}`;
+          await this.b.serviceErr(req, res, e, label);
+          return await this.b.respond(req, res);
+        }
+      };
+
+      // step 2: delete module menus
+      const foundMenu = await runStep("foundMenu", async () => {
+        this.logger.logInfo(
+          `ModuleService::purgeModule()/foundModule[0].moduleId1: ${foundModule[0].moduleId}`
+        );
+        await svMenu.getMenuI(req, res, {
+          where: { moduleId: foundModule[0].moduleId },
+        });
+      });
+
+      this.logger.logInfo(
+        `ModuleService::purgeModule()/foundMenu:`,
+        inspect(foundMenu, { depth: 2 })
+      );
+
+      await runStep("delMenuResult", async () => {
+        this.logger.logInfo(
+          `ModuleService::purgeModule()/foundModule[0].moduleId2: ${foundModule[0].moduleId}`
+        );
+        await svMenu.deleteI(req, res, {
+          where: { moduleId: foundModule[0].moduleId },
+        });
+      });
+
+      // step 3 & 4: delete module consumer resource + cdObj
+      const foundCdObj = await runStep("foundCdObj", async () => {
+        await svCdObj.getCdObjI(req, res, {
+          where: {
+            cdObjName: moduleName,
+            cdObjTypeGuid: "809a6e31-9fb1-4874-b61a-38cf2708a3bb",
+          },
+        });
+      });
+
+      this.logger.logInfo(
+        `ModuleService::purgeModule()/foundCdObj:`,
+        inspect(foundCdObj, { depth: 2 })
+      );
+
+      await runStep("delConsumerResourceResult", async () => {
+        this.logger.logInfo(
+          `ModuleService::purgeModule()/foundCdObj[0]?.cdObjId: ${foundCdObj[0]?.cdObjId}`
+        );
+        await svConsumerResource.deleteI(req, res, {
+          where: { cdObjId: foundCdObj[0]?.cdObjId },
+        });
+      });
+
+      
+
+      await runStep(
+        "delCdObjResult",
+        async () =>
+          await svCdObj.deleteI(req, res, {
+            where: { cdObjId: foundCdObj[0]?.cdObjId },
+          })
+      );
+
+      // step 5 & 6: delete module group members + group
+      const foundGroup = await runStep("foundGroup", async () => {
+        this.logger.logInfo(
+          `ModuleService::purgeModule()/foundModule[0].moduleGuid: ${foundModule[0].moduleGuid}`
+        );
+        await svGroup.getGroupI(req, res, {
+          where: { groupGuid: foundModule[0].moduleGuid },
+        });
+      });
+
+      await runStep("delGroupMembersResult", async () => {
+        this.logger.logInfo(
+          `ModuleService::purgeModule()/foundGroup[0]?.groupId : ${foundGroup[0]?.groupId}`
+        );
+        await svGroupMember.deleteI(req, res, {
+          where: { groupIdParent: foundGroup[0]?.groupId },
+        });
+      });
+
+      await runStep(
+        "delGroupResult",
+        async () =>
+          await svGroup.deleteI(req, res, {
+            where: { groupId: foundGroup[0]?.groupId },
+          })
+      );
+
+      // step 7: delete module
+      await runStep("delModuleResult", async () => {
+        this.logger.logInfo(
+          `ModuleService::purgeModule()/foundModule[0].moduleId : ${foundModule[0].moduleId}`
+        );
+        await this.deleteI(req, res, {
+          where: { moduleId: foundModule[0].moduleId },
+        });
+      });
+
+      // (optional) step 8: delete application data
+
+      // ✅ Success
+      this.logger.logInfo(
+        "ModuleService::purgeModule()/All steps completed successfully"
+      );
+      this.b.i.app_msg = `module ${moduleName} purged successfully`;
+      await this.b.setAppState(true, this.b.i, svSess.sessResp);
+      this.b.cdResp.data = results;
+      return await this.b.respond(req, res);
+    } catch (e) {
+      // Fallback error catch (unexpected errors)
+      this.logger.logError("ModuleService::purgeModule()/unexpected:", e);
+      this.b.err.push(e.toString());
+      this.b.i.app_msg = "Purge Module Failed";
+      await this.b.serviceErr(req, res, e, "purgeModule");
+      return await this.b.respond(req, res);
+    }
+  }
+```
+
+```log
+[9/18/2025, 8:45:13 PM] [INFO]: ModuleService::purgeModule()/foundModule: [CONTEXT] -> 
+[
+  ModuleViewModel {
+    moduleId: 476,
+    moduleGuid: 'f58e0e8e-4dd0-4ab5-8012-4ab2be971456',
+    moduleName: 'cd-ai',
+    moduleDescription: null,
+    moduleTypeId: null,
+    moduleIsPublic: null,
+    isSysModule: 0,
+    docId: 21803,
+    moduleEnabled: 1,
+    groupGuid: 'f58e0e8e-4dd0-4ab5-8012-4ab2be971456',
+    groupName: 'cd-ai',
+    groupOwnerId: 1010,
+    groupTypeId: 2,
+    companyId: 85
+  }
+]
+[9/18/2025, 8:45:13 PM] [INFO]: ModuleService::purgeModule()/foundModule[0].moduleId: 476 [CONTEXT] -> {}
+[9/18/2025, 8:45:13 PM] [INFO]: MenuService::getMenu/q: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 8:45:13 PM] [DEBUG]: BaseService::read()/01 [CONTEXT] -> {}
+[9/18/2025, 8:45:13 PM] [DEBUG]: BaseService::init()/01: [CONTEXT] -> {}
+[9/18/2025, 8:45:13 PM] [DEBUG]: BaseService::init()/02: [CONTEXT] -> {}
+[9/18/2025, 8:45:13 PM] [DEBUG]: TypeOrmDatasource::getConnection()/01: [CONTEXT] -> {}
+[9/18/2025, 8:45:13 PM] [DEBUG]: TypeOrmDatasource::getConnection()/03: [CONTEXT] -> {}
+[9/18/2025, 8:45:13 PM] [DEBUG]: BaseService::init()/this.models: [CONTEXT] -> 
+
+[9/18/2025, 8:45:13 PM] [DEBUG]: BaseService::read()/02 [CONTEXT] -> {}
+[9/18/2025, 8:45:13 PM] [DEBUG]: BaseService::read()/serviceInput: [CONTEXT] -> 
+{
+  serviceModel: [class MenuViewModel],
+  docName: 'MenuService::getMenu',
+  cmd: { action: 'find', query: { where: [Object] } },
+  dSource: 1
+}
+[9/18/2025, 8:45:13 PM] [DEBUG]: BaseService::read()/03 [CONTEXT] -> {}
+[9/18/2025, 8:45:13 PM] [DEBUG]: BaseService::read()/031 [CONTEXT] -> {}
+[9/18/2025, 8:45:13 PM] [DEBUG]: BaseService::read()/04/serviceInput.serviceModel: [CONTEXT] -> 
+class MenuViewModel {
+}
+[9/18/2025, 8:45:13 PM] [DEBUG]: BaseService::read()/04/serviceInput.modelName: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 8:45:13 PM] [DEBUG]: BaseService::read()/041 [CONTEXT] -> {}
+[9/18/2025, 8:45:13 PM] [DEBUG]: BaseService::read()/this.repo: [CONTEXT] -> 
+<ref *1> Repository {
+  target: [class MenuViewModel],
+  manager: <ref *2> EntityManager {
+    '@instanceof': Symbol(EntityManager),
+    repositories: Map(3) {
+      [class SessionModel] => [Repository],
+      [class ModuleViewModel] => [Repository],
+      [class MenuViewModel] => [Circular *1]
+    },
+    treeRepositories: [],
+    plainObjectToEntityTransformer: PlainObjectToNewEntityTransformer {},
+    connection: DataSource {
+      '@instanceof': Symbol(DataSource),
+      migrations: [],
+      subscribers: [],
+      entityMetadatas: [Array],
+      entityMetadatasMap: [Map],
+      name: 'default',
+      options: [Object],
+      logger: [AdvancedConsoleLogger],
+      driver: [MysqlDriver],
+      manager: [Circular *2],
+      namingStrategy: [DefaultNamingStrategy],
+      metadataTableName: 'typeorm_metadata',
+      queryResultCache: undefined,
+      relationLoader: [RelationLoader],
+      relationIdLoader: [RelationIdLoader],
+      isInitialized: true
+    }
+  },
+  queryRunner: undefined
+}
+query: SELECT `MenuViewModel`.`menu_id` AS `MenuViewModel_menu_id`, `MenuViewModel`.`menu_name` AS `MenuViewModel_menu_name`, `MenuViewModel`.`menu_label` AS `MenuViewModel_menu_label`, `MenuViewModel`.`menu_guid` AS `MenuViewModel_menu_guid`, `MenuViewModel`.`closet_file` AS `MenuViewModel_closet_file`, `MenuViewModel`.`cd_obj_id` AS `MenuViewModel_cd_obj_id`, `MenuViewModel`.`menu_enabled` AS `MenuViewModel_menu_enabled`, `MenuViewModel`.`menu_description` AS `MenuViewModel_menu_description`, `MenuViewModel`.`menu_icon` AS `MenuViewModel_menu_icon`, `MenuViewModel`.`icon_type` AS `MenuViewModel_icon_type`, `MenuViewModel`.`doc_id` AS `MenuViewModel_doc_id`, `MenuViewModel`.`menu_parent_id` AS `MenuViewModel_menu_parent_id`, `MenuViewModel`.`path` AS `MenuViewModel_path`, `MenuViewModel`.`is_title` AS `MenuViewModel_is_title`, `MenuViewModel`.`badge` AS `MenuViewModel_badge`, `MenuViewModel`.`is_layout` AS `MenuViewModel_is_layout`, `MenuViewModel`.`module_id` AS `MenuViewModel_module_id`, `MenuViewModel`.`module_guid` AS `MenuViewModel_module_guid`, `MenuViewModel`.`module_name` AS `MenuViewModel_module_name`, `MenuViewModel`.`module_is_public` AS `MenuViewModel_module_is_public`, `MenuViewModel`.`is_sys_module` AS `MenuViewModel_is_sys_module`, `MenuViewModel`.`children` AS `MenuViewModel_children`, `MenuViewModel`.`menu_action` AS `MenuViewModel_menu_action`, `MenuViewModel`.`cd_obj_name` AS `MenuViewModel_cd_obj_name`, `MenuViewModel`.`last_sync_date` AS `MenuViewModel_last_sync_date`, `MenuViewModel`.`cd_obj_disp_name` AS `MenuViewModel_cd_obj_disp_name`, `MenuViewModel`.`cd_obj_guid` AS `MenuViewModel_cd_obj_guid`, `MenuViewModel`.`cd_obj_type_guid` AS `MenuViewModel_cd_obj_type_guid`, `MenuViewModel`.`last_modification_date` AS `MenuViewModel_last_modification_date`, `MenuViewModel`.`parent_module_guid` AS `MenuViewModel_parent_module_guid`, `MenuViewModel`.`parent_class_guid` AS `MenuViewModel_parent_class_guid`, `MenuViewModel`.`parent_obj` AS `MenuViewModel_parent_obj`, `MenuViewModel`.`show_name` AS `MenuViewModel_show_name`, `MenuViewModel`.`icon` AS `MenuViewModel_icon`, `MenuViewModel`.`show_icon` AS `MenuViewModel_show_icon`, `MenuViewModel`.`curr_val` AS `MenuViewModel_curr_val`, `MenuViewModel`.`cd_obj_enabled` AS `MenuViewModel_cd_obj_enabled`, `MenuViewModel`.`menu_is_public` AS `MenuViewModel_menu_is_public` FROM `menu_view` `MenuViewModel` WHERE ((`MenuViewModel`.`module_id` = ?)) -- PARAMETERS: [476]
+[9/18/2025, 8:45:13 PM] [DEBUG]: BaseService::read()/04/r: [CONTEXT] -> 
+
+[9/18/2025, 8:45:13 PM] [DEBUG]: BaseService::read()/06 [CONTEXT] -> {}
+[9/18/2025, 8:45:13 PM] [INFO]: ModuleService::purgeModule()/foundMenu: [CONTEXT] -> 
+undefined
+[9/18/2025, 8:45:13 PM] [INFO]: ModuleService::purgeModule()/foundMenu: [CONTEXT] -> 
+undefined
+[9/18/2025, 8:45:13 PM] [INFO]: ModuleService::purgeModule()/foundModule[0].moduleId: 476 [CONTEXT] -> {}
+[9/18/2025, 8:45:13 PM] [DEBUG]: BaseService::delete()/01 [CONTEXT] -> {}
+[9/18/2025, 8:45:13 PM] [DEBUG]: BaseService::init()/01: [CONTEXT] -> {}
+[9/18/2025, 8:45:13 PM] [DEBUG]: BaseService::init()/this.models: [CONTEXT] -> 
+
+[9/18/2025, 8:45:13 PM] [DEBUG]: BaseService::delete()/repo/model: [CONTEXT] -> 
+class MenuModel {
+}
+query: DELETE FROM `menu` WHERE `module_id` = ? -- PARAMETERS: [476]
+[9/18/2025, 8:45:13 PM] [INFO]: ModuleService::purgeModule()/delMenuResult: [CONTEXT] -> 
+undefined
+CdObjService::getCdObjI/f: {
+  where: {
+    cdObjName: 'cd-ai',
+    cdObjTypeGuid: '809a6e31-9fb1-4874-b61a-38cf2708a3bb'
+  }
+}
+[9/18/2025, 8:45:13 PM] [DEBUG]: BaseService::read()/01 [CONTEXT] -> {}
+[9/18/2025, 8:45:13 PM] [DEBUG]: BaseService::init()/01: [CONTEXT] -> {}
+[9/18/2025, 8:45:13 PM] [DEBUG]: BaseService::init()/02: [CONTEXT] -> {}
+[9/18/2025, 8:45:13 PM] [DEBUG]: TypeOrmDatasource::getConnection()/01: [CONTEXT] -> {}
+[9/18/2025, 8:45:13 PM] [DEBUG]: TypeOrmDatasource::getConnection()/03: [CONTEXT] -> {}
+[9/18/2025, 8:45:13 PM] [DEBUG]: BaseService::init()/this.models: [CONTEXT] -> 
+
+[9/18/2025, 8:45:13 PM] [DEBUG]: BaseService::read()/02 [CONTEXT] -> {}
+[9/18/2025, 8:45:13 PM] [DEBUG]: BaseService::read()/serviceInput: [CONTEXT] -> 
+{
+  serviceModel: [class CdObjViewModel],
+  docName: 'CdObjService::getCdObjI',
+  cmd: { action: 'find', query: { where: [Object] } },
+  dSource: 1
+}
+[9/18/2025, 8:45:13 PM] [DEBUG]: BaseService::read()/03 [CONTEXT] -> {}
+[9/18/2025, 8:45:13 PM] [DEBUG]: BaseService::read()/031 [CONTEXT] -> {}
+[9/18/2025, 8:45:13 PM] [DEBUG]: BaseService::read()/04/serviceInput.serviceModel: [CONTEXT] -> 
+class CdObjViewModel {
+}
+[9/18/2025, 8:45:13 PM] [DEBUG]: BaseService::read()/04/serviceInput.modelName: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 8:45:13 PM] [DEBUG]: BaseService::read()/041 [CONTEXT] -> {}
+[9/18/2025, 8:45:13 PM] [DEBUG]: BaseService::read()/this.repo: [CONTEXT] -> 
+<ref *1> Repository {
+  target: [class CdObjViewModel],
+  manager: <ref *2> EntityManager {
+    '@instanceof': Symbol(EntityManager),
+    repositories: Map(5) {
+      [class SessionModel] => [Repository],
+      [class ModuleViewModel] => [Repository],
+      [class MenuViewModel] => [Repository],
+      [class MenuModel] => [Repository],
+      [class CdObjViewModel] => [Circular *1]
+    },
+    treeRepositories: [],
+    plainObjectToEntityTransformer: PlainObjectToNewEntityTransformer {},
+    connection: DataSource {
+      '@instanceof': Symbol(DataSource),
+      migrations: [],
+      subscribers: [],
+      entityMetadatas: [Array],
+      entityMetadatasMap: [Map],
+      name: 'default',
+      options: [Object],
+      logger: [AdvancedConsoleLogger],
+      driver: [MysqlDriver],
+      manager: [Circular *2],
+      namingStrategy: [DefaultNamingStrategy],
+      metadataTableName: 'typeorm_metadata',
+      queryResultCache: undefined,
+      relationLoader: [RelationLoader],
+      relationIdLoader: [RelationIdLoader],
+      isInitialized: true
+    }
+  },
+  queryRunner: undefined
+}
+query: SELECT `CdObjViewModel`.`cd_obj_id` AS `CdObjViewModel_cd_obj_id`, `CdObjViewModel`.`cd_obj_guid` AS `CdObjViewModel_cd_obj_guid`, `CdObjViewModel`.`cd_obj_name` AS `CdObjViewModel_cd_obj_name`, `CdObjViewModel`.`cd_obj_type_guid` AS `CdObjViewModel_cd_obj_type_guid`, `CdObjViewModel`.`last_sync_date` AS `CdObjViewModel_last_sync_date`, `CdObjViewModel`.`last_modification_date` AS `CdObjViewModel_last_modification_date`, `CdObjViewModel`.`parent_module_guid` AS `CdObjViewModel_parent_module_guid`, `CdObjViewModel`.`parent_class_guid` AS `CdObjViewModel_parent_class_guid`, `CdObjViewModel`.`parent_obj` AS `CdObjViewModel_parent_obj`, `CdObjViewModel`.`cd_obj_disp_name` AS `CdObjViewModel_cd_obj_disp_name`, `CdObjViewModel`.`cd_obj_type_id` AS `CdObjViewModel_cd_obj_type_id`, `CdObjViewModel`.`cd_obj_type_name` AS `CdObjViewModel_cd_obj_type_name`, `CdObjViewModel`.`module_name` AS `CdObjViewModel_module_name`, `CdObjViewModel`.`show_name` AS `CdObjViewModel_show_name`, `CdObjViewModel`.`icon` AS `CdObjViewModel_icon`, `CdObjViewModel`.`show_icon` AS `CdObjViewModel_show_icon`, `CdObjViewModel`.`curr_val` AS `CdObjViewModel_curr_val`, `CdObjViewModel`.`cd_obj_enabled` AS `CdObjViewModel_cd_obj_enabled` FROM `cd_obj_view` `CdObjViewModel` WHERE ((`CdObjViewModel`.`cd_obj_name` = ?) AND (`CdObjViewModel`.`cd_obj_type_guid` = ?)) -- PARAMETERS: ["cd-ai","809a6e31-9fb1-4874-b61a-38cf2708a3bb"]
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::read()/04/r: [CONTEXT] -> 
+[object Object],[object Object],[object Object],[object Object]
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::read()/06 [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [INFO]: ModuleService::purgeModule()/foundCdObj: [CONTEXT] -> 
+undefined
+[9/18/2025, 8:45:14 PM] [INFO]: ModuleService::purgeModule()/foundCdObj: [CONTEXT] -> 
+undefined
+[9/18/2025, 8:45:14 PM] [ERROR]: ModuleService::purgeModule()/delConsumerResourceResult/error: [CONTEXT] -> 
+TypeError: Cannot read properties of undefined (reading '0')
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::setAppState()/01 [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::setAppState()/ss: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::setAppState()/01 [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::setAppState()/02 [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::setAppState()/ss: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 8:45:14 PM] [DEBUG]: **********starting respond(res)********* [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::respond(res)/this.pl: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::respond(res)/this.cdResp: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 8:45:14 PM] [DEBUG]: **********starting preFlight(res)********* [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::getPlData()/this.cdResp: [CONTEXT] -> 
+{"app_state":{"success":false,"info":{"messages":["TypeError: Cannot read properties of undefined (reading '0')","TypeError: Cannot read properties of undefined (reading '0')"],"code":"delConsumerResourceResult","app_msg":"Error at delConsumerResourceResult: TypeError: Cannot read properties of undefined (reading '0')"},"sess":{"cd_token":"d33bb2d3-f4d5-42b4-8e31-44fed3e29826","jwt":null,"ttl":600},"cache":{},"sConfig":{"usePush":true,"usePolling":true,"useCacheStore":true}},"data":[]}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::getPlData()/15 [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: **********starting respond(res)********* [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::respond(res)/this.pl: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::respond(res)/this.cdResp: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 8:45:14 PM] [DEBUG]: **********starting preFlight(res)********* [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::getPlData()/this.cdResp: [CONTEXT] -> 
+{"app_state":{"success":false,"info":{"messages":["TypeError: Cannot read properties of undefined (reading '0')","TypeError: Cannot read properties of undefined (reading '0')"],"code":"delConsumerResourceResult","app_msg":"Error at delConsumerResourceResult: TypeError: Cannot read properties of undefined (reading '0')"},"sess":{"cd_token":"d33bb2d3-f4d5-42b4-8e31-44fed3e29826","jwt":null,"ttl":600},"cache":{},"sConfig":{"usePush":true,"usePolling":true,"useCacheStore":true}},"data":[]}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::getPlData()/15 [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [ERROR]: ModuleService::purgeModule()/delCdObjResult/error: [CONTEXT] -> 
+TypeError: Cannot read properties of undefined (reading '0')
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::setAppState()/01 [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::setAppState()/ss: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::setAppState()/01 [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::setAppState()/02 [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::setAppState()/ss: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 8:45:14 PM] [DEBUG]: **********starting respond(res)********* [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::respond(res)/this.pl: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::respond(res)/this.cdResp: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 8:45:14 PM] [DEBUG]: **********starting preFlight(res)********* [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::getPlData()/this.cdResp: [CONTEXT] -> 
+{"app_state":{"success":false,"info":{"messages":["TypeError: Cannot read properties of undefined (reading '0')","TypeError: Cannot read properties of undefined (reading '0')","Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client","TypeError: Cannot read properties of undefined (reading '0')","TypeError: Cannot read properties of undefined (reading '0')"],"code":"delCdObjResult","app_msg":"Error at delCdObjResult: TypeError: Cannot read properties of undefined (reading '0')"},"sess":{"cd_token":"d33bb2d3-f4d5-42b4-8e31-44fed3e29826","jwt":null,"ttl":600},"cache":{},"sConfig":{"usePush":true,"usePolling":true,"useCacheStore":true}},"data":[]}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::getPlData()/15 [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: **********starting respond(res)********* [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::respond(res)/this.pl: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::respond(res)/this.cdResp: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 8:45:14 PM] [DEBUG]: **********starting preFlight(res)********* [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::getPlData()/this.cdResp: [CONTEXT] -> 
+{"app_state":{"success":false,"info":{"messages":["TypeError: Cannot read properties of undefined (reading '0')","TypeError: Cannot read properties of undefined (reading '0')","Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client","TypeError: Cannot read properties of undefined (reading '0')","TypeError: Cannot read properties of undefined (reading '0')","Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client"],"code":"delCdObjResult","app_msg":"Error at delCdObjResult: TypeError: Cannot read properties of undefined (reading '0')"},"sess":{"cd_token":"d33bb2d3-f4d5-42b4-8e31-44fed3e29826","jwt":null,"ttl":600},"cache":{},"sConfig":{"usePush":true,"usePolling":true,"useCacheStore":true}},"data":[]}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::getPlData()/15 [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [INFO]: ModuleService::purgeModule()/foundModule[0].moduleGuid: f58e0e8e-4dd0-4ab5-8012-4ab2be971456 [CONTEXT] -> {}
+GroupService::getGroupI/f: { where: { groupGuid: 'f58e0e8e-4dd0-4ab5-8012-4ab2be971456' } }
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::read()/01 [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::init()/01: [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::init()/02: [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: TypeOrmDatasource::getConnection()/01: [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: TypeOrmDatasource::getConnection()/03: [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::init()/this.models: [CONTEXT] -> 
+
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::read()/02 [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::read()/serviceInput: [CONTEXT] -> 
+{
+  serviceModel: [class GroupModel],
+  docName: 'GroupService::getGroupI',
+  cmd: { action: 'find', query: { where: [Object] } },
+  dSource: 1
+}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::read()/03 [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::read()/031 [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::read()/04/serviceInput.serviceModel: [CONTEXT] -> 
+class GroupModel {
+}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::read()/04/serviceInput.modelName: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::read()/041 [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::read()/this.repo: [CONTEXT] -> 
+<ref *1> Repository {
+  target: [class GroupModel],
+  manager: <ref *2> EntityManager {
+    '@instanceof': Symbol(EntityManager),
+    repositories: Map(6) {
+      [class SessionModel] => [Repository],
+      [class ModuleViewModel] => [Repository],
+      [class MenuViewModel] => [Repository],
+      [class MenuModel] => [Repository],
+      [class CdObjViewModel] => [Repository],
+      [class GroupModel] => [Circular *1]
+    },
+    treeRepositories: [],
+    plainObjectToEntityTransformer: PlainObjectToNewEntityTransformer {},
+    connection: DataSource {
+      '@instanceof': Symbol(DataSource),
+      migrations: [],
+      subscribers: [],
+      entityMetadatas: [Array],
+      entityMetadatasMap: [Map],
+      name: 'default',
+      options: [Object],
+      logger: [AdvancedConsoleLogger],
+      driver: [MysqlDriver],
+      manager: [Circular *2],
+      namingStrategy: [DefaultNamingStrategy],
+      metadataTableName: 'typeorm_metadata',
+      queryResultCache: undefined,
+      relationLoader: [RelationLoader],
+      relationIdLoader: [RelationIdLoader],
+      isInitialized: true
+    }
+  },
+  queryRunner: undefined
+}
+query: SELECT `GroupModel`.`group_id` AS `GroupModel_group_id`, `GroupModel`.`group_guid` AS `GroupModel_group_guid`, `GroupModel`.`group_name` AS `GroupModel_group_name`, `GroupModel`.`group_description` AS `GroupModel_group_description`, `GroupModel`.`doc_id` AS `GroupModel_doc_id`, `GroupModel`.`group_owner_id` AS `GroupModel_group_owner_id`, `GroupModel`.`group_type_id` AS `GroupModel_group_type_id`, `GroupModel`.`module_guid` AS `GroupModel_module_guid`, `GroupModel`.`company_id` AS `GroupModel_company_id`, `GroupModel`.`consumer_guid` AS `GroupModel_consumer_guid`, `GroupModel`.`group_is_public` AS `GroupModel_group_is_public`, `GroupModel`.`group_enabled` AS `GroupModel_group_enabled` FROM `group` `GroupModel` WHERE ((`GroupModel`.`group_guid` = ?)) -- PARAMETERS: ["f58e0e8e-4dd0-4ab5-8012-4ab2be971456"]
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::read()/04/r: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::read()/06 [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [INFO]: ModuleService::purgeModule()/foundGroup: [CONTEXT] -> 
+undefined
+[9/18/2025, 8:45:14 PM] [ERROR]: ModuleService::purgeModule()/delGroupMembersResult/error: [CONTEXT] -> 
+TypeError: Cannot read properties of undefined (reading '0')
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::setAppState()/01 [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::setAppState()/ss: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::setAppState()/01 [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::setAppState()/02 [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::setAppState()/ss: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 8:45:14 PM] [DEBUG]: **********starting respond(res)********* [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::respond(res)/this.pl: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::respond(res)/this.cdResp: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 8:45:14 PM] [DEBUG]: **********starting preFlight(res)********* [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::getPlData()/this.cdResp: [CONTEXT] -> 
+{"app_state":{"success":false,"info":{"messages":["TypeError: Cannot read properties of undefined (reading '0')","TypeError: Cannot read properties of undefined (reading '0')","Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client","TypeError: Cannot read properties of undefined (reading '0')","TypeError: Cannot read properties of undefined (reading '0')","Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client","Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client","TypeError: Cannot read properties of undefined (reading '0')","TypeError: Cannot read properties of undefined (reading '0')"],"code":"delGroupMembersResult","app_msg":"Error at delGroupMembersResult: TypeError: Cannot read properties of undefined (reading '0')"},"sess":{"cd_token":"d33bb2d3-f4d5-42b4-8e31-44fed3e29826","jwt":null,"ttl":600},"cache":{},"sConfig":{"usePush":true,"usePolling":true,"useCacheStore":true}},"data":[]}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::getPlData()/15 [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: **********starting respond(res)********* [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::respond(res)/this.pl: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::respond(res)/this.cdResp: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 8:45:14 PM] [DEBUG]: **********starting preFlight(res)********* [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::getPlData()/this.cdResp: [CONTEXT] -> 
+{"app_state":{"success":false,"info":{"messages":["TypeError: Cannot read properties of undefined (reading '0')","TypeError: Cannot read properties of undefined (reading '0')","Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client","TypeError: Cannot read properties of undefined (reading '0')","TypeError: Cannot read properties of undefined (reading '0')","Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client","Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client","TypeError: Cannot read properties of undefined (reading '0')","TypeError: Cannot read properties of undefined (reading '0')","Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client"],"code":"delGroupMembersResult","app_msg":"Error at delGroupMembersResult: TypeError: Cannot read properties of undefined (reading '0')"},"sess":{"cd_token":"d33bb2d3-f4d5-42b4-8e31-44fed3e29826","jwt":null,"ttl":600},"cache":{},"sConfig":{"usePush":true,"usePolling":true,"useCacheStore":true}},"data":[]}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::getPlData()/15 [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [ERROR]: ModuleService::purgeModule()/delGroupResult/error: [CONTEXT] -> 
+TypeError: Cannot read properties of undefined (reading '0')
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::setAppState()/01 [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::setAppState()/ss: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::setAppState()/01 [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::setAppState()/02 [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::setAppState()/ss: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 8:45:14 PM] [DEBUG]: **********starting respond(res)********* [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::respond(res)/this.pl: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::respond(res)/this.cdResp: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 8:45:14 PM] [DEBUG]: **********starting preFlight(res)********* [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::getPlData()/this.cdResp: [CONTEXT] -> 
+{"app_state":{"success":false,"info":{"messages":["TypeError: Cannot read properties of undefined (reading '0')","TypeError: Cannot read properties of undefined (reading '0')","Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client","TypeError: Cannot read properties of undefined (reading '0')","TypeError: Cannot read properties of undefined (reading '0')","Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client","Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client","TypeError: Cannot read properties of undefined (reading '0')","TypeError: Cannot read properties of undefined (reading '0')","Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client","Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client","TypeError: Cannot read properties of undefined (reading '0')","TypeError: Cannot read properties of undefined (reading '0')"],"code":"delGroupResult","app_msg":"Error at delGroupResult: TypeError: Cannot read properties of undefined (reading '0')"},"sess":{"cd_token":"d33bb2d3-f4d5-42b4-8e31-44fed3e29826","jwt":null,"ttl":600},"cache":{},"sConfig":{"usePush":true,"usePolling":true,"useCacheStore":true}},"data":[]}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::getPlData()/15 [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: **********starting respond(res)********* [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::respond(res)/this.pl: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::respond(res)/this.cdResp: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 8:45:14 PM] [DEBUG]: **********starting preFlight(res)********* [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::getPlData()/this.cdResp: [CONTEXT] -> 
+{"app_state":{"success":false,"info":{"messages":["TypeError: Cannot read properties of undefined (reading '0')","TypeError: Cannot read properties of undefined (reading '0')","Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client","TypeError: Cannot read properties of undefined (reading '0')","TypeError: Cannot read properties of undefined (reading '0')","Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client","Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client","TypeError: Cannot read properties of undefined (reading '0')","TypeError: Cannot read properties of undefined (reading '0')","Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client","Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client","TypeError: Cannot read properties of undefined (reading '0')","TypeError: Cannot read properties of undefined (reading '0')","Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client"],"code":"delGroupResult","app_msg":"Error at delGroupResult: TypeError: Cannot read properties of undefined (reading '0')"},"sess":{"cd_token":"d33bb2d3-f4d5-42b4-8e31-44fed3e29826","jwt":null,"ttl":600},"cache":{},"sConfig":{"usePush":true,"usePolling":true,"useCacheStore":true}},"data":[]}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::getPlData()/15 [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [INFO]: ModuleService::purgeModule()/foundModule[0].moduleId : 476 [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::delete()/01 [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::init()/01: [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::init()/this.models: [CONTEXT] -> 
+
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::delete()/repo/model: [CONTEXT] -> 
+class ModuleModel {
+}
+[9/18/2025, 8:45:14 PM] [ERROR]: ModuleService::purgeModule()/delModuleResult/error: [CONTEXT] -> 
+TypeError: Cannot read properties of undefined (reading 'where')
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::setAppState()/01 [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::setAppState()/ss: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::setAppState()/01 [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::setAppState()/02 [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::setAppState()/ss: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 8:45:14 PM] [DEBUG]: **********starting respond(res)********* [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::respond(res)/this.pl: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::respond(res)/this.cdResp: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 8:45:14 PM] [DEBUG]: **********starting preFlight(res)********* [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::getPlData()/this.cdResp: [CONTEXT] -> 
+{"app_state":{"success":false,"info":{"messages":["TypeError: Cannot read properties of undefined (reading '0')","TypeError: Cannot read properties of undefined (reading '0')","Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client","TypeError: Cannot read properties of undefined (reading '0')","TypeError: Cannot read properties of undefined (reading '0')","Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client","Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client","TypeError: Cannot read properties of undefined (reading '0')","TypeError: Cannot read properties of undefined (reading '0')","Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client","Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client","TypeError: Cannot read properties of undefined (reading '0')","TypeError: Cannot read properties of undefined (reading '0')","Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client","Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client","TypeError: Cannot read properties of undefined (reading 'where')","TypeError: Cannot read properties of undefined (reading 'where')"],"code":"delModuleResult","app_msg":"Error at delModuleResult: TypeError: Cannot read properties of undefined (reading 'where')"},"sess":{"cd_token":"d33bb2d3-f4d5-42b4-8e31-44fed3e29826","jwt":null,"ttl":600},"cache":{},"sConfig":{"usePush":true,"usePolling":true,"useCacheStore":true}},"data":[]}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::getPlData()/15 [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: **********starting respond(res)********* [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::respond(res)/this.pl: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::respond(res)/this.cdResp: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 8:45:14 PM] [DEBUG]: **********starting preFlight(res)********* [CONTEXT] -> {}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::getPlData()/this.cdResp: [CONTEXT] -> 
+{"app_state":{"success":false,"info":{"messages":["TypeError: Cannot read properties of undefined (reading '0')","TypeError: Cannot read properties of undefined (reading '0')","Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client","TypeError: Cannot read properties of undefined (reading '0')","TypeError: Cannot read properties of undefined (reading '0')","Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client","Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client","TypeError: Cannot read properties of undefined (reading '0')","TypeError: Cannot read properties of undefined (reading '0')","Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client","Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client","TypeError: Cannot read properties of undefined (reading '0')","TypeError: Cannot read properties of undefined (reading '0')","Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client","Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client","TypeError: Cannot read properties of undefined (reading 'where')","TypeError: Cannot read properties of undefined (reading 'where')","Error [ERR_HTTP_HEADERS_SENT]: Cannot set headers after they are sent to the client"],"code":"delModuleResult","app_msg":"Error at delModuleResult: TypeError: Cannot read properties of undefined (reading 'where')"},"sess":{"cd_token":"d33bb2d3-f4d5-42b4-8e31-44fed3e29826","jwt":null,"ttl":600},"cache":{},"sConfig":{"usePush":true,"usePolling":true,"useCacheStore":true}},"data":[]}
+[9/18/2025, 8:45:14 PM] [DEBUG]: BaseService::getPlData()/15 [CONTEXT] -> {}
+```
+/////////////////////////////////////////////////////////
+Below are the logs from what you have just submitted.
+Are you able to tel where this error:
+Cannot read properties of undefined (reading 'where')
+Is arising from.
+```log
+[9/18/2025, 10:19:34 PM] [INFO]: ModuleService::purgeModule()/foundModule/result: [CONTEXT] -> 
+[
+  ModuleViewModel {
+    moduleId: 477,
+    moduleGuid: '97a420f5-cc37-45d5-8148-926cfc3a6d34',
+    moduleName: 'cd-ai',
+    moduleDescription: null,
+    moduleTypeId: null,
+    moduleIsPublic: null,
+    isSysModule: 0,
+    docId: 21808,
+    moduleEnabled: 1,
+    groupGuid: '97a420f5-cc37-45d5-8148-926cfc3a6d34',
+    groupName: 'cd-ai',
+    groupOwnerId: 1010,
+    groupTypeId: 2,
+    companyId: 85
+  }
+]
+[9/18/2025, 10:19:34 PM] [INFO]: ModuleService::purgeModule()/foundMenu/where: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 10:19:34 PM] [INFO]: MenuService::getMenu/q: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::read()/01 [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::init()/01: [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::init()/02: [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: TypeOrmDatasource::getConnection()/01: [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: TypeOrmDatasource::getConnection()/03: [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::init()/this.models: [CONTEXT] -> 
+
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::read()/02 [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::read()/serviceInput: [CONTEXT] -> 
+{
+  serviceModel: [class MenuViewModel],
+  docName: 'MenuService::getMenu',
+  cmd: { action: 'find', query: { where: [Object] } },
+  dSource: 1
+}
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::read()/03 [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::read()/031 [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::read()/04/serviceInput.serviceModel: [CONTEXT] -> 
+class MenuViewModel {
+}
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::read()/04/serviceInput.modelName: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::read()/041 [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::read()/this.repo: [CONTEXT] -> 
+<ref *1> Repository {
+  target: [class MenuViewModel],
+  manager: <ref *2> EntityManager {
+    '@instanceof': Symbol(EntityManager),
+    repositories: Map(3) {
+      [class SessionModel] => [Repository],
+      [class ModuleViewModel] => [Repository],
+      [class MenuViewModel] => [Circular *1]
+    },
+    treeRepositories: [],
+    plainObjectToEntityTransformer: PlainObjectToNewEntityTransformer {},
+    connection: DataSource {
+      '@instanceof': Symbol(DataSource),
+      migrations: [],
+      subscribers: [],
+      entityMetadatas: [Array],
+      entityMetadatasMap: [Map],
+      name: 'default',
+      options: [Object],
+      logger: [AdvancedConsoleLogger],
+      driver: [MysqlDriver],
+      manager: [Circular *2],
+      namingStrategy: [DefaultNamingStrategy],
+      metadataTableName: 'typeorm_metadata',
+      queryResultCache: undefined,
+      relationLoader: [RelationLoader],
+      relationIdLoader: [RelationIdLoader],
+      isInitialized: true
+    }
+  },
+  queryRunner: undefined
+}
+query: SELECT `MenuViewModel`.`menu_id` AS `MenuViewModel_menu_id`, `MenuViewModel`.`menu_name` AS `MenuViewModel_menu_name`, `MenuViewModel`.`menu_label` AS `MenuViewModel_menu_label`, `MenuViewModel`.`menu_guid` AS `MenuViewModel_menu_guid`, `MenuViewModel`.`closet_file` AS `MenuViewModel_closet_file`, `MenuViewModel`.`cd_obj_id` AS `MenuViewModel_cd_obj_id`, `MenuViewModel`.`menu_enabled` AS `MenuViewModel_menu_enabled`, `MenuViewModel`.`menu_description` AS `MenuViewModel_menu_description`, `MenuViewModel`.`menu_icon` AS `MenuViewModel_menu_icon`, `MenuViewModel`.`icon_type` AS `MenuViewModel_icon_type`, `MenuViewModel`.`doc_id` AS `MenuViewModel_doc_id`, `MenuViewModel`.`menu_parent_id` AS `MenuViewModel_menu_parent_id`, `MenuViewModel`.`path` AS `MenuViewModel_path`, `MenuViewModel`.`is_title` AS `MenuViewModel_is_title`, `MenuViewModel`.`badge` AS `MenuViewModel_badge`, `MenuViewModel`.`is_layout` AS `MenuViewModel_is_layout`, `MenuViewModel`.`module_id` AS `MenuViewModel_module_id`, `MenuViewModel`.`module_guid` AS `MenuViewModel_module_guid`, `MenuViewModel`.`module_name` AS `MenuViewModel_module_name`, `MenuViewModel`.`module_is_public` AS `MenuViewModel_module_is_public`, `MenuViewModel`.`is_sys_module` AS `MenuViewModel_is_sys_module`, `MenuViewModel`.`children` AS `MenuViewModel_children`, `MenuViewModel`.`menu_action` AS `MenuViewModel_menu_action`, `MenuViewModel`.`cd_obj_name` AS `MenuViewModel_cd_obj_name`, `MenuViewModel`.`last_sync_date` AS `MenuViewModel_last_sync_date`, `MenuViewModel`.`cd_obj_disp_name` AS `MenuViewModel_cd_obj_disp_name`, `MenuViewModel`.`cd_obj_guid` AS `MenuViewModel_cd_obj_guid`, `MenuViewModel`.`cd_obj_type_guid` AS `MenuViewModel_cd_obj_type_guid`, `MenuViewModel`.`last_modification_date` AS `MenuViewModel_last_modification_date`, `MenuViewModel`.`parent_module_guid` AS `MenuViewModel_parent_module_guid`, `MenuViewModel`.`parent_class_guid` AS `MenuViewModel_parent_class_guid`, `MenuViewModel`.`parent_obj` AS `MenuViewModel_parent_obj`, `MenuViewModel`.`show_name` AS `MenuViewModel_show_name`, `MenuViewModel`.`icon` AS `MenuViewModel_icon`, `MenuViewModel`.`show_icon` AS `MenuViewModel_show_icon`, `MenuViewModel`.`curr_val` AS `MenuViewModel_curr_val`, `MenuViewModel`.`cd_obj_enabled` AS `MenuViewModel_cd_obj_enabled`, `MenuViewModel`.`menu_is_public` AS `MenuViewModel_menu_is_public` FROM `menu_view` `MenuViewModel` WHERE ((`MenuViewModel`.`module_id` = ?)) -- PARAMETERS: [477]
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::read()/04/r: [CONTEXT] -> 
+
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::read()/06 [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [INFO]: ModuleService::purgeModule()/foundMenu/result: [CONTEXT] -> 
+[]
+[9/18/2025, 10:19:34 PM] [INFO]: ModuleService::purgeModule()/delMenuResult/where: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::delete()/01 [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::init()/01: [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::init()/this.models: [CONTEXT] -> 
+
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::delete()/repo/model: [CONTEXT] -> 
+class MenuModel {
+}
+query: DELETE FROM `menu` WHERE `module_id` = ? -- PARAMETERS: [477]
+[9/18/2025, 10:19:34 PM] [INFO]: ModuleService::purgeModule()/delMenuResult/result: [CONTEXT] -> 
+DeleteResult { raw: [], affected: 0 }
+[9/18/2025, 10:19:34 PM] [INFO]: ModuleService::purgeModule()/foundCdObj/where: [CONTEXT] -> 
+[object Object]
+CdObjService::getCdObjI/f: {
+  where: {
+    cdObjName: 'cd-ai',
+    cdObjTypeGuid: '809a6e31-9fb1-4874-b61a-38cf2708a3bb'
+  }
+}
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::read()/01 [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::init()/01: [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::init()/02: [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: TypeOrmDatasource::getConnection()/01: [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: TypeOrmDatasource::getConnection()/03: [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::init()/this.models: [CONTEXT] -> 
+
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::read()/02 [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::read()/serviceInput: [CONTEXT] -> 
+{
+  serviceModel: [class CdObjViewModel],
+  docName: 'CdObjService::getCdObjI',
+  cmd: { action: 'find', query: { where: [Object] } },
+  dSource: 1
+}
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::read()/03 [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::read()/031 [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::read()/04/serviceInput.serviceModel: [CONTEXT] -> 
+class CdObjViewModel {
+}
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::read()/04/serviceInput.modelName: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::read()/041 [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::read()/this.repo: [CONTEXT] -> 
+<ref *1> Repository {
+  target: [class CdObjViewModel],
+  manager: <ref *2> EntityManager {
+    '@instanceof': Symbol(EntityManager),
+    repositories: Map(5) {
+      [class SessionModel] => [Repository],
+      [class ModuleViewModel] => [Repository],
+      [class MenuViewModel] => [Repository],
+      [class MenuModel] => [Repository],
+      [class CdObjViewModel] => [Circular *1]
+    },
+    treeRepositories: [],
+    plainObjectToEntityTransformer: PlainObjectToNewEntityTransformer {},
+    connection: DataSource {
+      '@instanceof': Symbol(DataSource),
+      migrations: [],
+      subscribers: [],
+      entityMetadatas: [Array],
+      entityMetadatasMap: [Map],
+      name: 'default',
+      options: [Object],
+      logger: [AdvancedConsoleLogger],
+      driver: [MysqlDriver],
+      manager: [Circular *2],
+      namingStrategy: [DefaultNamingStrategy],
+      metadataTableName: 'typeorm_metadata',
+      queryResultCache: undefined,
+      relationLoader: [RelationLoader],
+      relationIdLoader: [RelationIdLoader],
+      isInitialized: true
+    }
+  },
+  queryRunner: undefined
+}
+query: SELECT `CdObjViewModel`.`cd_obj_id` AS `CdObjViewModel_cd_obj_id`, `CdObjViewModel`.`cd_obj_guid` AS `CdObjViewModel_cd_obj_guid`, `CdObjViewModel`.`cd_obj_name` AS `CdObjViewModel_cd_obj_name`, `CdObjViewModel`.`cd_obj_type_guid` AS `CdObjViewModel_cd_obj_type_guid`, `CdObjViewModel`.`last_sync_date` AS `CdObjViewModel_last_sync_date`, `CdObjViewModel`.`last_modification_date` AS `CdObjViewModel_last_modification_date`, `CdObjViewModel`.`parent_module_guid` AS `CdObjViewModel_parent_module_guid`, `CdObjViewModel`.`parent_class_guid` AS `CdObjViewModel_parent_class_guid`, `CdObjViewModel`.`parent_obj` AS `CdObjViewModel_parent_obj`, `CdObjViewModel`.`cd_obj_disp_name` AS `CdObjViewModel_cd_obj_disp_name`, `CdObjViewModel`.`cd_obj_type_id` AS `CdObjViewModel_cd_obj_type_id`, `CdObjViewModel`.`cd_obj_type_name` AS `CdObjViewModel_cd_obj_type_name`, `CdObjViewModel`.`module_name` AS `CdObjViewModel_module_name`, `CdObjViewModel`.`show_name` AS `CdObjViewModel_show_name`, `CdObjViewModel`.`icon` AS `CdObjViewModel_icon`, `CdObjViewModel`.`show_icon` AS `CdObjViewModel_show_icon`, `CdObjViewModel`.`curr_val` AS `CdObjViewModel_curr_val`, `CdObjViewModel`.`cd_obj_enabled` AS `CdObjViewModel_cd_obj_enabled` FROM `cd_obj_view` `CdObjViewModel` WHERE ((`CdObjViewModel`.`cd_obj_name` = ?) AND (`CdObjViewModel`.`cd_obj_type_guid` = ?)) -- PARAMETERS: ["cd-ai","809a6e31-9fb1-4874-b61a-38cf2708a3bb"]
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::read()/04/r: [CONTEXT] -> 
+[object Object],[object Object],[object Object],[object Object],[object Object]
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::read()/06 [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [INFO]: ModuleService::purgeModule()/foundCdObj/result: [CONTEXT] -> 
+[
+  CdObjViewModel {
+    cdObjId: 93146,
+    cdObjGuid: '1b81e29c-1190-4486-b3bd-97073e077aae',
+    cdObjName: 'cd-ai',
+    cdObjTypeGuid: '809a6e31-9fb1-4874-b61a-38cf2708a3bb',
+    lastSyncDate: null,
+    lastModificationDate: null,
+    parentModuleGuid: '48753f8a-b262-471f-b175-1f0ec9e5206d',
+    parentClassGuid: null,
+    parentObj: null,
+    cdObjDispName: null,
+    cdObjTypeId: 39,
+    cdObjTypeName: 'CdModule',
+    moduleName: 'file_sys',
+    showName: null,
+    icon: null,
+    showIcon: null,
+    currVal: null,
+    cdObjEnabled: 1
+  },
+  CdObjViewModel {
+    cdObjId: 93147,
+    cdObjGuid: 'f5c7e9d4-b152-487e-bb65-866edfa3a6a6',
+    cdObjName: 'cd-ai',
+    cdObjTypeGuid: '809a6e31-9fb1-4874-b61a-38cf2708a3bb',
+    lastSyncDate: null,
+    lastModificationDate: null,
+    parentModuleGuid: '48753f8a-b262-471f-b175-1f0ec9e5206d',
+    parentClassGuid: null,
+    parentObj: null,
+    cdObjDispName: null,
+    cdObjTypeId: 39,
+    cdObjTypeName: 'CdModule',
+    moduleName: 'file_sys',
+    showName: null,
+    icon: null,
+    showIcon: null,
+    currVal: null,
+    cdObjEnabled: 1
+  },
+  CdObjViewModel {
+    cdObjId: 93148,
+    cdObjGuid: 'd4c38f55-a968-4dc0-99f5-148492b6da92',
+    cdObjName: 'cd-ai',
+    cdObjTypeGuid: '809a6e31-9fb1-4874-b61a-38cf2708a3bb',
+    lastSyncDate: null,
+    lastModificationDate: null,
+    parentModuleGuid: '48753f8a-b262-471f-b175-1f0ec9e5206d',
+    parentClassGuid: null,
+    parentObj: null,
+    cdObjDispName: null,
+    cdObjTypeId: 39,
+    cdObjTypeName: 'CdModule',
+    moduleName: 'file_sys',
+    showName: null,
+    icon: null,
+    showIcon: null,
+    currVal: null,
+    cdObjEnabled: 1
+  },
+  CdObjViewModel {
+    cdObjId: 93149,
+    cdObjGuid: 'a76949b4-2dfe-457c-97dc-f72294341b92',
+    cdObjName: 'cd-ai',
+    cdObjTypeGuid: '809a6e31-9fb1-4874-b61a-38cf2708a3bb',
+    lastSyncDate: null,
+    lastModificationDate: null,
+    parentModuleGuid: '48753f8a-b262-471f-b175-1f0ec9e5206d',
+    parentClassGuid: null,
+    parentObj: null,
+    cdObjDispName: null,
+    cdObjTypeId: 39,
+    cdObjTypeName: 'CdModule',
+    moduleName: 'file_sys',
+    showName: null,
+    icon: null,
+    showIcon: null,
+    currVal: null,
+    cdObjEnabled: 1
+  },
+  CdObjViewModel {
+    cdObjId: 93150,
+    cdObjGuid: '2036b9e1-84b3-400c-940d-f4751ba6fb68',
+    cdObjName: 'cd-ai',
+    cdObjTypeGuid: '809a6e31-9fb1-4874-b61a-38cf2708a3bb',
+    lastSyncDate: null,
+    lastModificationDate: null,
+    parentModuleGuid: '48753f8a-b262-471f-b175-1f0ec9e5206d',
+    parentClassGuid: null,
+    parentObj: null,
+    cdObjDispName: null,
+    cdObjTypeId: 39,
+    cdObjTypeName: 'CdModule',
+    moduleName: 'file_sys',
+    showName: null,
+    icon: null,
+    showIcon: null,
+    currVal: null,
+    cdObjEnabled: 1
+  }
+]
+[9/18/2025, 10:19:34 PM] [INFO]: ModuleService::purgeModule()/delConsumerResourceResult/where: [CONTEXT] -> 
+[object Object]
+ConsumerResourceService::deleteI()/q: { where: { cdObjId: 93146 } }
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::delete()/01 [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::init()/01: [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::init()/02: [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: TypeOrmDatasource::getConnection()/01: [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: TypeOrmDatasource::getConnection()/03: [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::init()/this.models: [CONTEXT] -> 
+
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::delete()/repo/model: [CONTEXT] -> 
+class ConsumerResourceModel {
+}
+query: DELETE FROM `consumer_resource` WHERE `cd_obj_id` = ? -- PARAMETERS: [93146]
+[9/18/2025, 10:19:34 PM] [INFO]: ModuleService::purgeModule()/delConsumerResourceResult/result: [CONTEXT] -> 
+DeleteResult { raw: [], affected: 1 }
+[9/18/2025, 10:19:34 PM] [INFO]: ModuleService::purgeModule()/delCdObjResult/where: [CONTEXT] -> 
+[object Object]
+CdObjService::delete()/q: { where: { cdObjId: 93146 } }
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::delete()/01 [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::init()/01: [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::init()/this.models: [CONTEXT] -> 
+
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::delete()/repo/model: [CONTEXT] -> 
+class CdObjModel {
+}
+query: DELETE FROM `cd_obj` WHERE `cd_obj_id` = ? -- PARAMETERS: [93146]
+[9/18/2025, 10:19:34 PM] [INFO]: ModuleService::purgeModule()/delCdObjResult/result: [CONTEXT] -> 
+DeleteResult { raw: [], affected: 1 }
+[9/18/2025, 10:19:34 PM] [INFO]: ModuleService::purgeModule()/foundGroup/where: [CONTEXT] -> 
+[object Object]
+GroupService::getGroupI/f: { where: { groupGuid: '97a420f5-cc37-45d5-8148-926cfc3a6d34' } }
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::read()/01 [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::init()/01: [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::init()/02: [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: TypeOrmDatasource::getConnection()/01: [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: TypeOrmDatasource::getConnection()/03: [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::init()/this.models: [CONTEXT] -> 
+
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::read()/02 [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::read()/serviceInput: [CONTEXT] -> 
+{
+  serviceModel: [class GroupModel],
+  docName: 'GroupService::getGroupI',
+  cmd: { action: 'find', query: { where: [Object] } },
+  dSource: 1
+}
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::read()/03 [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::read()/031 [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::read()/04/serviceInput.serviceModel: [CONTEXT] -> 
+class GroupModel {
+}
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::read()/04/serviceInput.modelName: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::read()/041 [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::read()/this.repo: [CONTEXT] -> 
+<ref *1> Repository {
+  target: [class GroupModel],
+  manager: <ref *2> EntityManager {
+    '@instanceof': Symbol(EntityManager),
+    repositories: Map(8) {
+      [class SessionModel] => [Repository],
+      [class ModuleViewModel] => [Repository],
+      [class MenuViewModel] => [Repository],
+      [class MenuModel] => [Repository],
+      [class CdObjViewModel] => [Repository],
+      [class ConsumerResourceModel] => [Repository],
+      [class CdObjModel] => [Repository],
+      [class GroupModel] => [Circular *1]
+    },
+    treeRepositories: [],
+    plainObjectToEntityTransformer: PlainObjectToNewEntityTransformer {},
+    connection: DataSource {
+      '@instanceof': Symbol(DataSource),
+      migrations: [],
+      subscribers: [],
+      entityMetadatas: [Array],
+      entityMetadatasMap: [Map],
+      name: 'default',
+      options: [Object],
+      logger: [AdvancedConsoleLogger],
+      driver: [MysqlDriver],
+      manager: [Circular *2],
+      namingStrategy: [DefaultNamingStrategy],
+      metadataTableName: 'typeorm_metadata',
+      queryResultCache: undefined,
+      relationLoader: [RelationLoader],
+      relationIdLoader: [RelationIdLoader],
+      isInitialized: true
+    }
+  },
+  queryRunner: undefined
+}
+query: SELECT `GroupModel`.`group_id` AS `GroupModel_group_id`, `GroupModel`.`group_guid` AS `GroupModel_group_guid`, `GroupModel`.`group_name` AS `GroupModel_group_name`, `GroupModel`.`group_description` AS `GroupModel_group_description`, `GroupModel`.`doc_id` AS `GroupModel_doc_id`, `GroupModel`.`group_owner_id` AS `GroupModel_group_owner_id`, `GroupModel`.`group_type_id` AS `GroupModel_group_type_id`, `GroupModel`.`module_guid` AS `GroupModel_module_guid`, `GroupModel`.`company_id` AS `GroupModel_company_id`, `GroupModel`.`consumer_guid` AS `GroupModel_consumer_guid`, `GroupModel`.`group_is_public` AS `GroupModel_group_is_public`, `GroupModel`.`group_enabled` AS `GroupModel_group_enabled` FROM `group` `GroupModel` WHERE ((`GroupModel`.`group_guid` = ?)) -- PARAMETERS: ["97a420f5-cc37-45d5-8148-926cfc3a6d34"]
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::read()/04/r: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::read()/06 [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [INFO]: ModuleService::purgeModule()/foundGroup/result: [CONTEXT] -> 
+[
+  GroupModel {
+    groupId: 1449,
+    groupGuid: '97a420f5-cc37-45d5-8148-926cfc3a6d34',
+    groupName: 'cd-ai',
+    groupDescription: null,
+    docId: 21809,
+    groupOwnerId: 1010,
+    groupTypeId: 2,
+    moduleGuid: '97a420f5-cc37-45d5-8148-926cfc3a6d34',
+    companyId: 85,
+    consumerGuid: null,
+    groupIsPublic: null,
+    groupEnabled: true
+  }
+]
+[9/18/2025, 10:19:34 PM] [INFO]: ModuleService::purgeModule()/delGroupMembersResult/where: [CONTEXT] -> 
+[object Object]
+GroupMemberService::deleteI()/q: { where: { groupIdParent: 1449 } }
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::delete()/01 [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::init()/01: [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::init()/02: [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: TypeOrmDatasource::getConnection()/01: [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: TypeOrmDatasource::getConnection()/03: [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::init()/this.models: [CONTEXT] -> 
+
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::delete()/repo/model: [CONTEXT] -> 
+class GroupMemberModel {
+}
+query: DELETE FROM `group_member` WHERE `group_id_parent` = ? -- PARAMETERS: [1449]
+[9/18/2025, 10:19:34 PM] [INFO]: ModuleService::purgeModule()/delGroupMembersResult/result: [CONTEXT] -> 
+DeleteResult { raw: [], affected: 1 }
+[9/18/2025, 10:19:34 PM] [INFO]: ModuleService::purgeModule()/delGroupResult/where: [CONTEXT] -> 
+[object Object]
+GroupService::deleteI()/q: { where: { groupId: 1449 } }
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::delete()/01 [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::init()/01: [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::init()/this.models: [CONTEXT] -> 
+
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::delete()/repo/model: [CONTEXT] -> 
+class GroupModel {
+}
+query: DELETE FROM `group` WHERE `group_id` = ? -- PARAMETERS: [1449]
+[9/18/2025, 10:19:34 PM] [INFO]: ModuleService::purgeModule()/delGroupResult/result: [CONTEXT] -> 
+DeleteResult { raw: [], affected: 1 }
+[9/18/2025, 10:19:34 PM] [INFO]: ModuleService::purgeModule()/delModuleResult/where: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::delete()/01 [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::init()/01: [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::init()/this.models: [CONTEXT] -> 
+
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::delete()/repo/model: [CONTEXT] -> 
+class ModuleModel {
+}
+[9/18/2025, 10:19:34 PM] [INFO]: ModuleService::purgeModule()/delModuleResult/error: [CONTEXT] -> 
+TypeError: Cannot read properties of undefined (reading 'where')
+[9/18/2025, 10:19:34 PM] [INFO]: ModuleService::purgeModule()/error: [CONTEXT] -> 
+TypeError: Cannot read properties of undefined (reading 'where')
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::setAppState()/01 [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::setAppState()/ss: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::setAppState()/01 [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::setAppState()/02 [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::setAppState()/ss: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 10:19:34 PM] [DEBUG]: **********starting respond(res)********* [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::respond(res)/this.pl: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::respond(res)/this.cdResp: [CONTEXT] -> 
+[object Object]
+[9/18/2025, 10:19:34 PM] [DEBUG]: **********starting preFlight(res)********* [CONTEXT] -> {}
+[9/18/2025, 10:19:34 PM] [DEBUG]: BaseService::getPlData()/this.cdResp: [CONTEXT] -> 
+{"app_state":{"success":false,"info":{"messages":["TypeError: Cannot read properties of undefined (reading 'where')","TypeError: Cannot read properties of undefined (reading 'where')"],"code":"BaseService:purgeModule","app_msg":"Error at BaseService:purgeModule: TypeError: Cannot read properties of undefined (reading 'where')"},"sess":{"cd_token":"d33bb2d3-f4d5-42b4-8e31-44fed3e29826","jwt":null,"ttl":600},"cache":{},"sConfig":{"usePush":true,"usePolling":true,"useCacheStore":true}},"data":[]}
+```
+
+///////////////////////////////////////////////////////////
+
+We need to refine Workflow stage: "Purge Module from TestBed" for idempotency.
+Looking at the logs, when the task: 'deregisterModule' fails with fails with 'Error: Module <module-name> not found', the workflow stops.
+But when you assess logics and workflow model, this process was meant to remove the module before moving to the next task.
+We need to refactor the responsible code for executing the task to return a less fatal return for workflow to inpepret that the error: 'Error: Module <module-name> not found' should just indicate to the workflow that there is no work to do (it is already at the required state), so, proceed to next task.
+At that stage, we need to apply appropriate CdFxStateLevel for the workflow to intepret that it can proceed.
+See the reference section for CdFxReturn<T> and CdFxStateLevel.
+
+```ts
+async deRegisterModuleFromCdInstance(moduleData: CdModuleDescriptor): Promise<CdFxReturn<null>> {
+    try {
+      this.b.logWithContext(
+        this,
+        `registerModuleInCdInstance:start`,
+        {
+          module: moduleData.name,
+        },
+        'debug',
+      );
+
+      await this.init();
+
+      // 1️⃣ Build ICdRequest envelope for module registration
+      this.setCdToken(this.cdToken).setModuleName(moduleData.name).setRequestCtx(CdCtx.Sys).build();
+
+      this.b.logWithContext(this, `registerModuleInCdInstance:this.cdToken`, this.cdToken, 'debug');
+      this.b.logWithContext(this, `registerModuleInCdInstance:EnvPurge`, inspect(EnvPurge, {depth: 4}), 'debug');
+
+      // 2️⃣ send request to cd-api
+      const response = await this.http.proc(EnvPurge, 'cdApiLocal');
+
+      this.b.logWithContext(this, `registerModuleInCdInstance:responseRaw`, response, 'debug');
+
+      if (!response.state || !response.data) {
+        const msg = `Failed to contact cd-api for module '${moduleData.name}'`;
+        this.b.logWithContext(this, `registerModuleInCdInstance:networkError`, { msg }, 'error');
+        return {
+          state: CdFxStateLevel.NetworkError,
+          data: null,
+          message: msg,
+        };
+      }
+
+      const cdResp: ICdResponse = response.data;
+
+      // 3️⃣ Validate app_state
+      if (!cdResp.app_state.success) {
+        const appMsg =
+          cdResp.app_state.info?.app_msg ||
+          cdResp.app_state.info?.messages?.join('; ') ||
+          'Unknown error during module registration';
+
+        this.b.logWithContext(
+          this,
+          `registerModuleInCdInstance:failed`,
+          {
+            module: moduleData.name,
+            appMsg,
+          },
+          'error',
+        );
+
+        return {
+          state: CdFxStateLevel.Error,
+          data: null,
+          message: `Module '${moduleData.name}' registration failed: ${appMsg}`,
+        };
+      }
+
+      // 4️⃣ If successful
+      const successMsg =
+        cdResp.app_state.info?.app_msg || `Module '${moduleData.name}' registered successfully.`;
+
+      this.b.logWithContext(
+        this,
+        `registerModuleInCdInstance:success`,
+        {
+          module: moduleData.name,
+          msg: successMsg,
+        },
+        'debug',
+      );
+
+      return {
+        state: CdFxStateLevel.Success,
+        data: null,
+        message: successMsg,
+      };
+    } catch (e: any) {
+      const msg = `Failed to register module '${moduleData.name}': ${e.message || e}`;
+      this.b.logWithContext(this, `registerModuleInCdInstance:exception`, { error: e }, 'error');
+      return {
+        state: CdFxStateLevel.SystemError,
+        data: null,
+        message: msg,
+      };
+    }
+  }
+```
+Current logs when PurgeModule fails with 'Error: Module cd-ai not found', the workflow stops.
+```log
+[19/09/2025, 09:19:01] [ModuleRegisterService::async():84]: registerModuleInCdInstance:EnvPurge — '{\n' +
+  "  ctx: 'sys',\n" +
+  "  m: 'Moduleman',\n" +
+  "  c: 'Module',\n" +
+  "  a: 'PurgeModule',\n" +
+  '  dat: {\n' +
+  "    token: 'd33bb2d3-f4d5-42b4-8e31-44fed3e29826',\n" +
+  "    f_vals: [ { data: { moduleName: 'cd-ai' } } ]\n" +
+  '  },\n' +
+  '  args: null\n' +
+  '}'
+[2025-09-19 09:19:01] 🛠️ starting CdCliProfileController::loadProfiles()
+[2025-09-19 09:19:01] 🛠️ CdCliProfileController::loadProfiles():01
+[2025-09-19 09:19:01] 🛠️ CdCliProfileController::checkProfileAndLogin():01
+[2025-09-19 09:19:01] 🛠️ CdCliProfileController::checkProfileAndLogin():03
+[2025-09-19 09:19:01] 🛠️ CdCliProfileController::checkProfileAndLogin():04
+[2025-09-19 09:19:01] 🛠️ CdCliProfileController::checkProfileAndLogin():05
+[2025-09-19 09:19:01] 🛠️ CdCliProfileController::checkProfileAndLogin():06
+[2025-09-19 09:19:01] ℹ️ Valid session token found. Proceeding...
+[2025-09-19 09:19:01] 🛠️ CdCliProfileController::checkProfileAndLogin():07
+[2025-09-19 09:19:01] 🛠️ CdCliProfileController::loadProfiles():02
+[2025-09-19 09:19:01] 🛠️ CdCliProfileController::loadProfiles():03
+[2025-09-19 09:19:01] 🛠️ CdCliProfileController::loadProfiles():04
+[2025-09-19 09:19:01] 🛠️ CdCliProfileController::loadProfiles():05
+[2025-09-19 09:19:01] 🛠️ CdCliProfileController::loadProfiles():06
+⠹ ⏳ Running task 'deregisterModule' (Attempt 1/1)...[19/09/2025, 09:19:01] [ModuleRegisterService::process():95]: registerModuleInCdInstance:responseRaw — {
+  state: true,
+  data: {
+    app_state: {
+      success: false,
+      info: {
+        messages: [Array],
+        code: 'BaseService:purgeModule',
+        app_msg: 'Error at BaseService:purgeModule: Error: Module cd-ai not found.'
+      },
+      sess: {
+        cd_token: 'd33bb2d3-f4d5-42b4-8e31-44fed3e29826',
+        jwt: null,
+        ttl: 600
+      },
+      cache: {},
+      sConfig: { usePush: true, usePolling: true, useCacheStore: true }
+    },
+    data: []
+  },
+  message: 'Request succeeded.'
+}
+[19/09/2025, 09:19:01] [ModuleRegisterService::process():95]: registerModuleInCdInstance:failed — {
+  module: 'cd-ai',
+  appMsg: 'Error at BaseService:purgeModule: Error: Module cd-ai not found.'
+}
+
+...other logs
+
+[19/09/2025, 09:19:01] [CiCdService::handleCommandResponse():34]: tasts — [
+  {
+    stage: 'Purge Module from TestBed',
+    task: 'deregisterModule',
+    state: false,
+    message: "Module 'cd-ai' registration failed: Error at BaseService:purgeModule: Error: Module cd-ai not found."
+  }
+]
+```
+
+Workflow stage: "Purge Module from TestBed"
+```ts
+deleteWorkFlow(cdModule: CdModuleDescriptor, moduleType: string, extraParam: any): CiCdDescriptor {
+    CdLog.debug('Starting CdAiWorkFlow::createWorkFlow()');
+    CdLog.debug(
+      `CdAiWorkFlow:: createWorkFlow()/cdModule: ${inspect(cdModule, {
+        depth: 2,
+      })}, type: ${moduleType}`,
+    );
+    return {
+      cICdPipeline: {
+        name: 'TestBed Creation Pipeline',
+        type: 'dev-env-setup',
+        stages: [
+          {
+            name: 'Purge Module from TestBed',
+            description: 'Create TestBed from app-craft Workshop Output',
+            tasks: [
+              {
+                name: 'deregisterModule',
+                type: 'method',
+                executor: 'cd-cli',
+                status: 'pending',
+                cdRequest: {
+                  ctx: 'app',
+                  m: 'app-craft',
+                  c: 'TestBed',
+                  a: 'DeRegisterModuleInCdInstance',
+                  dat: {
+                    f_vals: [
+                      {
+                        data: null,
+                      },
+                    ],
+                    token: extraParam.cdToken,
+                  },
+                  args: {
+                    module: cdModule,
+                  },
+                },
+                onResult: [
+                  {
+                    ifState: [
+                      CdFxStateLevel.Success,
+                      CdFxStateLevel.PartialSuccess,
+                      CdFxStateLevel.LogicalFailure,
+                    ],
+                    toTask: 'purgeDbObjects',
+                  },
+                  {
+                    ifState: [CdFxStateLevel.Fatal, CdFxStateLevel.SystemError],
+                    toTask: 'notifyFailure',
+                  },
+                ],
+              },
+              {
+                name: 'purgeDbObjects',
+                type: 'method',
+                executor: 'cd-cli',
+                status: 'pending',
+                cdRequest: {
+                  ctx: 'app',
+                  m: 'app-craft',
+                  c: 'TestBed',
+                  a: 'PurgeModuleFromDb',
+                  dat: {
+                    f_vals: [
+                      {
+                        data: null,
+                      },
+                    ],
+                    token: extraParam.cdToken,
+                  },
+                  args: {
+                    module: cdModule,
+                  },
+                },
+                onResult: [
+                  // {
+                  //   ifState: [
+                  //     CdFxStateLevel.Success,
+                  //     CdFxStateLevel.PartialSuccess,
+                  //     CdFxStateLevel.LogicalFailure,
+                  //   ],
+                  //   toTask: 'cloneProject',
+                  // },
+                  {
+                    ifState: [CdFxStateLevel.Fatal, CdFxStateLevel.SystemError],
+                    toTask: 'notifyFailure',
+                  },
+                ],
+              },
+              {
+                name: 'notifyFailure',
+                type: 'method',
+                executor: 'cd-cli',
+                status: 'pending',
+                cdRequest: {
+                  ctx: 'sys',
+                  m: 'dev-descriptor',
+                  c: 'CICdRunner',
+                  a: 'SendFailureAlert',
+                  dat: {
+                    f_vals: [{ data: null }],
+                    token: extraParam.cdToken,
+                  },
+                  args: {
+                    message: `Failed during repository creation for module: ${cdModule.name}`,
+                  },
+                },
+              },
+            ],
+          },
+        ],
+      },
+    };
+  }
+```
+Reference:
+```ts
+export interface CdFxReturn<T> {
+  data?: T | null;
+  state: boolean | CdFxStateLevel; // Interpreted through semantic map
+  message?: string | null;
+}
+
+export enum CdFxStateLevel {
+  Error = 0,
+  Success = 1,
+  PartialSuccess = 2,
+  LogicalFailure = 3,
+  Warning = 4,
+  Recoverable = 5,
+  Info = 6,
+  Pending = 7,
+  Cancelled = 8,
+  NotFound = 9,
+  NotImplemented = 10,
+  SystemError = 11,
+  Fatal = 12,
+  Unknown = 13,
+  NetworkError = 17,
+  PermissionDenied = 18,
+}
+```
+
+////////////////////////////////////////////////////////
+DbMigrationService has a policy where if any table is being deleted, it automatically makes a backup.
+This is managed at the applyMigration().
+The class is initialized via the method init().
+We need to refactor DbMigrationService so that has some way of applying some config data via init().
+My proposal is for it to redefine init signature to something like:
+async init(migConfig?:MigrationConfig): Promise<CdFxReturn<DataSource>> 
+Where migConfig is optional and extensible.
+An example that is necessitating this feature is configuring whether backup should be effected or not.
+For example righ now when we are removing modules items from the database, it still makes a backup of all the removed tables. This is undesired.
+So we should be able to do something like:
+const svDbMigration = new DbMigrationService();
+svDbMigration.init({enableTableBackup: false}) // should be necessary when purging module from corpdesk instance.
+As you refactor this, assist me to do an initial design of MigrationConfig interface with futuristic consideration.
+```ts
+export class DbMigrationService {
+async init(): Promise<CdFxReturn<DataSource>> {
+    try {
+      if (this.db && this.db.isInitialized) {
+        return {
+          state: true,
+          data: this.db,
+          message: 'Database already initialized',
+        };
+      }
+
+      const entityPaths = loadEntityPaths();
+      this.b.logWithContext(this, `migrateDbSchema:entityPaths`, { entityPaths }, 'debug');
+
+      const mysqlConfig = {
+        name: 'conn2',
+        type: 'mysql',
+        port: Number(process.env.DB_MS_PORT),
+        host: process.env.DB_MS_HOST,
+        username: process.env.DB_MS_USER,
+        database: process.env.DB_MS_NAME,
+        password: process.env.DB_MS_PWD,
+        synchronize: false,
+        entities: entityPaths,
+        migrations: [],
+        subscribers: [],
+        logging: ['query', 'error', 'schema', 'warn', 'info', 'log'],
+      };
+
+      this.db = new DataSource(mysqlConfig as MysqlConnectionOptions);
+      await this.db.initialize();
+
+      return {
+        state: true,
+        data: this.db,
+        message: 'Database initialized successfully',
+      };
+    } catch (error: any) {
+      return {
+        state: false,
+        data: undefined,
+        message: `Failed to initialize database: ${error.message ?? error}`,
+      };
+    }
+  }
+
+private async applyMigration(migration: MigrationProfile): Promise<CdFxReturn<null>> {
+    try {
+      this.b.logWithContext(
+        this,
+        `applyMigration:start`,
+        {
+          id: migration.id,
+          type: migration.transformation.type,
+          target: migration.transformation.target,
+        },
+        'debug',
+      );
+
+      // Handle no-op syncs
+      if (migration.transformation.type === 'sync' && migration.transformation.target === 'table') {
+        this.b.logWithContext(
+          this,
+          `applyMigration:noop`,
+          { table: migration.transformation.descriptor?.name },
+          'info',
+        );
+        return { state: true, data: null, message: `No migration required for ${migration.id}.` };
+      }
+
+      const sourceTable = migration.source.dsSchema?.tables?.[0];
+      if (!sourceTable) {
+        return {
+          state: false,
+          data: null,
+          message: `Cannot determine descriptor for migration ${migration.id}`,
+        };
+      }
+
+      const objectName = this.normalizeTableName(sourceTable.name);
+      this.b.logWithContext(this, `applyMigration:objectName`, { objectName }, 'debug');
+
+      let sql: string | undefined;
+
+      // 🔹 CASE 1: TABLE
+      if (migration.transformation.target === 'table') {
+        // Check if table exists
+        const tableExistsResult: any[] = await this.db!.query(
+          `SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ?`,
+          [objectName],
+        );
+        const tableExists = tableExistsResult.length > 0;
+
+        if (tableExists) {
+          // Backup existing table
+          const timestamp = new Date().toISOString().replace(/[-:.]/g, '');
+          const backupTableName = `${objectName}_backup_${timestamp}`;
+
+          this.b.logWithContext(
+            this,
+            `applyMigration:backup:start`,
+            { table: objectName, backup: backupTableName },
+            'warn',
+          );
+          await this.db!.query(
+            `CREATE TABLE \`${backupTableName}\` AS SELECT * FROM \`${objectName}\``,
+          );
+          await this.db!.query(`DROP TABLE \`${objectName}\``);
+          this.b.logWithContext(this, `applyMigration:backup:done`, { table: objectName }, 'warn');
+        }
+
+        if (
+          migration.transformation.type === 'create' ||
+          migration.transformation.type === 'alter'
+        ) {
+          this.b.logWithContext(
+            this,
+            `applyMigration:CREATE TABLE SQL:start`,
+            { migrationType: migration.transformation.type, table: objectName },
+            'warn',
+          );
+          sql = this.generateCreateTableSQL(sourceTable);
+        } else if (migration.transformation.type === 'drop') {
+          sql = `DROP TABLE IF EXISTS \`${objectName}\``;
+        }
+      }
+
+      // 🔹 CASE 2: VIEW
+      else if (migration.transformation.target === 'view') {
+        this.b.logWithContext(this, `applyMigration:drop-view`, { view: objectName }, 'warn');
+        await this.db!.query(`DROP VIEW IF EXISTS \`${objectName}\``);
+
+        if (
+          migration.transformation.type === 'create' ||
+          migration.transformation.type === 'alter'
+        ) {
+          this.b.logWithContext(
+            this,
+            `applyMigration:CREATE VIEW SQL:start`,
+            { migrationType: migration.transformation.type, view: objectName },
+            'warn',
+          );
+          sql = this.generateCreateViewSQL(sourceTable); // ✅ generates aliased view SQL
+        } else if (migration.transformation.type === 'drop') {
+          sql = `DROP VIEW IF EXISTS \`${objectName}\``;
+        }
+      }
+
+      // 🔹 Unsupported
+      if (!sql) {
+        return {
+          state: false,
+          data: null,
+          message: `Unsupported migration type: ${migration.transformation.type} for ${migration.transformation.target}`,
+        };
+      }
+
+      // Execute SQL
+      this.b.logWithContext(this, `applyMigration:executeSQL`, { sql }, 'debug');
+      await this.db!.query(sql);
+
+      this.b.logWithContext(this, `applyMigration:success`, { id: migration.id }, 'info');
+      return {
+        state: true,
+        data: null,
+        message: `Migration ${migration.id} applied successfully.`,
+      };
+    } catch (err: any) {
+      return {
+        state: false,
+        data: null,
+        message: `Failed to apply migration ${migration.id}: ${err.message ?? err}`,
+      };
+    }
+  }
+}
+```
+
+```ts
+async purgeModuleFromDatabase(module: CdModuleDescriptor): Promise<CdFxReturn<null>> {
+    try {
+      this.b.logWithContext(this, `purgeModuleFromDatabase:start`, { module: module.name }, 'debug');
+
+      const initResult = await this.init();
+      if (!initResult.state) {
+        return { state: false, data: null, message: `DbMigrationService could not be initialized: Error: ${initResult.message}` };
+      }
+
+      if (!this.db || !this.db.isInitialized) {
+        return {
+          state: false,
+          data: null,
+          message: 'DbMigrationService not initialized. Call init() first.',
+        };
+      }
+
+      // 1. Load current schema (tables + views)
+      const destSchemaResult = await this.loadSchemaFromDatabase(module);
+      if (!destSchemaResult.state || !destSchemaResult.data) {
+        return { state: false, data: null, message: destSchemaResult.message };
+      }
+      const destSchema = destSchemaResult.data;
+
+      this.b.logWithContext(this, `purgeModuleFromDatabase:start`, { destSchema }, 'debug');
+
+      // 2. Collect purge targets (views, tables, backups)
+      const dropMigrations: MigrationProfile[] = [];
+
+      // 🔹 Views first
+      for (const t of destSchema.tables.filter((t) => t.kind === 'view')) {
+        dropMigrations.push({
+          id: `drop-${t.name}`,
+          source: { type: 'database', dsConfig: {}, dsSchema: { tables: [t] } },
+          destination: { type: 'database', dsConfig: {}, dsSchema: destSchema },
+          transformation: { type: 'drop', target: 'view', descriptor: t },
+          description: `Drop view ${t.name}`,
+        });
+      }
+
+      // 🔹 Backup tables
+      const backupQuery = `
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_schema = DATABASE()
+        AND table_name LIKE '${toSnakeCase(module.name)}%_backup_%'
+    `;
+      const backupTables: any[] = await this.db.query(backupQuery);
+      for (const row of backupTables) {
+        const t = { name: row.TABLE_NAME, kind: "table" as const, fields: [], indexes: [], relations: [] };
+        dropMigrations.push({
+          id: `drop-${t.name}`,
+          source: { type: 'database', dsConfig: {}, dsSchema: { tables: [t] } },
+          destination: { type: 'database', dsConfig: {}, dsSchema: destSchema },
+          transformation: { type: 'drop', target: 'table', descriptor: t },
+          description: `Drop backup table ${t.name}`,
+        });
+      }
+
+      // 🔹 Normal tables last
+      for (const t of destSchema.tables.filter((t) => t.kind === 'table')) {
+        dropMigrations.push({
+          id: `drop-${t.name}`,
+          source: { type: 'database', dsConfig: {}, dsSchema: { tables: [t] } },
+          destination: { type: 'database', dsConfig: {}, dsSchema: destSchema },
+          transformation: { type: 'drop', target: 'table', descriptor: t },
+          description: `Drop table ${t.name}`,
+        });
+      }
+
+      this.b.logWithContext(
+        this,
+        `purgeModuleFromDatabase:migrations`,
+        { count: dropMigrations.length },
+        'warn',
+      );
+
+      // 3. Execute purge migrations
+      for (const migration of dropMigrations) {
+        const result = await this.applyMigration(migration);
+        if (!result.state) {
+          return { state: false, data: null, message: result.message };
+        }
+      }
+      
+      await this.closeConnection();
+      return {
+        state: true,
+        data: null,
+        message: `Purged module ${module.name} successfully (dropped ${dropMigrations.length} objects).`,
+      };
+    } catch (err: any) {
+      return {
+        state: false,
+        data: null,
+        message: `Failed to purge module ${module.name}: ${err.message ?? err}`,
+      };
+    }
+  }
+```
+
+```log
+[19/09/2025, 10:31:03] [DbMigrationService::DbMigrationService():1036]: applyMigration:start — {
+  id: 'drop-cd_ai_backup_20250914T170909332Z',
+  type: 'drop',
+  target: 'table'
+}
+[19/09/2025, 10:31:03] [DbMigrationService::DbMigrationService():1036]: applyMigration:objectName — { objectName: 'cd_ai_backup_20250914t170909332z' }
+query: SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ? -- PARAMETERS: ["cd_ai_backup_20250914t170909332z"]
+[19/09/2025, 10:31:03] [DbMigrationService::process():95]: applyMigration:executeSQL — { sql: 'DROP TABLE IF EXISTS `cd_ai_backup_20250914t170909332z`' }
+query: DROP TABLE IF EXISTS `cd_ai_backup_20250914t170909332z`
+[19/09/2025, 10:31:03] [DbMigrationService::process():95]: applyMigration:success — { id: 'drop-cd_ai_backup_20250914T170909332Z' }
+[19/09/2025, 10:31:03] [DbMigrationService::DbMigrationService():1036]: applyMigration:start — {
+  id: 'drop-cd_ai_backup_20250914T184214005Z',
+  type: 'drop',
+  target: 'table'
+}
+
+...other logs
+
+[19/09/2025, 10:31:05] [DbMigrationService::DbMigrationService():1036]: applyMigration:objectName — { objectName: 'cd_ai_usage_logs_type_backup_20250918t202144944z' }
+query: SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ? -- PARAMETERS: ["cd_ai_usage_logs_type_backup_20250918t202144944z"]
+[19/09/2025, 10:31:05] [DbMigrationService::process():95]: applyMigration:executeSQL — {
+  sql: 'DROP TABLE IF EXISTS `cd_ai_usage_logs_type_backup_20250918t202144944z`'
+}
+query: DROP TABLE IF EXISTS `cd_ai_usage_logs_type_backup_20250918t202144944z`
+[19/09/2025, 10:31:05] [DbMigrationService::process():95]: applyMigration:success — { id: 'drop-cd_ai_usage_logs_type_backup_20250918T202144944Z' }
+[19/09/2025, 10:31:05] [DbMigrationService::DbMigrationService():1036]: applyMigration:start — {
+  id: 'drop-cd_ai_usage_logs_type_backup_20250918T205820673Z',
+  type: 'drop',
+  target: 'table'
+}
+[19/09/2025, 10:31:05] [DbMigrationService::DbMigrationService():1036]: applyMigration:objectName — { objectName: 'cd_ai_usage_logs_type_backup_20250918t205820673z' }
+query: SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ? -- PARAMETERS: ["cd_ai_usage_logs_type_backup_20250918t205820673z"]
+[19/09/2025, 10:31:05] [DbMigrationService::process():95]: applyMigration:executeSQL — {
+  sql: 'DROP TABLE IF EXISTS `cd_ai_usage_logs_type_backup_20250918t205820673z`'
+}
+query: DROP TABLE IF EXISTS `cd_ai_usage_logs_type_backup_20250918t205820673z`
+[19/09/2025, 10:31:05] [DbMigrationService::process():95]: applyMigration:success — { id: 'drop-cd_ai_usage_logs_type_backup_20250918T205820673Z' }
+[19/09/2025, 10:31:05] [DbMigrationService::DbMigrationService():1036]: applyMigration:start — { id: 'drop-cd_ai', type: 'drop', target: 'table' }
+[19/09/2025, 10:31:05] [DbMigrationService::DbMigrationService():1036]: applyMigration:objectName — { objectName: 'cd_ai' }
+query: SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ? -- PARAMETERS: ["cd_ai"]
+[19/09/2025, 10:31:05] [DbMigrationService::process():95]: applyMigration:backup:start — { table: 'cd_ai', backup: 'cd_ai_backup_20250919T073105467Z' }
+query: CREATE TABLE `cd_ai_backup_20250919T073105467Z` AS SELECT * FROM `cd_ai`
+⠦ ⏳ Running task 'purgeDbObjects' (Attempt 1/1)...query: DROP TABLE `cd_ai`
+⠧ ⏳ Running task 'purgeDbObjects' (Attempt 1/1)...[19/09/2025, 10:31:05] [DbMigrationService::process():95]: applyMigration:backup:done — { table: 'cd_ai' }
+
+... other logs
+
+[19/09/2025, 10:31:06] [DbMigrationService::DbMigrationService():1036]: applyMigration:objectName — { objectName: 'cd_ai_backup_20250918t205819886z' }
+query: SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ? -- PARAMETERS: ["cd_ai_backup_20250918t205819886z"]
+[19/09/2025, 10:31:06] [DbMigrationService::process():95]: applyMigration:executeSQL — { sql: 'DROP TABLE IF EXISTS `cd_ai_backup_20250918t205819886z`' }
+query: DROP TABLE IF EXISTS `cd_ai_backup_20250918t205819886z`
+[19/09/2025, 10:31:06] [DbMigrationService::process():95]: applyMigration:success — { id: 'drop-cd_ai_backup_20250918T205819886Z' }
+[19/09/2025, 10:31:06] [DbMigrationService::DbMigrationService():1036]: applyMigration:start — { id: 'drop-cd_ai_type', type: 'drop', target: 'table' }
+[19/09/2025, 10:31:06] [DbMigrationService::DbMigrationService():1036]: applyMigration:objectName — { objectName: 'cd_ai_type' }
+query: SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ? -- PARAMETERS: ["cd_ai_type"]
+[19/09/2025, 10:31:06] [DbMigrationService::process():95]: applyMigration:backup:start — {
+  table: 'cd_ai_type',
+  backup: 'cd_ai_type_backup_20250919T073106029Z'
+}
+query: CREATE TABLE `cd_ai_type_backup_20250919T073106029Z` AS SELECT * FROM `cd_ai_type`
+⠹ ⏳ Running task 'purgeDbObjects' (Attempt 1/1)...query: DROP TABLE `cd_ai_type`
+⠸ ⏳ Running task 'purgeDbObjects' (Attempt 1/1)...[19/09/2025, 10:31:06] [DbMigrationService::process():95]: applyMigration:backup:done — { table: 'cd_ai_type' }
+[19/09/2025, 10:31:06] [DbMigrationService::process():95]: applyMigration:executeSQL — { sql: 'DROP TABLE IF EXISTS `cd_ai_type`' }
+query: DROP TABLE IF EXISTS `cd_ai_type`
+[19/09/2025, 10:31:06] [DbMigrationService::process():95]: applyMigration:success — { id: 'drop-cd_ai_type' }
+[19/09/2025, 10:31:06] [DbMigrationService::DbMigrationService():1036]: applyMigration:start — {
+  id: 'drop-cd_ai_type_backup_20250914T170909547Z',
+  type: 'drop',
+  target: 'table'
+}
+
+...other logs
+
+query: DROP TABLE IF EXISTS `cd_ai_usage_logs_type_backup_20250918t202144944z`
+[19/09/2025, 10:31:07] [DbMigrationService::process():95]: applyMigration:success — { id: 'drop-cd_ai_usage_logs_type_backup_20250918T202144944Z' }
+[19/09/2025, 10:31:07] [DbMigrationService::DbMigrationService():1036]: applyMigration:start — {
+  id: 'drop-cd_ai_usage_logs_type_backup_20250918T205820673Z',
+  type: 'drop',
+  target: 'table'
+}
+[19/09/2025, 10:31:07] [DbMigrationService::DbMigrationService():1036]: applyMigration:objectName — { objectName: 'cd_ai_usage_logs_type_backup_20250918t205820673z' }
+query: SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ? -- PARAMETERS: ["cd_ai_usage_logs_type_backup_20250918t205820673z"]
+[19/09/2025, 10:31:07] [DbMigrationService::process():95]: applyMigration:executeSQL — {
+  sql: 'DROP TABLE IF EXISTS `cd_ai_usage_logs_type_backup_20250918t205820673z`'
+}
+query: DROP TABLE IF EXISTS `cd_ai_usage_logs_type_backup_20250918t205820673z`
+[19/09/2025, 10:31:07] [DbMigrationService::process():95]: applyMigration:success — { id: 'drop-cd_ai_usage_logs_type_backup_20250918T205820673Z' }
+[19/09/2025, 10:31:07] [CICdRunnerService::process():95]: resultControllerInstance — {
+  state: true,
+  data: null,
+  message: 'Purged module cd-ai successfully (dropped 214 objects).'
+}
+[2025-09-19 10:31:07] 🛠️ CICdRunnerService::executeTaskWithPolicies()/result:{
+  state: true,
+  data: null,
+  message: 'Purged module cd-ai successfully (dropped 214 objects).'
+}
+✔ ✅ Task 'purgeDbObjects' succeeded.
+[2025-09-19 10:31:07] 🛠️ CICdRunnerService::run()/result:{
+  state: true,
+  data: null,
+  message: 'Purged module cd-ai successfully (dropped 214 objects).'
+}
+[2025-09-19 10:31:07] 🛠️ CICdRunnerService::run() — Task Summary:
+[2025-09-19 10:31:07] 🛠️ Stage: Purge Module from TestBed, Task: deregisterModule, State: 3, Message: Module 'cd-ai' already absent, skipping purge.
+[2025-09-19 10:31:07] 🛠️ Stage: Purge Module from TestBed, Task: purgeDbObjects, State: true, Message: Purged module cd-ai successfully (dropped 214 objects).
+[2025-09-19 10:31:07] 🛠️ starting CdCliProfileController::loadProfiles()
+[2025-09-19 10:31:07] 🛠️ CdCliProfileController::loadProfiles():01
+[2025-09-19 10:31:07] 🛠️ CdCliProfileController::checkProfileAndLogin():01
+[2025-09-19 10:31:07] 🛠️ CdCliProfileController::checkProfileAndLogin():03
+[2025-09-19 10:31:07] 🛠️ CdCliProfileController::checkProfileAndLogin():04
+[2025-09-19 10:31:07] 🛠️ CdCliProfileController::checkProfileAndLogin():05
+[2025-09-19 10:31:07] ℹ️ Valid session token found. Proceeding...
+[2025-09-19 10:31:07] 🛠️ starting CdCliProfileController::loadProfiles()
+[2025-09-19 10:31:07] 🛠️ CdCliProfileController::loadProfiles():01
+[2025-09-19 10:31:07] 🛠️ CdCliProfileController::checkProfileAndLogin():01
+[2025-09-19 10:31:07] 🛠️ CdCliProfileController::checkProfileAndLogin():03
+[2025-09-19 10:31:07] 🛠️ CdCliProfileController::checkProfileAndLogin():04
+[2025-09-19 10:31:07] 🛠️ CdCliProfileController::checkProfileAndLogin():05
+[2025-09-19 10:31:07] ℹ️ Valid session token found. Proceeding...
+handleCommandResponse()/start
+handleCommandResponse()/isArray-01
+[19/09/2025, 10:31:07] [CiCdService::handleCommandResponse():34]: tasts — [
+  {
+    stage: 'Purge Module from TestBed',
+    task: 'deregisterModule',
+    state: 3,
+    message: "Module 'cd-ai' already absent, skipping purge."
+  },
+  {
+    stage: 'Purge Module from TestBed',
+    task: 'purgeDbObjects',
+    state: true,
+    message: 'Purged module cd-ai successfully (dropped 214 objects).'
+  }
+]
+
+```
+
+/////////////////////////////////////////////////////////
+
+From mysql workbench, I can still see several backup tables after running DoMigrationService.purgeModuleFromDatabase().
+To assess what could be happening, I am focussing on logs for just one table: 'cd_ai_backup_20250914T170909332Z'
+See the logs below and the implementation for purgeModuleFromDatabase().
+Let me know if you need more information on the helper methods or you are already able to tell why droping of the tables is not working.
+
+```ts
+async purgeModuleFromDatabase(module: CdModuleDescriptor): Promise<CdFxReturn<null>> {
+    try {
+      this.b.logWithContext(this, `purgeModuleFromDatabase:start`, { module: module.name }, 'debug');
+
+      const initResult = await this.init({ enableTableBackup: false });
+      if (!initResult.state) {
+        return { state: false, data: null, message: `DbMigrationService could not be initialized: Error: ${initResult.message}` };
+      }
+
+      if (!this.db || !this.db.isInitialized) {
+        return {
+          state: false,
+          data: null,
+          message: 'DbMigrationService not initialized. Call init() first.',
+        };
+      }
+
+      // 1. Load current schema (tables + views)
+      const destSchemaResult = await this.loadSchemaFromDatabase(module);
+      if (!destSchemaResult.state || !destSchemaResult.data) {
+        return { state: false, data: null, message: destSchemaResult.message };
+      }
+      const destSchema = destSchemaResult.data;
+
+      this.b.logWithContext(this, `purgeModuleFromDatabase:start`, { destSchema }, 'debug');
+
+      // 2. Collect purge targets (views, tables, backups)
+      const dropMigrations: MigrationProfile[] = [];
+
+      // 🔹 Views first
+      for (const t of destSchema.tables.filter((t) => t.kind === 'view')) {
+        dropMigrations.push({
+          id: `drop-${t.name}`,
+          source: { type: 'database', dsConfig: {}, dsSchema: { tables: [t] } },
+          destination: { type: 'database', dsConfig: {}, dsSchema: destSchema },
+          transformation: { type: 'drop', target: 'view', descriptor: t },
+          description: `Drop view ${t.name}`,
+        });
+      }
+
+      // 🔹 Backup tables
+      const backupQuery = `
+      SELECT table_name 
+      FROM information_schema.tables 
+      WHERE table_schema = DATABASE()
+        AND table_name LIKE '${toSnakeCase(module.name)}%_backup_%'
+    `;
+      const backupTables: any[] = await this.db.query(backupQuery);
+      for (const row of backupTables) {
+        const t = { name: row.TABLE_NAME, kind: "table" as const, fields: [], indexes: [], relations: [] };
+        dropMigrations.push({
+          id: `drop-${t.name}`,
+          source: { type: 'database', dsConfig: {}, dsSchema: { tables: [t] } },
+          destination: { type: 'database', dsConfig: {}, dsSchema: destSchema },
+          transformation: { type: 'drop', target: 'table', descriptor: t },
+          description: `Drop backup table ${t.name}`,
+        });
+      }
+
+      // 🔹 Normal tables last
+      for (const t of destSchema.tables.filter((t) => t.kind === 'table')) {
+        dropMigrations.push({
+          id: `drop-${t.name}`,
+          source: { type: 'database', dsConfig: {}, dsSchema: { tables: [t] } },
+          destination: { type: 'database', dsConfig: {}, dsSchema: destSchema },
+          transformation: { type: 'drop', target: 'table', descriptor: t },
+          description: `Drop table ${t.name}`,
+        });
+      }
+
+      this.b.logWithContext(
+        this,
+        `purgeModuleFromDatabase:migrations`,
+        { count: dropMigrations.length },
+        'warn',
+      );
+
+      // 3. Execute purge migrations
+      for (const migration of dropMigrations) {
+        const result = await this.applyMigration(migration);
+        if (!result.state) {
+          return { state: false, data: null, message: result.message };
+        }
+      }
+      
+      await this.closeConnection();
+      return {
+        state: true,
+        data: null,
+        message: `Purged module ${module.name} successfully (dropped ${dropMigrations.length} objects).`,
+      };
+    } catch (err: any) {
+      return {
+        state: false,
+        data: null,
+        message: `Failed to purge module ${module.name}: ${err.message ?? err}`,
+      };
+    }
+  }
+```
+
+```log
+[19/09/2025, 11:28:23] [DbMigrationService::process():95]: purgeModuleFromDatabase:start — {
+  destSchema: {
+    tables: [
+      {
+        name: 'cd_ai_backup_20250914T170909332Z',
+        kind: 'table',
+        fields: [Array],
+        indexes: [],
+        relations: []
+      },
+      {
+        name: 'cd_ai_backup_20250914T184214005Z',
+        kind: 'table',
+        fields: [Array],
+        indexes: [],
+        relations: []
+      },
+      ...other tables
+    ]
+  }
+}
+
+...other logs
+
+query: SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ? -- PARAMETERS: ["cd_ai_backup_20250914t170909332z"]
+[19/09/2025, 11:28:23] [DbMigrationService::process():95]: applyMigration:executeSQL — { sql: 'DROP TABLE IF EXISTS `cd_ai_backup_20250914t170909332z`' }
+query: DROP TABLE IF EXISTS `cd_ai_backup_20250914t170909332z`
+[19/09/2025, 11:28:23] [DbMigrationService::DbMigrationService():1158]: applyMigration:start — {
+  id: 'drop-cd_ai_backup_20250914T184214005Z',
+  type: 'drop',
+  target: 'table',
+  config: { enableTableBackup: false }
+}
+
+...other logs
+
+query: DROP TABLE IF EXISTS `cd_ai_usage_logs_type_backup_20250919t073107240z`
+[19/09/2025, 11:28:25] [DbMigrationService::DbMigrationService():1158]: applyMigration:start — {
+  id: 'drop-cd_ai_backup_20250914T170909332Z',
+  type: 'drop',
+  target: 'table',
+  config: { enableTableBackup: false }
+}
+query: SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ? -- PARAMETERS: ["cd_ai_backup_20250914t170909332z"]
+[19/09/2025, 11:28:25] [DbMigrationService::process():95]: applyMigration:executeSQL — { sql: 'DROP TABLE IF EXISTS `cd_ai_backup_20250914t170909332z`' }
+query: DROP TABLE IF EXISTS `cd_ai_backup_20250914t170909332z`
+⠴ ⏳ Running task 'purgeDbObjects' (Attempt 1/1)...[19/09/2025, 11:28:25] [DbMigrationService::DbMigrationService():1158]: applyMigration:start — {
+  id: 'drop-cd_ai_backup_20250914T184214005Z',
+  type: 'drop',
+  target: 'table',
+  config: { enableTableBackup: false }
+}
+
+...other logs
+
+[19/09/2025, 11:28:26] [CICdRunnerService::process():95]: resultControllerInstance — {
+  state: true,
+  data: null,
+  message: 'Purged module cd-ai successfully (dropped 216 objects).'
+}
+[2025-09-19 11:28:26] 🛠️ CICdRunnerService::executeTaskWithPolicies()/result:{
+  state: true,
+  data: null,
+  message: 'Purged module cd-ai successfully (dropped 216 objects).'
+}
+✔ ✅ Task 'purgeDbObjects' succeeded.
+[2025-09-19 11:28:26] 🛠️ CICdRunnerService::run()/result:{
+  state: true,
+  data: null,
+  message: 'Purged module cd-ai successfully (dropped 216 objects).'
+}
+[2025-09-19 11:28:26] 🛠️ CICdRunnerService::run() — Task Summary:
+[2025-09-19 11:28:26] 🛠️ Stage: Purge Module from TestBed, Task: deregisterModule, State: 3, Message: Module 'cd-ai' already absent, skipping purge.
+[2025-09-19 11:28:26] 🛠️ Stage: Purge Module from TestBed, Task: purgeDbObjects, State: true, Message: Purged module cd-ai successfully (dropped 216 objects).
+[2025-09-19 11:28:26] 🛠️ starting CdCliProfileController::loadProfiles()
+[2025-09-19 11:28:26] 🛠️ CdCliProfileController::loadProfiles():01
+[2025-09-19 11:28:26] 🛠️ CdCliProfileController::checkProfileAndLogin():01
+[2025-09-19 11:28:26] 🛠️ CdCliProfileController::checkProfileAndLogin():03
+[2025-09-19 11:28:26] 🛠️ CdCliProfileController::checkProfileAndLogin():04
+[2025-09-19 11:28:26] 🛠️ CdCliProfileController::checkProfileAndLogin():05
+[2025-09-19 11:28:26] ℹ️ Valid session token found. Proceeding...
+[2025-09-19 11:28:26] 🛠️ starting CdCliProfileController::loadProfiles()
+[2025-09-19 11:28:26] 🛠️ CdCliProfileController::loadProfiles():01
+[2025-09-19 11:28:26] 🛠️ CdCliProfileController::checkProfileAndLogin():01
+[2025-09-19 11:28:26] 🛠️ CdCliProfileController::checkProfileAndLogin():03
+[2025-09-19 11:28:26] 🛠️ CdCliProfileController::checkProfileAndLogin():04
+[2025-09-19 11:28:26] 🛠️ CdCliProfileController::checkProfileAndLogin():05
+[2025-09-19 11:28:26] ℹ️ Valid session token found. Proceeding...
+handleCommandResponse()/start
+handleCommandResponse()/isArray-01
+[19/09/2025, 11:28:26] [CiCdService::handleCommandResponse():34]: tasts — [
+  {
+    stage: 'Purge Module from TestBed',
+    task: 'deregisterModule',
+    state: 3,
+    message: "Module 'cd-ai' already absent, skipping purge."
+  },
+  {
+    stage: 'Purge Module from TestBed',
+    task: 'purgeDbObjects',
+    state: true,
+    message: 'Purged module cd-ai successfully (dropped 216 objects).'
+  }
+]
+
+///////////////////////////////////////////////////////////////////////////
+From the logs shared, it seem there is an attempt to create tables.
+For example, we can see the section about the cd-ai table:
+```log
+[19/09/2025, 13:35:24] [DbMigrationService::DbMigrationService():176]: applyMigration:start — { id: 'create-cd-ai', type: 'create', target: 'table', config: {} }
+query: SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ? -- PARAMETERS: ["cd-ai"]
+[19/09/2025, 13:35:24] [DbMigrationService::process():95]: applyMigration:executeSQL — {
+  sql: 'CREATE TABLE `cd-ai` (`cd_ai_id` INT NOT NULL  AUTO_INCREMENT, `cd_ai_guid` VARCHAR(255) NULL, `cd_ai_name` VARCHAR(255) NULL, `cd_ai_description` VARCHAR(255) NULL, `cd_ai_type_id` INT NULL, `doc_id` INT NULL, `cd_ai_enabled` TINYINT(1) NULL, PRIMARY KEY (`cd_ai_id`))'
+}
+query: CREATE TABLE `cd-ai` (`cd_ai_id` INT NOT NULL  AUTO_INCREMENT, `cd_ai_guid` VARCHAR(255) NULL, `cd_ai_name` VARCHAR(255) NULL, `cd_ai_description` VARCHAR(255) NULL, `cd_ai_type_id` INT NULL, `doc_id` INT NULL, `cd_ai_enabled` TINYINT(1) NULL, PRIMARY KEY (`cd_ai_id`))
+⠹ ⏳ Running task 'databaseSync' (Attempt 1/3)...[19/09/2025, 13:35:24] [DbMigrationService::DbMigrationService():176]: applyMigration:start — {
+  id: 'create-cd-ai-type',
+  type: 'create',
+  target: 'table',
+  config: {}
+}
+```
+The only error that appears is when an attempt to create cd-ai-view comes up then it fails because the table cd_ai does not exist.
+But there is not evidence on why cd_ai table was not created.
+Can you assist to unravel this?
+
+```log
+[19/09/2025, 13:35:24] [DbMigrationService::process():95]: migrateFromModel()/migrations: — {
+  migrations: '[\n' +
+    '  {\n' +
+    "    id: 'create-cd-ai',\n" +
+    "    source: { type: 'model', dsConfig: {}, dsSchema: [Object] },\n" +
+    "    destination: { type: 'database', dsConfig: {}, dsSchema: [Object] },\n" +
+    "    transformation: { type: 'create', target: 'table', descriptor: [Object] },\n" +
+    "    description: 'Create table cd-ai'\n" +
+    '  },\n' +
+    '  {\n' +
+    "    id: 'create-cd-ai-type',\n" +
+    "    source: { type: 'model', dsConfig: {}, dsSchema: [Object] },\n" +
+    "    destination: { type: 'database', dsConfig: {}, dsSchema: [Object] },\n" +
+    "    transformation: { type: 'create', target: 'table', descriptor: [Object] },\n" +
+    "    description: 'Create table cd-ai-type'\n" +
+    '  },\n' +
+    '  {\n' +
+    "    id: 'create-cd-ai-usage-logs',\n" +
+    "    source: { type: 'model', dsConfig: {}, dsSchema: [Object] },\n" +
+    "    destination: { type: 'database', dsConfig: {}, dsSchema: [Object] },\n" +
+    "    transformation: { type: 'create', target: 'table', descriptor: [Object] },\n" +
+    "    description: 'Create table cd-ai-usage-logs'\n" +
+    '  },\n' +
+    '  {\n' +
+    "    id: 'create-cd-ai-usage-logs-type',\n" +
+    "    source: { type: 'model', dsConfig: {}, dsSchema: [Object] },\n" +
+    "    destination: { type: 'database', dsConfig: {}, dsSchema: [Object] },\n" +
+    "    transformation: { type: 'create', target: 'table', descriptor: [Object] },\n" +
+    "    description: 'Create table cd-ai-usage-logs-type'\n" +
+    '  },\n' +
+    '  {\n' +
+    "    id: 'create-cd_ai_view',\n" +
+    "    source: { type: 'model', dsConfig: {}, dsSchema: [Object] },\n" +
+    "    destination: { type: 'database', dsConfig: {}, dsSchema: [Object] },\n" +
+    "    transformation: { type: 'create', target: 'view', descriptor: [Object] },\n" +
+    "    description: 'Create view cd_ai_view'\n" +
+    '  },\n' +
+    '  {\n' +
+    "    id: 'create-cd-ai-view',\n" +
+    "    source: { type: 'model', dsConfig: {}, dsSchema: [Object] },\n" +
+    "    destination: { type: 'database', dsConfig: {}, dsSchema: [Object] },\n" +
+    "    transformation: { type: 'create', target: 'view', descriptor: [Object] },\n" +
+    "    description: 'Create view cd-ai-view'\n" +
+    '  },\n' +
+    '  {\n' +
+    "    id: 'create-cd_ai_usage_logs_view',\n" +
+    "    source: { type: 'model', dsConfig: {}, dsSchema: [Object] },\n" +
+    "    destination: { type: 'database', dsConfig: {}, dsSchema: [Object] },\n" +
+    "    transformation: { type: 'create', target: 'view', descriptor: [Object] },\n" +
+    "    description: 'Create view cd_ai_usage_logs_view'\n" +
+    '  },\n' +
+    '  {\n' +
+    "    id: 'create-cd-ai-usage-logs-view',\n" +
+    "    source: { type: 'model', dsConfig: {}, dsSchema: [Object] },\n" +
+    "    destination: { type: 'database', dsConfig: {}, dsSchema: [Object] },\n" +
+    "    transformation: { type: 'create', target: 'view', descriptor: [Object] },\n" +
+    "    description: 'Create view cd-ai-usage-logs-view'\n" +
+    '  }\n' +
+    ']'
+}
+[19/09/2025, 13:35:24] [DbMigrationService::DbMigrationService():176]: applyMigration:start — { id: 'create-cd-ai', type: 'create', target: 'table', config: {} }
+query: SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ? -- PARAMETERS: ["cd-ai"]
+[19/09/2025, 13:35:24] [DbMigrationService::process():95]: applyMigration:executeSQL — {
+  sql: 'CREATE TABLE `cd-ai` (`cd_ai_id` INT NOT NULL  AUTO_INCREMENT, `cd_ai_guid` VARCHAR(255) NULL, `cd_ai_name` VARCHAR(255) NULL, `cd_ai_description` VARCHAR(255) NULL, `cd_ai_type_id` INT NULL, `doc_id` INT NULL, `cd_ai_enabled` TINYINT(1) NULL, PRIMARY KEY (`cd_ai_id`))'
+}
+query: CREATE TABLE `cd-ai` (`cd_ai_id` INT NOT NULL  AUTO_INCREMENT, `cd_ai_guid` VARCHAR(255) NULL, `cd_ai_name` VARCHAR(255) NULL, `cd_ai_description` VARCHAR(255) NULL, `cd_ai_type_id` INT NULL, `doc_id` INT NULL, `cd_ai_enabled` TINYINT(1) NULL, PRIMARY KEY (`cd_ai_id`))
+⠹ ⏳ Running task 'databaseSync' (Attempt 1/3)...[19/09/2025, 13:35:24] [DbMigrationService::DbMigrationService():176]: applyMigration:start — {
+  id: 'create-cd-ai-type',
+  type: 'create',
+  target: 'table',
+  config: {}
+}
+query: SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ? -- PARAMETERS: ["cd-ai-type"]
+[19/09/2025, 13:35:24] [DbMigrationService::process():95]: applyMigration:executeSQL — {
+  sql: 'CREATE TABLE `cd-ai-type` (`cd_ai_type_id` INT NOT NULL  AUTO_INCREMENT, `cd_ai_type_guid` VARCHAR(255) NULL, `cd_ai_type_name` VARCHAR(255) NULL, `cd_ai_type_description` VARCHAR(255) NULL, `cd_ai_type_type_id` INT NULL, `doc_id` INT NULL, `cd_ai_type_enabled` TINYINT(1) NULL, PRIMARY KEY (`cd_ai_type_id`))'
+}
+query: CREATE TABLE `cd-ai-type` (`cd_ai_type_id` INT NOT NULL  AUTO_INCREMENT, `cd_ai_type_guid` VARCHAR(255) NULL, `cd_ai_type_name` VARCHAR(255) NULL, `cd_ai_type_description` VARCHAR(255) NULL, `cd_ai_type_type_id` INT NULL, `doc_id` INT NULL, `cd_ai_type_enabled` TINYINT(1) NULL, PRIMARY KEY (`cd_ai_type_id`))
+⠸ ⏳ Running task 'databaseSync' (Attempt 1/3)...[19/09/2025, 13:35:24] [DbMigrationService::DbMigrationService():176]: applyMigration:start — {
+  id: 'create-cd-ai-usage-logs',
+  type: 'create',
+  target: 'table',
+  config: {}
+}
+query: SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ? -- PARAMETERS: ["cd-ai-usage-logs"]
+[19/09/2025, 13:35:24] [DbMigrationService::process():95]: applyMigration:executeSQL — {
+  sql: 'CREATE TABLE `cd-ai-usage-logs` (`cd_ai_usage_logs_id` INT NOT NULL  AUTO_INCREMENT, `cd_ai_usage_logs_guid` VARCHAR(255) NULL, `cd_ai_usage_logs_name` VARCHAR(255) NULL, `cd_ai_usage_logs_description` VARCHAR(255) NULL, `cd_ai_usage_logs_type_id` INT NULL, `doc_id` INT NULL, `cd_ai_usage_logs_enabled` TINYINT(1) NULL, PRIMARY KEY (`cd_ai_usage_logs_id`))'
+}
+query: CREATE TABLE `cd-ai-usage-logs` (`cd_ai_usage_logs_id` INT NOT NULL  AUTO_INCREMENT, `cd_ai_usage_logs_guid` VARCHAR(255) NULL, `cd_ai_usage_logs_name` VARCHAR(255) NULL, `cd_ai_usage_logs_description` VARCHAR(255) NULL, `cd_ai_usage_logs_type_id` INT NULL, `doc_id` INT NULL, `cd_ai_usage_logs_enabled` TINYINT(1) NULL, PRIMARY KEY (`cd_ai_usage_logs_id`))
+⠸ ⏳ Running task 'databaseSync' (Attempt 1/3)...[19/09/2025, 13:35:24] [DbMigrationService::DbMigrationService():176]: applyMigration:start — {
+  id: 'create-cd-ai-usage-logs-type',
+  type: 'create',
+  target: 'table',
+  config: {}
+}
+query: SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = ? -- PARAMETERS: ["cd-ai-usage-logs-type"]
+[19/09/2025, 13:35:24] [DbMigrationService::process():95]: applyMigration:executeSQL — {
+  sql: 'CREATE TABLE `cd-ai-usage-logs-type` (`cd_ai_usage_logs_type_id` INT NOT NULL  AUTO_INCREMENT, `cd_ai_usage_logs_type_guid` VARCHAR(255) NULL, `cd_ai_usage_logs_type_name` VARCHAR(255) NULL, `cd_ai_usage_logs_type_description` VARCHAR(255) NULL, `cd_ai_usage_logs_type_type_id` INT NULL, `doc_id` INT NULL, `cd_ai_usage_logs_type_enabled` TINYINT(1) NULL, PRIMARY KEY (`cd_ai_usage_logs_type_id`))'
+}
+query: CREATE TABLE `cd-ai-usage-logs-type` (`cd_ai_usage_logs_type_id` INT NOT NULL  AUTO_INCREMENT, `cd_ai_usage_logs_type_guid` VARCHAR(255) NULL, `cd_ai_usage_logs_type_name` VARCHAR(255) NULL, `cd_ai_usage_logs_type_description` VARCHAR(255) NULL, `cd_ai_usage_logs_type_type_id` INT NULL, `doc_id` INT NULL, `cd_ai_usage_logs_type_enabled` TINYINT(1) NULL, PRIMARY KEY (`cd_ai_usage_logs_type_id`))
+⠼ ⏳ Running task 'databaseSync' (Attempt 1/3)...[19/09/2025, 13:35:24] [DbMigrationService::DbMigrationService():176]: applyMigration:start — { id: 'create-cd_ai_view', type: 'create', target: 'view', config: {} }
+query: DROP VIEW IF EXISTS `cd_ai_view`
+[19/09/2025, 13:35:24] [DbMigrationService::DbMigrationService():607]: [generateCreateViewSQL] Start — {
+  view: {
+    name: 'cd_ai_view',
+    tableName: 'cd_ai',
+    kind: 'view',
+    relations: [
+      {
+        name: 'cd-ai_to_cd-ai-type',
+        type: 'foreign-key',
+        relatedModel: 'cd-ai-type',
+        foreignKey: 'cdAiTypeId',
+        sourceColumns: [Array],
+        targetColumns: [Array],
+        sourceTable: 'cd_ai',
+        targetTable: 'cd_ai_type'
+      }
+    ],
+    definitionSQL: 'CREATE OR REPLACE VIEW `cd_ai_with_cd_ai_type` AS \n' +
+      '          SELECT s.`cd_ai_id`, s.`cd_ai_guid`, s.`cd_ai_name`, s.`cd_ai_description`, s.`cd_ai_type_id`, s.`doc_id`, s.`cd_ai_enabled`, t.`cd_ai_type_id`\n' +
+      '          FROM `cd_ai` s\n' +
+      '          JOIN `cd_ai_type` t\n' +
+      '          ON s.`cd_ai_type_id` = t.`cd_ai_type_id`'
+  }
+}
+[19/09/2025, 13:35:24] [DbMigrationService::DbMigrationService():607]: [generateCreateViewSQL] Base alias resolved — { baseAlias: 'cd_ai', tableName: 'cd_ai', viewName: 'cd_ai_view' }
+[19/09/2025, 13:35:24] [DbMigrationService::DbMigrationService():607]: [generateCreateViewSQL] view.relations1 — {
+  viewRelations: [
+    {
+      name: 'cd-ai_to_cd-ai-type',
+      type: 'foreign-key',
+      relatedModel: 'cd-ai-type',
+      foreignKey: 'cdAiTypeId',
+      sourceColumns: [ [Object] ],
+      targetColumns: [ [Object] ],
+      sourceTable: 'cd_ai',
+      targetTable: 'cd_ai_type'
+    }
+  ]
+}
+[19/09/2025, 13:35:24] [DbMigrationService::DbMigrationService():607]: [generateCreateViewSQL] Relation alias resolved — {
+  relation: 'cd-ai_to_cd-ai-type',
+  targetTable: 'cd_ai_type',
+  targetAlias: 'cd_ai_type'
+}
+[19/09/2025, 13:35:24] [DbMigrationService::DbMigrationService():607]: [generateCreateViewSQL] view.fields — { viewRelations: undefined }
+[19/09/2025, 13:35:24] [DbMigrationService::DbMigrationService():607]: [generateCreateViewSQL] view.relations2 — {
+  viewRelations: [
+    {
+      name: 'cd-ai_to_cd-ai-type',
+      type: 'foreign-key',
+      relatedModel: 'cd-ai-type',
+      foreignKey: 'cdAiTypeId',
+      sourceColumns: [ [Object] ],
+      targetColumns: [ [Object] ],
+      sourceTable: 'cd_ai',
+      targetTable: 'cd_ai_type'
+    }
+  ]
+}
+[19/09/2025, 13:35:24] [DbMigrationService::DbMigrationService():607]: [generateCreateViewSQL] relColumns — { relColumns: [ { name: 'cdAiTypeId', type: 'number' } ] }
+[19/09/2025, 13:35:24] [DbMigrationService::DbMigrationService():607]: [generateCreateViewSQL] colName — { colName: 'cd_ai_type_id' }
+[19/09/2025, 13:35:24] [DbMigrationService::DbMigrationService():607]: [generateCreateViewSQL] Related column added — {
+  relation: 'cd-ai_to_cd-ai-type',
+  table: 'cd_ai_type',
+  column: 'cd_ai_type_id',
+  alias: 'cd_ai_type_id'
+}
+[19/09/2025, 13:35:24] [DbMigrationService::DbMigrationService():607]: [generateCreateViewSQL] view.relations3 — {
+  viewRelations: [
+    {
+      name: 'cd-ai_to_cd-ai-type',
+      type: 'foreign-key',
+      relatedModel: 'cd-ai-type',
+      foreignKey: 'cdAiTypeId',
+      sourceColumns: [ [Object] ],
+      targetColumns: [ [Object] ],
+      sourceTable: 'cd_ai',
+      targetTable: 'cd_ai_type'
+    }
+  ]
+}
+[19/09/2025, 13:35:24] [DbMigrationService::DbMigrationService():607]: [generateCreateViewSQL] Join added — {
+  relation: 'cd-ai_to_cd-ai-type',
+  baseAlias: 'cd_ai',
+  sourceCol: 'cd_ai_type_id',
+  targetTable: 'cd_ai_type',
+  targetAlias: 'cd_ai_type',
+  targetCol: 'cd_ai_type_id'
+}
+[19/09/2025, 13:35:24] [DbMigrationService::DbMigrationService():607]: [generateCreateViewSQL] selectColumns — {
+  selectColumns: [ '`cd_ai_type`.`cd_ai_type_id` AS `cd_ai_type_id`' ]
+}
+[19/09/2025, 13:35:24] [DbMigrationService::DbMigrationService():607]: [generateCreateViewSQL] Final SQL generated — {
+  sql: 'CREATE OR REPLACE VIEW `cd_ai_view` AS\n' +
+    '    SELECT `cd_ai_type`.`cd_ai_type_id` AS `cd_ai_type_id`\n' +
+    '    FROM `cd_ai` AS `cd_ai` JOIN `cd_ai_type` AS `cd_ai_type` ON `cd_ai`.`cd_ai_type_id` = `cd_ai_type`.`cd_ai_type_id`'
+}
+[19/09/2025, 13:35:24] [DbMigrationService::process():95]: applyMigration:executeSQL — {
+  sql: 'CREATE OR REPLACE VIEW `cd_ai_view` AS\n' +
+    '    SELECT `cd_ai_type`.`cd_ai_type_id` AS `cd_ai_type_id`\n' +
+    '    FROM `cd_ai` AS `cd_ai` JOIN `cd_ai_type` AS `cd_ai_type` ON `cd_ai`.`cd_ai_type_id` = `cd_ai_type`.`cd_ai_type_id`'
+}
+query: CREATE OR REPLACE VIEW `cd_ai_view` AS
+    SELECT `cd_ai_type`.`cd_ai_type_id` AS `cd_ai_type_id`
+    FROM `cd_ai` AS `cd_ai` JOIN `cd_ai_type` AS `cd_ai_type` ON `cd_ai`.`cd_ai_type_id` = `cd_ai_type`.`cd_ai_type_id`
+query failed: CREATE OR REPLACE VIEW `cd_ai_view` AS
+    SELECT `cd_ai_type`.`cd_ai_type_id` AS `cd_ai_type_id`
+    FROM `cd_ai` AS `cd_ai` JOIN `cd_ai_type` AS `cd_ai_type` ON `cd_ai`.`cd_ai_type_id` = `cd_ai_type`.`cd_ai_type_id`
+error: Error: Table 'cd1213.cd_ai' doesn't exist
+[19/09/2025, 13:35:24] [CICdRunnerService::process():95]: resultControllerInstance — {
+  state: false,
+  message: "Failed to apply migration create-cd_ai_view: Table 'cd1213.cd_ai' doesn't exist"
+}
+```
+
+
+
+```
 ---
 
 ## COMPLETED TASKS:
 
 - after migration, auto add initial test data for testing validation...done
 - fixed primary key not being set
+
 ```ts
 MissingPrimaryColumnError: Entity "CdAiUsageLogsTypeModel" does not have a primary column. Primary column is required to have in all your entities. Use @PrimaryColumn decorator to add a primary column to your entity.
 ```
 
 - implement views
 
+- set up GenEntityController.RegisterModuleInCdInstance() as a task
+- before starting tests
+  - register cd-ai as a module (The module cd-ai is not registered in this corpdesk instance)
+- create post execution functon to handle printing of result summary
+- purge module (cd-api)
+  - deregister module
+  - purge module from db
+
 ---
 
 ## TASKS IN PROGRESS:
 
-- before starting tests
-  - register cd-ai as a module (The module cd-ai is not registered in this corpdesk instance)
+
 - manual tests for all the modules and methods
   - create
   - read
@@ -4280,6 +8677,8 @@ MissingPrimaryColumnError: Entity "CdAiUsageLogsTypeModel" does not have a prima
 
 ---
 
+- confirm module purge is working
+- Make sure when new module is registered, correct message is: new module created
 - test cd-ai module
 - add import for inspect to service
 - uncomment logger in the service
@@ -4315,9 +8714,18 @@ Command structure
 ```
 
 ```sh
+
+# create a new module in cd-cli/app-craft
 create --cd-module --name cd-ai --o-env workshop --repo cd-ai;
+
+# create module in a cd-api instance (database objects are not set during this proces)
 create --cd-module --name cd-ai --o-env test-bed --repo cd-ai;
+
+# update module in cd-api instance then migrate all the required database objects
 update --cd-module --name cd-ai --o-env test-bed --repo cd-ai;
+
+# deregister from cd-ai instance and purge all module tables in the database
+delete --cd-module --name cd-ai --o-env test-bed --repo cd-ai;
 
 # upgrade cd-api to version 0.8.0. then perform task test after the upgrade (tests would upgrade the project as per the roadmap based on successful tests)
 upgrade --cd-app  --name cd-api --o-env test-bed  --repo cd-api --version 0.8.0 --test true;
@@ -4339,7 +8747,20 @@ upgrade --cd-module --name cd-ai --o-env test-bed --repo cd-ai --version 0.1.0 -
 5. Run confirmation tests
 6. Create online package
 7. Install on test phone
-8. Output:
+8. Test application features
+
+- login
+- view auto built menu
+- Manage user profile
+- test module features
+
+9. Test Admin features
+10. Implement custom module features
+    Review of How Corpdesk Work
+11. Objectives
+12. Features
+13. Module Development Cycle
+14. Output:
 
 - workshop files
 - git repository
@@ -4348,6 +8769,6 @@ upgrade --cd-module --name cd-ai --o-env test-bed --repo cd-ai --version 0.1.0 -
 - online package
 - installed instance
 
-9. Review testing standards
-10. Review security issues
-11. Review IP security
+5. Review testing standards
+6. Review security issues
+7. Review IP security

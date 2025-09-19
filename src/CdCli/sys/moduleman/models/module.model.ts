@@ -83,3 +83,45 @@ export class ModuleModel {
   })
   order?: number;
 }
+
+export const EnvCreate = {
+  ctx: 'Sys',
+  m: 'Moduleman',
+  c: 'Module',
+  a: 'Create',
+  dat: {
+    token: '',
+    f_vals: [
+      {
+        data: {
+          moduleName: '',
+          isSysModule: false,
+        },
+        cdObj: {
+          cdObjName: '',
+          cdObjTypeGuid: '809a6e31-9fb1-4874-b61a-38cf2708a3bb',
+          parentModuleGuid: '04060dfa-fc94-4e3a-98bc-9fbd739deb87',
+        },
+      },
+    ],
+  },
+  args: null,
+};
+
+export const EnvPurge = {
+  ctx: 'Sys',
+  m: 'Moduleman',
+  c: 'Module',
+  a: 'PurgeModule',
+  dat: {
+    token: '',
+    f_vals: [
+      {
+        data: {
+          moduleName: '',
+        },
+      },
+    ],
+  },
+  args: null,
+};
