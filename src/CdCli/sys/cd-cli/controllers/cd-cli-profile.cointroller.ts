@@ -346,7 +346,7 @@ export class CdCliProfileController {
   }
 
   async checkProfileAndLogin(): Promise<CdFxReturn<void>> {
-    CdLog.debug('CdCliProfileController::checkProfileAndLogin():01');
+    // CdLog.debug('CdCliProfileController::checkProfileAndLogin():01');
     try {
       // Resolve the path to the configuration file
       const configFilePath = CONFIG_FILE_PATH; // Assuming this constant points to ~/.cd-cli/cd-cli.profiles.json
@@ -357,7 +357,7 @@ export class CdCliProfileController {
         CdLog.warning(
           `Configuration file ${configFilePath} not found. Initiating login process...`,
         );
-        CdLog.debug('CdCliProfileController::checkProfileAndLogin():02');
+        // CdLog.debug('CdCliProfileController::checkProfileAndLogin():02');
         const userController = new UserController();
         await userController.loginWithRetry();
 
@@ -372,7 +372,7 @@ export class CdCliProfileController {
       }
 
       // Step 2: Load and parse the configuration file
-      CdLog.debug('CdCliProfileController::checkProfileAndLogin():03');
+      // CdLog.debug('CdCliProfileController::checkProfileAndLogin():03');
       const cdCliConfig = JSON.parse(fs.readFileSync(configFilePath, 'utf-8'));
       // CdLog.debug(`cdCliConfig: ${JSON.stringify(cdCliConfig)}`);
 
@@ -387,7 +387,7 @@ export class CdCliProfileController {
       }
 
       // Step 4: Look for the "cd-api-local" profile
-      CdLog.debug('CdCliProfileController::checkProfileAndLogin():04');
+      // CdLog.debug('CdCliProfileController::checkProfileAndLogin():04');
       const cdApiProfile = cdCliConfig.items.find(
         (profile: any) => profile.cdCliProfileName === config.cdApiLocal,
       );
@@ -402,7 +402,7 @@ export class CdCliProfileController {
       }
 
       // Step 5: Check for a valid session token in the "cd-api-local" profile
-      CdLog.debug('CdCliProfileController::checkProfileAndLogin():05');
+      // CdLog.debug('CdCliProfileController::checkProfileAndLogin():05');
       const session: ISessResp = cdApiProfile.cdCliProfileData.details?.session;
       if (
         !session ||
@@ -433,7 +433,7 @@ export class CdCliProfileController {
         CdLog.success('Session token renewed successfully.');
       } else {
         // CdLog.debug('CdCliProfileController::checkProfileAndLogin():06');
-        CdLog.info('Valid session token found. Proceeding...');
+        // CdLog.info('Valid session token found. Proceeding...');
         this.cdToken = session.cd_token;
       }
 

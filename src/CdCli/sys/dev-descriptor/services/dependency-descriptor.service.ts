@@ -551,6 +551,20 @@ export class DependencyDescriptorService extends GenericService<CdObjModel> {
         usage: { usageContext: 'core', classesUsed: ['BaseService'] },
       },
       {
+        name: 'BaseInterfaces',
+        category: 'core',
+        source: 'local',
+        scope: 'module',
+        targetApp: AppType.CdApi,
+        isCdModule: true,
+        cdCtx: CdCtx.Sys,
+        resolution: {
+          method: 'import',
+          path: '../../../sys/base/i-base',
+        },
+        usage: { usageContext: 'core', classesUsed: ['IQuery', 'IRespInfo','ICdRequest', 'IServiceInput'] },
+      },
+      {
         name: 'Logging',
         category: 'core',
         source: 'local',

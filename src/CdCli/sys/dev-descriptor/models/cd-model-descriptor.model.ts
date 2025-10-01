@@ -16,20 +16,6 @@ export interface CdModelDescriptor extends ComponentDescriptor {
   ormMapping?: OrmMappingDescriptor; // ORM mapping details
 }
 
-// Base Field Descriptor
-// export interface FieldDescriptor extends BaseDescriptor {
-//   name: string; // Field name
-//   dbName?: string; // Database column name (if different from field name)
-//   type: any; // Data type of the field
-//   required: boolean; // Indicates if the field is mandatory
-//   defaultValue?: any; // Default value for the field
-//   nullable?: boolean;
-//   unique?: boolean; // Indicates if the field value must be unique
-//   validation?: ValidationDescriptor; // Field validation rules
-//   primary?: boolean;
-//   autoIncrement?: boolean;
-//   default: boolean; // Indicates if the field is a default export
-// }
 export interface FieldDescriptor extends BaseDescriptor {
   name: string; // logical name
   dbName?: string | FieldType; // actual DB column name

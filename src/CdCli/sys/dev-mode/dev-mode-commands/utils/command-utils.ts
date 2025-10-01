@@ -10,6 +10,7 @@ import { syncCommand } from '../subcommands/sync.command.js';
 import { updateCommand } from '../subcommands/update.command.js';
 import { upgradeCommand } from '../subcommands/upgrade.command.js';
 import { CiCdService } from '../../../../sys/dev-descriptor/index.js';
+import { testCommand } from '../subcommands/test.command.js';
 
 
 
@@ -28,6 +29,7 @@ const SUBCOMMANDS = {
   read: readCommand,
   update: updateCommand,
   delete: deleteCommand,
+  test: testCommand,
   upgrade: upgradeCommand,
   migrate: migrateCommand,
   derive: deriveCommand,

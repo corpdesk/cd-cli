@@ -162,6 +162,10 @@ export class CICdRunnerService {
         CdLog.debug(`CICdRunnerService::loadModuleDescriptorAndWorkflow()/switch/case:delete`);
         workflowModel = workflowInstance.deleteWorkFlow(descriptor, oEnv, extraParams);
         break;
+      case DevModeAction.TEST:
+        CdLog.debug(`CICdRunnerService::loadModuleDescriptorAndWorkflow()/switch/case:test`);
+        workflowModel = workflowInstance.testWorkFlow(descriptor, oEnv, extraParams);
+        break;
       case DevModeAction.DERIVE:
         CdLog.debug(`CICdRunnerService::loadModuleDescriptorAndWorkflow()/switch/case:derive`);
         workflowModel = workflowInstance.deriveWorkFlow(descriptor, oEnv, extraParams);
@@ -339,9 +343,6 @@ export class CICdRunnerService {
         };
       }
 
-      // if(workflowFile){
-      //   throw new Error(`Process stoped for observation!`);
-      // }
       return {
         state: true,
         data: { path: workflowFile, descriptor: descriptor },

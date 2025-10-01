@@ -1,14 +1,12 @@
 /**
  * Converts kebab-case or snake_case to camelCase.
- * 
+ *
  * Examples:
  *   'coop-member'    => 'coopMember'
  *   'coop_member_id' => 'coopMemberId'
  */
 export function toCamelCase(input: string): string {
-  return input
-    .toLowerCase()
-    .replace(/[-_](\w)/g, (_, c) => c.toUpperCase());
+  return input.toLowerCase().replace(/[-_](\w)/g, (_, c) => c.toUpperCase());
 }
 
 /**
@@ -18,10 +16,10 @@ export function toCamelCase(input: string): string {
  */
 export function toCamelMain(str: string): string {
   if (!str) return str;
-  
+
   return str
     .split('-')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join('');
 }
 
@@ -32,19 +30,18 @@ export function toCamelMain(str: string): string {
  */
 export function toCamelMinor(str: string): string {
   if (!str) return str;
-  
+
   const pascal = str
     .split('-')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join('');
-  
+
   return pascal.charAt(0).toLowerCase() + pascal.slice(1);
 }
 
-
 /**
  * Converts kebab-case, snake_case, or camelCase to PascalCase.
- * 
+ *
  * Examples:
  *   'coop-member'   => 'CoopMember'
  *   'coopMember'    => 'CoopMember'
@@ -57,7 +54,7 @@ export function toPascalCase(input: string): string {
 
 /**
  * Converts camelCase or PascalCase to kebab-case.
- * 
+ *
  * Examples:
  *   'coopMember'    => 'coop-member'
  *   'CoopMember'    => 'coop-member'
@@ -72,7 +69,7 @@ export function toKebabCase(input: string): string {
 
 /**
  * Converts camelCase or PascalCase to snake_case.
- * 
+ *
  * Examples:
  *   'coopMember'    => 'coop_member'
  *   'CoopMember'    => 'coop_member'
@@ -114,9 +111,9 @@ export function toLowerCase(input: string): string {
  */
 export function toUniversalSnakeCase(input: string): string {
   return input
-    .replace(/([a-z])([A-Z])/g, '$1_$2')       // camelCase/PascalCase to snake_case
-    .replace(/[-\s]+/g, '_')                   // kebab-case or spaces to snake_case
-    .replace(/_+/g, '_')                       // collapse multiple underscores
+    .replace(/([a-z])([A-Z])/g, '$1_$2') // camelCase/PascalCase to snake_case
+    .replace(/[-\s]+/g, '_') // kebab-case or spaces to snake_case
+    .replace(/_+/g, '_') // collapse multiple underscores
     .toLowerCase()
     .trim();
 }
@@ -137,32 +134,57 @@ export function inferCdObjType(source: string): string {
     .toLowerCase();
 }
 
-/**
- * Converts a field like "cdAiId" to "cdAiTypeId"
- * and snake_case "cd_ai_id" to "cd_ai_type_id"
- */
+// ✅ Helper: detect visitor fields (foreign keys)
+export function isVisitorField(fieldSnake: string): boolean {
+  return (
+    fieldSnake.endsWith('_id') &&
+    !fieldSnake.includes('_doc_id') && // exclude doc_id
+    !fieldSnake.includes('_type_id') // exclude type-resident id
+  );
+}
+
+// ✅ Helper: normalize resident field names (avoid TypeType, etc.)
 export function injectTypeBeforeSuffix(
   original: string,
-  suffixes: string[] = ['Id', 'Guid', 'Code', 'Ref', 'Name', 'DocId'],
+  suffixes: string[] = ['Id', 'Guid', 'Code', 'Ref', 'Name', 'Description', 'Enabled'],
   injection: string = 'Type',
 ): string {
   const suffix = suffixes.find((s) => original.endsWith(s));
-  if (!suffix) return `${original}${injection}`; // fallback
+  if (!suffix) {
+    return original.endsWith(injection) ? original : `${original}${injection}`;
+  }
 
   const prefix = original.slice(0, -suffix.length);
+
+  // 🚫 Prevent duplicate 'TypeType'
+  if (prefix.endsWith(injection)) {
+    return `${prefix}${suffix}`;
+  }
+
   return `${prefix}${injection}${suffix}`;
 }
 
 export function injectTypeBeforeSnakeSuffix(
   original: string,
-  suffixes: string[] = ['_id', '_guid', '_code', '_ref', '_name', '_doc_id'],
+  suffixes: string[] = ['_id', '_guid', '_code', '_ref', '_name', '_description', '_enabled'],
   injection: string = '_type',
 ): string {
+  // 🛑 Exemptions for special/visitor fields
+  if (original === 'doc_id' || (original.endsWith('_id') && !original.includes('_type'))) {
+    return original; // don't inject _type for visitor or doc_id
+  }
+
   const suffix = suffixes.find((s) => original.endsWith(s));
-  if (!suffix) return `${original}${injection}`;
+  if (!suffix) {
+    return original.endsWith(injection) ? original : `${original}${injection}`;
+  }
 
   const prefix = original.slice(0, -suffix.length);
+
+  // 🚫 Prevent duplicate _type_type
+  if (prefix.endsWith(injection)) {
+    return `${prefix}${suffix}`;
+  }
+
   return `${prefix}${injection}${suffix}`;
 }
-
-

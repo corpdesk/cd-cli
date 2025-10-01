@@ -493,9 +493,9 @@ export interface LsFilter {
 //   mapping?: any;
 //   serviceModelInstance?: any; // instance of subject model
 //   docName?: string;
-//   cmd?: Cmd;
+//   cmd?: Cmd<any>;
 //   data?: any;
-//   dSource?: DataSource;
+//   dSource?: DataSource | number;
 //   extraInfo?: boolean;
 //   modelName?: string;
 //   modelPath?: string;

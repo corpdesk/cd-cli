@@ -292,6 +292,7 @@ export const DEV_MODE_COMMANDS = {
     getSubcommand('read'),
     getSubcommand('update'),
     getSubcommand('delete'),
+    getSubcommand('test'),
     getSubcommand('upgrade'),
     getSubcommand('migrate'),
     getSubcommand('derive'),

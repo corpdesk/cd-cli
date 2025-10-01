@@ -140,7 +140,7 @@ sequenceDiagram
 
         Applies RFC naming transformations consistently during processing
 
-        Guarantees no “TypeType” type duplication
+        Guarantees no “Type” type duplication
 
     Template Snippet Manager
 

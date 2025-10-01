@@ -55,6 +55,7 @@ export enum DevModeAction {
   UPDATE = 3,
   DELETE = 4,
   DERIVE = 16, // e.g., derive CdObj from an existing source, like a module descriptor or workflow model
+  TEST = 19, // e.g., run tests on the target object
 
   GET = 17, // e.g., get query
   GET_PAGED = 18, // get query with pagination

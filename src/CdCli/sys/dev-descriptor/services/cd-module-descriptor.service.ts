@@ -33,11 +33,14 @@ import {
   ValidationPolicy,
 } from '../../../app/app-craft/models/default.model.js';
 import {
+  ComponentAttributes,
   ComponentDescriptor,
   ComponentType,
   DerivedSuffix,
 } from '../models/component-descriptor.model.js';
 import { cdFx } from '../../base/cd-fx-return.util.js';
+import { isModelComponent } from '../../utils/cd-descriptors.utils.js';
+import { FunctionDescriptor } from '../models/function-descriptor.model.js';
 
 export class CdModuleDescriptorService {
   b = new BaseService();
@@ -212,7 +215,7 @@ export class CdModuleDescriptorService {
   }
 
   /**
-   * Squash repeated suffixes like `TypeType` or `-type-type`.
+   * Squash repeated suffixes like `Type` or `-type-type`.
    */
   private squashRepeatedSuffix(name: string, suffix: 'type' | 'view'): string {
     return name.replace(new RegExp(`(${this.capitalize(suffix)}|-${suffix})+$`, 'gi'), '');
@@ -228,80 +231,285 @@ export class CdModuleDescriptorService {
   private async sanitizeModuleData(data: CdModuleDescriptor): Promise<CdModuleDescriptor> {
     this.b.logWithContext(this, 'sanitizeModuleData:input', data, 'debug');
 
-    const dedupe = <T extends ComponentDescriptor>(list: T[]): T[] => {
-      const seen = new Set<string>();
-      return list.filter((comp) => {
-        const key = `${comp.name}:${comp.type}`;
-        if (seen.has(key)) return false;
-        seen.add(key);
-        return true;
-      });
+    ////////////////////////////////////////////////////
+    // 🔄 Generic recursive dedupe
+    type DedupeConfig = {
+      keyFn: (item: any) => string;
+      sublists?: Record<string, DedupeConfig>;
     };
 
-    // Normalize fileName for each component
+    const dedupeWithConfig = <T extends { name?: string; dbName?: string }>(
+      list: T[],
+      config: {
+        keyFn: (item: T) => string;
+        sublists?: Record<string, typeof config>;
+      },
+      ctx: string,
+    ): T[] => {
+      this.b.logWithContext(this, 'sanitizeModuleData:starting dedupeWithConfig()', {}, 'debug');
+      const seenKeys = new Set<string>();
+      const seenNames = new Set<string>();
+      const seenDbNames = new Set<string>();
+      const result: T[] = [];
+
+      // this.b.logWithContext(this, `dedupeWithConfig/${ctx}:input`, { list, ctx }, 'debug');
+
+      for (const item of list) {
+        const key = config.keyFn(item);
+        const nameDup = item.name && seenNames.has(item.name);
+        const dbDup = item.dbName && seenDbNames.has(item.dbName);
+
+        // this.b.logWithContext(
+        //   this,
+        //   `dedupeWithConfig/${ctx}:key/seen`,
+        //   { key, nameDup, dbDup },
+        //   'debug',
+        // );
+
+        if (seenKeys.has(key) || nameDup || dbDup) {
+          // this.b.logWithContext(
+          //   this,
+          //   `${ctx}:duplicate_detected`,
+          //   {
+          //     duplicate: item,
+          //     reason: [
+          //       seenKeys.has(key) ? `key(${key})` : null,
+          //       nameDup ? `name(${item.name})` : null,
+          //       dbDup ? `dbName(${item.dbName})` : null,
+          //     ].filter(Boolean),
+          //   },
+          //   'warn',
+          // );
+          continue;
+        }
+
+        seenKeys.add(key);
+        if (item.name) seenNames.add(item.name);
+        if (item.dbName) seenDbNames.add(item.dbName);
+
+        // ──────────────────────────────
+        // Handle sublists recursively
+        // ──────────────────────────────
+        const dedupedItem: any = { ...item };
+        if (config.sublists) {
+          for (const [sublistKey, subConfig] of Object.entries(config.sublists)) {
+            if (Array.isArray(dedupedItem[sublistKey])) {
+              dedupedItem[sublistKey] = dedupeWithConfig(
+                dedupedItem[sublistKey],
+                subConfig,
+                `${ctx}.${(item as any).name ?? 'unknown'}.${sublistKey}`,
+              );
+            }
+          }
+        }
+
+        result.push(dedupedItem);
+      }
+
+      this.b.logWithContext(
+        this,
+        `${ctx}:dedupe_result`,
+        { kept: result.length, dropped: list.length - result.length },
+        'debug',
+      );
+
+      return result;
+    };
+
+    ////////////////////////////////////////////////////
+    // 🔧 Configs for recursive dedupe
+    const modelConfig: DedupeConfig = {
+      keyFn: (m) => `${m.name}:${m.type}`,
+      sublists: {
+        fields: {
+          keyFn: (f) => f.dbName ?? f.name,
+        },
+        relationships: {
+          keyFn: (r) => r.name,
+        },
+      },
+    };
+
+    const serviceConfig: DedupeConfig = {
+      keyFn: (s) => `${s.name}:${s.type}`,
+      sublists: {
+        attributes: {
+          keyFn: (a) => `${a.name}:${a.type}`,
+        },
+        methods: {
+          keyFn: (m) => m.name,
+        },
+        dependencies: {
+          keyFn: (d) => d.name,
+        },
+      },
+    };
+
+    const controllerConfig: DedupeConfig = {
+      keyFn: (c) => `${c.name}:${c.type}`,
+      sublists: {
+        methods: {
+          keyFn: (m) => m.name,
+        },
+        dependencies: {
+          keyFn: (d) => d.name,
+        },
+      },
+    };
+
+    ////////////////////////////////////////////////////
+    // 🔧 Normalize filenames
     const normalize = <T extends ComponentDescriptor>(list: T[]): T[] =>
       list.map((comp) => ({
         ...comp,
         fileName: this.buildFileName(comp.name, comp.type),
       }));
 
+    ////////////////////////////////////////////////////
     // 1. Deduplicate original input
+    this.b.logWithContext(
+      this,
+      'sanitizeModuleData:starting 1. Deduplicate original input',
+      {},
+      'debug',
+    );
     const deduped: CdModuleDescriptor = {
       ...data,
-      controllers: dedupe(data.controllers ?? []),
-      services: dedupe(data.services ?? []),
-      models: dedupe(data.models ?? []),
+      controllers: dedupeWithConfig(data.controllers ?? [], controllerConfig, 'controllers'),
+      services: dedupeWithConfig(data.services ?? [], serviceConfig, 'services'),
+      models: dedupeWithConfig(data.models ?? [], modelConfig, 'models'),
     };
 
+    ////////////////////////////////////////////////////
     // 2. Apply counterpart rules
+    this.b.logWithContext(
+      this,
+      'sanitizeModuleData:starting 2. Apply counterpart rules',
+      {},
+      'debug',
+    );
     const withCounterparts = this.ensureCounterparts(deduped);
+    // this.b.logWithContext(
+    //   this,
+    //   `sanitizeModuleData:withCounterparts.models[1]:`,
+    //   { models: JSON.stringify(withCounterparts.models[1]) },
+    //   'debug',
+    // );
+    this.b.logWithContext(
+      this,
+      `sanitizeModuleData:withCounterparts.services[1]:`,
+      { models: JSON.stringify(withCounterparts.services[1]) },
+      'debug',
+    );
 
-    // check for counterparts...ok
-    // this.b.logWithContext(this, `sanitizeModuleData:withCounterparts:`, withCounterparts, 'debug');
-    // check for dependencies...ok
-    // this.b.logWithContext(this, `sanitizeModuleData:withCounterparts.controllers[0].dependencies:`, withCounterparts.controllers[0].dependencies, 'debug');
-
+    ////////////////////////////////////////////////////
     // 3. Normalize filenames
+    this.b.logWithContext(this, 'sanitizeModuleData:starting 3. Normalize filenames', {}, 'debug');
     const normalized: CdModuleDescriptor = {
       ...withCounterparts,
       controllers: normalize(withCounterparts.controllers ?? []),
       services: normalize(withCounterparts.services ?? []),
       models: normalize(withCounterparts.models ?? []),
     };
-    // check for counterparts...ok
-    // this.b.logWithContext(this, `sanitizeModuleData:normalized:`, normalized, 'debug');
-    // check for dependencies...ok
-    // this.b.logWithContext(this, `sanitizeModuleData:normalized.controllers[0].dependencies:`, normalized.controllers[0].dependencies, 'debug');
-
-    // 4. Final dedupe
-    const result: CdModuleDescriptor = {
-      ...normalized,
-      controllers: dedupe(normalized.controllers ?? []),
-      services: dedupe(normalized.services ?? []),
-      models: dedupe(normalized.models ?? []),
-    };
-
-    ////////////////////////////////////////////////////
-    // 🔄 rebuild dependencies on the validated base
-    const finalResult = await this.svDependencyDescriptor.rebuildDependencyData(result);
     this.b.logWithContext(
       this,
-      'sanitizeModuleData:finalResult.data?.controllers[0].dependencies',
-      finalResult.data?.controllers[0].dependencies,
+      `sanitizeModuleData:normalized.models[1]:`,
+      { models: JSON.stringify(normalized.models[1]) },
       'debug',
     );
 
-    if (!finalResult || !finalResult.data) {
-      throw new Error(`There was and error in rebuildDependencyData()`);
+    ////////////////////////////////////////////////////
+    // 4. Final dedupe pass (post-normalization)
+    this.b.logWithContext(
+      this,
+      'sanitizeModuleData:starting 4. Final dedupe pass (post-normalization)',
+      {},
+      'debug',
+    );
+    const result: CdModuleDescriptor = {
+      ...normalized,
+      controllers: dedupeWithConfig(
+        normalized.controllers ?? [],
+        controllerConfig,
+        'controllers-final',
+      ),
+      services: dedupeWithConfig(normalized.services ?? [], serviceConfig, 'services-final'),
+      models: dedupeWithConfig(normalized.models ?? [], modelConfig, 'models-final'),
+    };
+    this.b.logWithContext(
+      this,
+      `sanitizeModuleData:result.models[1]:`,
+      { models: JSON.stringify(result.models[1]) },
+      'debug',
+    );
+
+    ////////////////////////////////////////////////////
+    // 5. 🚨 Deduplicate fields inside models (column-safe)
+    this.b.logWithContext(
+      this,
+      'sanitizeModuleData:starting 5. 🚨 Deduplicate fields inside models (column-safe)',
+      {},
+      'debug',
+    );
+    result.models = result.models.map((model) => {
+      const seenFields = new Set<string>();
+      const seenColumns = new Set<string>();
+
+      const filteredFields = model.fields.filter((field) => {
+        const fieldKey = field.name;
+        const columnKey = toUniversalSnakeCase(field.name);
+
+        if (seenFields.has(fieldKey) || seenColumns.has(columnKey)) {
+          this.b.logWithContext(
+            this,
+            `sanitizeModuleData:duplicate-field-dropped`,
+            { model: model.name, field: fieldKey, column: columnKey },
+            'warn',
+          );
+          return false;
+        }
+
+        seenFields.add(fieldKey);
+        seenColumns.add(columnKey);
+        return true;
+      });
+
+      return {
+        ...model,
+        fields: filteredFields,
+      };
+    });
+
+    ////////////////////////////////////////////////////
+    // 6. 🔄 rebuild dependencies on the validated base
+    this.b.logWithContext(
+      this,
+      'sanitizeModuleData:starting 6. 🔄 rebuild dependencies on the validated base',
+      {},
+      'debug',
+    );
+    let finalResult: CdModuleDescriptor | null = null;
+    try {
+      const rebuilt = await this.svDependencyDescriptor.rebuildDependencyData(result);
+      if (rebuilt && rebuilt.data) {
+        finalResult = rebuilt.data;
+      } else {
+        this.b.logWithContext(this, 'sanitizeModuleData:dependency-rebuild-null', rebuilt, 'warn');
+      }
+    } catch (err: any) {
+      this.b.logWithContext(
+        this,
+        'sanitizeModuleData:dependency-rebuild-error',
+        {
+          error: err.message,
+        },
+        'error',
+      );
     }
 
-    ////////////////////////////////////////////////////////////////
-
-    // check for counterparts...ok
-    // this.b.logWithContext(this, 'sanitizeModuleData:result', result, 'debug');
-    // check for dependencies...ok
-    // this.b.logWithContext(this, 'sanitizeModuleData:result.controllers[0].dependencies', result.controllers[0].dependencies, 'debug');
-    return finalResult.data;
+    ////////////////////////////////////////////////////
+    // ✅ Always return something usable
+    return finalResult ?? result;
   }
 
   private getBaseType(type: ComponentType): string {
@@ -729,233 +937,11 @@ export class CdModuleDescriptorService {
     return this.normalizeNameLikeFields(clone);
   }
 
-  // private ensureCounterparts(data: CdModuleDescriptor): CdModuleDescriptor {
-  //   // Helper: normalize filename for each component
-  //   const ensureFileName = (comp: ComponentDescriptor): string => {
-  //     // Example: "cd-ai" + "." + "controller" + ".ts"
-  //     return `${comp.name}.${comp.type}.ts`;
-  //   };
-
-  //   const processList = (
-  //     list: ComponentDescriptor[] | undefined,
-  //     type: ComponentType,
-  //   ): ComponentDescriptor[] => {
-  //     if (!list) return [];
-
-  //     const enriched: ComponentDescriptor[] = [];
-
-  //     for (const comp of list) {
-  //       const base: ComponentDescriptor = {
-  //         ...comp,
-  //         fileName: comp.fileName ?? ensureFileName(comp),
-  //       };
-  //       enriched.push(base);
-
-  //       // --- Counterparts rules ---
-  //       if (type === 'controller' || type === 'service') {
-  //         // Add -type counterpart if missing
-  //         const typeName = base.name.endsWith('-type') ? base.name : `${base.name}-type`;
-
-  //         if (!list.some((c) => c.name === typeName && c.type === `${type}-type`)) {
-  //           enriched.push({
-  //             ...base,
-  //             name: typeName,
-  //             type: `${type}-type` as ComponentType,
-  //             fileName: `${typeName}.${type}-type.ts`,
-  //           });
-  //         }
-  //       }
-
-  //       if (type === 'model') {
-  //         // Add -type counterpart
-  //         const typeName = base.name.endsWith('-type') ? base.name : `${base.name}-type`;
-
-  //         if (!list.some((c) => c.name === typeName && c.type === 'model-type')) {
-  //           enriched.push({
-  //             ...base,
-  //             name: typeName,
-  //             type: ComponentType.ModelType,
-  //             fileName: `${typeName}.model-type.ts`,
-  //           });
-  //         }
-
-  //         // Add -view counterpart
-  //         const viewName = base.name.endsWith('-view') ? base.name : `${base.name}-view`;
-
-  //         if (!list.some((c) => c.name === viewName && c.type === 'model-view')) {
-  //           enriched.push({
-  //             ...base,
-  //             name: viewName,
-  //             type: ComponentType.ModelView,
-  //             fileName: `${viewName}.model-view.ts`,
-  //           });
-  //         }
-  //       }
-
-  //       // // check for controllers and counterparts
-  //       // this.b.logWithContext(this, `ensureCounterparts:enriched[0].dependencies`, {enriched: enriched[0]}, 'debug');
-  //       // // check for dependancies
-  //       // this.b.logWithContext(this, `ensureCounterparts:enriched[0].dependencies`, {enriched: enriched[0].dependencies}, 'debug');
-  //     }
-
-  //     return enriched;
-  //   };
-
-  //   const enrichedModels = processList(data.models, ComponentType.Model) as CdModelDescriptor[]
-  //   this.b.logWithContext(this, `ensureCounterparts:()fileName:`, {enrichedModels: enrichedModels[1].fileName}, 'debug');
-  //   this.b.logWithContext(this, `ensureCounterparts:()enrichedFields:`, {enrichedModels: enrichedModels[1].fields}, 'debug');
-
-  //   return {
-  //     ...data,
-  //     controllers: processList(
-  //       data.controllers,
-  //       ComponentType.Controller,
-  //     ) as CdControllerDescriptor[],
-  //     services: processList(data.services, ComponentType.Service) as CdServiceDescriptor[],
-  //     models: processList(data.models, ComponentType.Model) as CdModelDescriptor[],
-  //   };
-  // }
-
-  // private ensureCounterparts(data: CdModuleDescriptor): CdModuleDescriptor {
-  //   // 🛠 Helper: normalize filename for each component
-  //   const ensureFileName = (comp: ComponentDescriptor): string => {
-  //     const fileName = `${comp.name}.${comp.type}.ts`;
-  //     this.b.logWithContext(this, `ensureCounterparts()/fileName:`, { fileName }, 'debug');
-  //     return fileName;
-  //   };
-
-  //   // 🛠 Helper: convert kebab-case to PascalCase
-  //   const kebabToPascal = (str: string): string =>
-  //     str
-  //       .split('-')
-  //       .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
-  //       .join('');
-
-  //   const adjustFieldsForType = (
-  //     baseName: string,
-  //     fields: FieldDescriptor[],
-  //     typeSuffix: string,
-  //   ): FieldDescriptor[] => {
-  //     const camelBaseName = toCamelCase(baseName);
-  //     const pascalSuffix = kebabToPascal(typeSuffix);
-
-  //     return fields.map((f) => {
-  //       // 🎯 REFACTORED LINE: use case-insensitive flag 'i'
-  //       const adjustedName = f.name.replace(
-  //         new RegExp(`^${camelBaseName}`, 'i'),
-  //         `${camelBaseName}${pascalSuffix}`,
-  //       );
-  //       return {
-  //         ...f,
-  //         name: adjustedName,
-  //         dbName: f.dbName,
-  //       };
-  //     });
-  //   };
-
-  //   const processList = (
-  //     list: ComponentDescriptor[] | undefined,
-  //     type: ComponentType,
-  //   ): ComponentDescriptor[] => {
-  //     if (!list) return [];
-
-  //     const enriched: ComponentDescriptor[] | CdModelDescriptor = [];
-
-  //     for (const comp of list) {
-  //       const base: ComponentDescriptor = {
-  //         ...comp,
-  //         fileName: comp.fileName ?? ensureFileName(comp),
-  //       };
-  //       enriched.push(base);
-
-  //       // --- Counterparts rules ---
-  //       if (type === 'controller' || type === 'service') {
-  //         const typeName = base.name.endsWith('-type') ? base.name : `${base.name}-type`;
-
-  //         if (!list.some((c) => c.name === typeName && c.type === `${type}-type`)) {
-  //           enriched.push({
-  //             ...base,
-  //             name: typeName,
-  //             type: `${type}-type` as ComponentType,
-  //             fileName: `${typeName}.${type}-type.ts`,
-  //           });
-  //         }
-  //       }
-
-  //       if (type === 'model') {
-  //         const typeName = base.name.endsWith('-type') ? base.name : `${base.name}-type`;
-
-  //         // 🔹 Add -type counterpart
-  //         if (!list.some((c) => c.name === typeName && c.type === 'model-type')) {
-  //           const modelBase = base as CdModelDescriptor;
-  //           enriched.push({
-  //             ...modelBase,
-  //             name: typeName,
-  //             type: ComponentType.ModelType,
-  //             fileName: `${typeName}.model-type.ts`,
-  //             fields: adjustFieldsForType(modelBase.name, modelBase.fields, 'type'),
-  //           } as CdModelDescriptor);
-  //         }
-
-  //         // 🔹 Add -view counterpart
-  //         const viewName = base.name.endsWith('-view') ? base.name : `${base.name}-view`;
-
-  //         if (!list.some((c) => c.name === viewName && c.type === 'model-view')) {
-  //           enriched.push({
-  //             ...base,
-  //             name: viewName,
-  //             type: ComponentType.ModelView,
-  //             fileName: `${viewName}.model-view.ts`,
-  //           });
-  //         }
-  //       }
-  //     }
-
-  //     return enriched;
-  //   };
-
-  //   const enrichedModels = processList(data.models, ComponentType.Model) as CdModelDescriptor[];
-  //   this.b.logWithContext(
-  //     this,
-  //     `ensureCounterparts:()fileName1:`,
-  //     { enrichedModels: enrichedModels[1]?.fileName },
-  //     'debug',
-  //   );
-  //   this.b.logWithContext(
-  //     this,
-  //     `ensureCounterparts:()enrichedFields1:`,
-  //     { enrichedModels: enrichedModels[1]?.fields },
-  //     'debug',
-  //   );
-  //   this.b.logWithContext(
-  //     this,
-  //     `ensureCounterparts:()fileName2:`,
-  //     { enrichedModels: enrichedModels[2]?.fileName },
-  //     'debug',
-  //   );
-  //   this.b.logWithContext(
-  //     this,
-  //     `ensureCounterparts:()enrichedFields2:`,
-  //     { enrichedModels: enrichedModels[2]?.fields },
-  //     'debug',
-  //   );
-
-  //   return {
-  //     ...data,
-  //     controllers: processList(
-  //       data.controllers,
-  //       ComponentType.Controller,
-  //     ) as CdControllerDescriptor[],
-  //     services: processList(data.services, ComponentType.Service) as CdServiceDescriptor[],
-  //     models: enrichedModels,
-  //   };
-  // }
-
   private ensureCounterparts(data: CdModuleDescriptor): CdModuleDescriptor {
     // ──────────────────────────────
     // Helpers
     // ──────────────────────────────
-
+    this.b.logWithContext(this, 'ensureCounterparts:starting 1', {}, 'debug');
     const ensureFileName = (comp: ComponentDescriptor): string =>
       comp.fileName ?? `${comp.name}.${comp.type}.ts`;
 
@@ -965,23 +951,64 @@ export class CdModuleDescriptorService {
         .map((s) => s.charAt(0).toUpperCase() + s.slice(1))
         .join('');
 
-    const addTypeSuffix = (baseName: string, fields: FieldDescriptor[]): FieldDescriptor[] => {
+    const addTypeSuffix = (
+      baseName: string,
+      fields: FieldDescriptor[] | undefined,
+    ): FieldDescriptor[] => {
+      // this.b.logWithContext(this, 'addTypeSuffix:start:01', {}, 'debug');
+      if (!fields || !Array.isArray(fields)) {
+        this.b.logWithContext(this, 'addTypeSuffix:skipped_non_model', { baseName }, 'debug');
+        return [];
+      }
+
       const camelBase = toCamelCase(baseName);
       const pascalSuffix = kebabToPascal('type');
 
       return fields.map((f) => {
-        const adjustedName = f.name.replace(
-          new RegExp(`^${camelBase}`, 'i'),
-          `${camelBase}${pascalSuffix}`,
-        );
-        return { ...f, name: adjustedName };
+        // this.b.logWithContext(this, 'addTypeSuffix:start:02', {}, 'debug');
+        let adjustedName = f.name;
+
+        // ensure suffix
+        const expectedPrefix = `${camelBase}${pascalSuffix}`;
+        if (!f.name.startsWith(expectedPrefix)) {
+          adjustedName = f.name.replace(new RegExp(`^${camelBase}`, 'i'), expectedPrefix);
+        }
+
+        // ✅ fix dbName for *_type_id safely
+        let adjustedDbName = f.dbName;
+
+        if (
+          f.name.toLowerCase().endsWith('id') &&
+          typeof f.dbName === 'string' &&
+          f.dbName.endsWith('_id')
+        ) {
+          const modulePrefix = baseName.replace(/-/g, '_');
+          const lowerDb = f.dbName.toLowerCase();
+
+          if (
+            (lowerDb.startsWith(modulePrefix) || lowerDb.startsWith(`${modulePrefix}_`)) &&
+            !lowerDb.endsWith('_type_id')
+          ) {
+            adjustedDbName = `${modulePrefix}_type_id`;
+          }
+        }
+
+        return { ...f, name: adjustedName, dbName: adjustedDbName };
       });
     };
 
+    /**
+     * Adds a default relationship (foreign key) between a base model and a target type
+     */
     const addDefaultRelationship = (
       modelBase: CdModelDescriptor,
       typeName: string,
     ): CdModelDescriptor => {
+      this.b.logWithContext(this, `addDefaultRelationship:start`, { modelBase }, 'debug');
+
+      // ✅ Ensure fields list exists
+      modelBase.fields = modelBase.fields ?? [];
+
       const fkField: FieldDescriptor = {
         name: `${toCamelCase(typeName)}Id`,
         dbName: `${modelBase.name.replace(/-/g, '_')}_type_id`,
@@ -989,6 +1016,9 @@ export class CdModuleDescriptorService {
         required: true,
       };
 
+      // this.b.logWithContext(this, `addDefaultRelationship:fkField`, { fkField }, 'debug');
+
+      // ✅ Prevent duplicate field addition
       if (!modelBase.fields.some((f) => f.name === fkField.name)) {
         modelBase.fields.push(fkField);
       }
@@ -999,36 +1029,234 @@ export class CdModuleDescriptorService {
         relatedModel: typeName,
         foreignKey: fkField.name,
         sourceColumns: [fkField],
-        targetColumns: [{ name: `${toCamelCase(typeName)}Id`, type: 'number' }],
+        // targetColumns: [{ name: `${toCamelCase(typeName)}Id`, type: 'number' }],
+        targetColumns: [
+          { name: `${toCamelCase(typeName)}Id`, type: 'number' },
+          { name: `${toCamelCase(typeName)}Guid`, type: 'string' }, // 👈 added
+        ],
         sourceTable: modelBase.tableName ?? modelBase.name.replace(/-/g, '_'),
         targetTable: typeName.replace(/-/g, '_'),
       };
 
+      // ✅ Ensure relationships list exists & add new relationship
       modelBase.relationships = [...(modelBase.relationships ?? []), rel];
+
       return modelBase;
     };
 
     const processControllersOrServices = (
       list: ComponentDescriptor[] | undefined,
-      type: ComponentType.Controller | ComponentType.Service,
+      type:
+        | ComponentType.Controller
+        | ComponentType.ControllerType
+        | ComponentType.Service
+        | ComponentType.ServiceType,
     ): ComponentDescriptor[] => {
+      this.b.logWithContext(this, `processControllersOrServices:start/list:`, { list }, 'debug');
       if (!list) return [];
       const enriched: ComponentDescriptor[] = [];
 
+      // 🔧 Helper: Adjust attributes for service-type
+      const adjustServiceAttributesForType = (
+        attrs: ComponentAttributes[] | undefined,
+        baseName: string,
+      ): ComponentAttributes[] => {
+        this.b.logWithContext(this, `adjustServiceAttributesForType:start:`, { baseName }, 'debug');
+
+        ////////////////////////////////////////////////////////////////
+        // ✅ Adjust validation rules
+        const rulesAttr = attrs?.find((a) => a.name === 'cRules');
+        this.b.logWithContext(
+          this,
+          `adjustServiceMethodsForType:rulesAttr:`,
+          { rulesAttr },
+          'debug',
+        );
+        if (
+          rulesAttr &&
+          (typeof rulesAttr.value === 'object' || typeof rulesAttr.defaultValue === 'object')
+        ) {
+          const newRules = adjustServiceRulesForType(rulesAttr.defaultValue, baseName);
+          this.b.logWithContext(
+            this,
+            `adjustServiceMethodsForType:newRules:`,
+            { newRules },
+            'debug',
+          );
+          attrs = attrs?.map((a) => (a.name === 'cRules' ? { ...a, value: newRules } : a));
+        }
+
+        //////////////////////////////////////////////////////////////
+        if (!attrs) return [];
+        return attrs.map((attr) => {
+          if (attr.name === 'serviceModel') {
+            return {
+              ...attr,
+              type: `${toPascalCase(baseName)}TypeModel`, // ✅ shift to TypeModel
+            };
+          }
+          return attr;
+        });
+      };
+
+      // 🔧 Helper: Adjust cRules for service-type
+      const adjustServiceRulesForType = (rules: any, baseName: string): any => {
+        this.b.logWithContext(this, `adjustServiceRulesForType:start`, { baseName }, 'debug');
+        if (!rules) return rules;
+
+        const pascal = toPascalCase(baseName); // e.g., CdAiUsageLogs
+        const camel = toCamelCase(baseName); // e.g., cdAiUsageLogs
+        const typeCamel = `${camel}Type`; // cdAiUsageLogsType
+
+        const mapField = (f: string) => f.replace(camel, typeCamel);
+
+        // ✅ map and then filter out non-Name fields
+        const required = rules.required?.map(mapField).filter((f) => f.endsWith('Name')) ?? [];
+
+        const noDuplicate =
+          rules.noDuplicate?.map(mapField).filter((f) => f.endsWith('Name')) ?? [];
+
+        return {
+          ...rules,
+          required,
+          noDuplicate,
+        };
+      };
+
+      const ensureTypeSuffix = (
+        val: string | undefined,
+        baseName: string,
+        exemptConfig: string[] = [],
+      ): string | undefined => {
+        this.b.logWithContext(this, `ensureTypeSuffix:start:`, { baseName }, 'debug');
+        if (!val) return val;
+        if (exemptConfig.includes(val)) return val; // ✅ skip exempted methods
+
+        const pascal = toPascalCase(baseName); // e.g., "CdAi"
+        const camel = toCamelCase(baseName); // e.g., "cdAi"
+
+        let newVal = val;
+
+        const regexPascal = new RegExp(`${pascal}(?=[A-Z]|$)`, 'g');
+        const regexCamel = new RegExp(`${camel}(?=[A-Z]|$)`, 'g');
+
+        // this.b.logWithContext(this, `ensureTypeSuffix:start`, { val, pascal, camel }, 'debug');
+
+        // Replace PascalCase
+        if (regexPascal.test(newVal)) {
+          newVal = newVal.replace(regexPascal, `${pascal}Type`);
+          this.b.logWithContext(this, `ensureTypeSuffix:afterPascal`, { newVal }, 'debug');
+        }
+
+        // Replace camelCase
+        if (regexCamel.test(newVal)) {
+          newVal = newVal.replace(regexCamel, `${camel}Type`);
+          this.b.logWithContext(this, `ensureTypeSuffix:afterCamel`, { newVal }, 'debug');
+        }
+
+        // Cleanup accidental double "TypeType"
+        const cleanedVal = newVal.replace(/TypeType/g, 'Type');
+        if (cleanedVal !== newVal) {
+          this.b.logWithContext(
+            this,
+            `ensureTypeSuffix:cleanupDoubleType`,
+            { before: newVal, after: cleanedVal },
+            'debug',
+          );
+        }
+
+        return cleanedVal;
+      };
+
+      const adjustServiceMethodsForType = (
+        methods: FunctionDescriptor[] | undefined,
+        baseName: string,
+        exemptConfig: string[] = [], // ✅ new argument
+      ): FunctionDescriptor[] => {
+        this.b.logWithContext(this, `adjustServiceMethodsForType:start:`, { baseName }, 'debug');
+        if (!methods) return [];
+        return methods.map((m) => {
+          // this.b.logWithContext(this, `adjustServiceMethodsForType:m:`, { m }, 'debug');
+
+          const methodRet = {
+            ...m,
+            // ✅ Also apply to method name itself
+            name: ensureTypeSuffix(m.name, baseName, exemptConfig) ?? m.name,
+
+            parameters: m.parameters?.map((p) => ({
+              ...p,
+              type: ensureTypeSuffix(p.type, baseName, exemptConfig) ?? p.type,
+            })),
+            output: m.output
+              ? {
+                  ...m.output,
+                  returnType:
+                    ensureTypeSuffix(m.output.returnType, baseName, exemptConfig) ??
+                    m.output.returnType,
+                  observableInnerType:
+                    ensureTypeSuffix(m.output.observableInnerType, baseName, exemptConfig) ??
+                    m.output.observableInnerType,
+                }
+              : m.output,
+            typeInfo: m.typeInfo
+              ? {
+                  ...m.typeInfo,
+                  genericTypes: m.typeInfo.genericTypes?.map(
+                    (t) => ensureTypeSuffix(t, baseName, exemptConfig) ?? t,
+                  ),
+                }
+              : m.typeInfo,
+          };
+
+          // this.b.logWithContext(
+          //   this,
+          //   `adjustServiceMethodsForType:methodRet:`,
+          //   { methodRet },
+          //   'debug',
+          // );
+          return methodRet;
+        });
+      };
+
+      this.b.logWithContext(this, `adjustServiceMethodsForType:list:`, { list }, 'debug');
       for (const comp of list) {
         const base = { ...comp, fileName: ensureFileName(comp) };
+        /**
+         * When setting suffix 'Type' for methods, exempt the following.
+         * This part will need to be integrated as part of ComponentDescriptor so that each Component can set its own configuration
+         */
+        const exemptConfig = [
+          `${toCamelCase(base.name)}Exists`,
+          `get${toPascalCase(base.name)}QB`,
+          `${toPascalCase(base.name)}ViewModel`,
+        ];
+
         enriched.push(base);
 
         const typeName = base.name.endsWith('-type') ? base.name : `${base.name}-type`;
+
+        this.b.logWithContext(this, `adjustServiceMethodsForType:typeName:`, { typeName }, 'debug');
+        this.b.logWithContext(this, `adjustServiceMethodsForType:list:`, { list }, 'debug');
         if (!list.some((c) => c.name === typeName && c.type === `${type}-type`)) {
-          enriched.push({
+          this.b.logWithContext(this, `ensureCounterparts()/addingTypeComp`, { base }, 'debug');
+
+          const typeComp: ComponentDescriptor = {
             ...base,
             name: typeName,
             type: `${type}-type` as ComponentType,
             fileName: `${typeName}.${type}-type.ts`,
-          });
+          };
+
+          // 🔑 Special case: adjust service-type attributes & methods
+          if (type === ComponentType.Service) {
+            typeComp.attributes = adjustServiceAttributesForType(base.attributes, base.name);
+            typeComp.methods = adjustServiceMethodsForType(base.methods, base.name, exemptConfig);
+          }
+
+          enriched.push(typeComp);
         }
       }
+
       return enriched;
     };
 
@@ -1048,12 +1276,24 @@ export class CdModuleDescriptorService {
         const typeName = modelBase.name.endsWith('-type')
           ? modelBase.name
           : `${modelBase.name}-type`;
-        if (!list.some((c) => c.name === typeName && c.type === 'model-type')) {
+
+        if (
+          modelBase.type === ComponentType.Model && // ✅ only act on models
+          !list.some((c) => c.name === typeName && c.type === ComponentType.ModelType)
+        ) {
+          this.b.logWithContext(
+            this,
+            `ensureCounterparts()/addingModelTypeComp`,
+            { modelBase },
+            'debug',
+          );
+
           enriched.push({
             ...modelBase,
             name: typeName,
             type: ComponentType.ModelType,
             fileName: `${typeName}.model-type.ts`,
+            // ✅ safe: only models have fields
             fields: addTypeSuffix(modelBase.name, modelBase.fields),
           });
         }
@@ -1082,15 +1322,28 @@ export class CdModuleDescriptorService {
     // ──────────────────────────────
 
     const enrichedModels = processModels(data.models);
+    // const enrichedServices = processControllersOrServices(data.services, type);
 
-    this.b.logWithContext(
-      this,
-      `ensureCounterparts()`,
-      {
-        sampleModel: enrichedModels[0],
-      },
-      'debug',
-    );
+    // this.b.logWithContext(
+    //   this,
+    //   `ensureCounterparts()`,
+    //   { sampleModel: enrichedModels[0] },
+    //   'debug',
+    // );
+
+    // this.b.logWithContext(
+    //   this,
+    //   `ensureCounterparts()/enrichedService:`,
+    //   { enrichedService: enrichedServices },
+    //   'debug',
+    // );
+
+    // this.b.logWithContext(
+    //   this,
+    //   `ensureCounterparts()/services:`,
+    //   { services: data.services },
+    //   'debug',
+    // );
 
     return {
       ...data,
@@ -1427,14 +1680,7 @@ export class CdModuleDescriptorService {
           parameters: [],
           behavior: { isAsync: false, isPure: true, returnsPromise: false },
         },
-        ...[
-          'Create',
-          `Get${controllerPascal}`,
-          `Get${controllerPascal}Type`,
-          'GetCount',
-          'Update',
-          'Delete',
-        ].map((m) => ({
+        ...['Create', `Get`, `GetType`, 'GetCount', 'GetPaged', 'Update', 'Delete'].map((m) => ({
           name: m,
           isDefault: m === 'Create',
           scope: { visibility: 'public', static: false },
@@ -1471,69 +1717,7 @@ export class CdModuleDescriptorService {
     controllerSnake: string,
   ): CdModelDescriptor {
     this.b.logWithContext(this, `buildModel()/controllerName:`, { controllerName }, 'debug');
-    // const defaultModel: CdModelDescriptor = {
-    //   name: controllerKebab,
-    //   type: ComponentType.Model,
-    //   parentController: controllerName,
-    //   fileName: `${controllerKebab}.model.ts`,
-    //   tableName: controllerSnake,
-    //   fields: [
-    //     {
-    //       name: `${controllerCamel}Id`,
-    //       type: 'number',
-    //       required: true,
-    //       default: true,
-    //       primary: true,
-    //       autoIncrement: true,
-    //       dbName: `${controllerSnake}_id`,
-    //     },
-    //     {
-    //       name: `${controllerCamel}Guid`,
-    //       type: 'string',
-    //       required: true,
-    //       default: true,
-    //       unique: true,
-    //       defaultValue: 'uuid',
-    //       dbName: `${controllerSnake}_guid`,
-    //     },
-    //     {
-    //       name: `${controllerCamel}Name`,
-    //       type: 'string',
-    //       required: true,
-    //       default: true,
-    //       dbName: `${controllerSnake}_name`,
-    //     },
-    //     {
-    //       name: `${controllerCamel}Description`,
-    //       type: 'string',
-    //       required: true,
-    //       default: true,
-    //       dbName: `${controllerSnake}_description`,
-    //     },
-    //     {
-    //       name: `${controllerCamel}TypeId`,
-    //       type: 'number',
-    //       required: true,
-    //       default: true,
-    //       dbName: `${controllerSnake}_type_id`,
-    //     },
-    //     {
-    //       name: `docId`,
-    //       type: 'number',
-    //       required: true,
-    //       default: true,
-    //       dbName: `doc_id`,
-    //     },
-    //     {
-    //       name: `${controllerCamel}Enabled`,
-    //       type: 'boolean',
-    //       required: true,
-    //       default: true,
-    //       defaultValue: true,
-    //       dbName: `${controllerSnake}_enabled`,
-    //     },
-    //   ],
-    // };
+
     const defaultModel: CdModelDescriptor = {
       name: controllerKebab,
       type: ComponentType.Model,
@@ -1682,9 +1866,11 @@ export class CdModuleDescriptorService {
           'create',
           'validateCreate',
           `${controllerCamel}Exists`,
-          `get${controllerPascal}Count`,
-          `get${controllerPascal}QB`,
-          `get${controllerPascal}Type`,
+          `get`,
+          `getCount`,
+          `getPaged`,
+          `getQB`,
+          `getType`,
           `get${controllerPascal}Profile`,
           `get${controllerPascal}ProfileByToken`,
           `getScoped${controllerPascal}`,
@@ -1842,7 +2028,7 @@ export class CdModuleDescriptorService {
     } catch (error: any) {
       return {
         state: false,
-        message: `Failed to merge descriptors: ${error.message}`,
+        message: `Failed to merge descriptors2: ${error.message}`,
         data: null,
       };
     }

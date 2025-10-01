@@ -95,7 +95,181 @@ All files in the services directory must end with `.service.<extension>` and the
 
 ---
 
-## 6. Instantiation and Lifecycle Rules
+## Section 6: Models, Entities, Tables, and Columns
+### 6.1 Overview
+
+Corpdesk tables and entity properties follow strict naming rules to:
+
+Enforce predictability across modules.
+
+Support runtime modularity.
+
+Prevent ambiguity between resident, visitor, and special fields.
+
+A core principle is that every module has a leading table. This influences whether the <controller-name> is included in the schema.
+
+### 6.2 Table Naming
+#### 6.2.1 Module-Leading Tables
+
+Each module has one leading table, named exactly after the module.
+
+Fields are prefixed with the module name.
+
+Example:
+
+coop → leading table for Coop module.
+
+company → leading table for Company module.
+
+doc → leading table for Doc module.
+
+➡️ Fields:
+
+coop_id, coop_name, coop_guid, etc.
+
+company_id, company_name, etc.
+
+doc_id (reserved, universal reference).
+
+### 6.2.2 Controller Tables
+
+Non-leading tables follow this convention:
+
+Example:
+
+cd_accts_coa (controller = Chart of Accounts).
+
+cd_accts_coa_type (counterpart = Type of Chart of Accounts).
+
+cd_geo_location (controller = Location under Geo module).
+
+➡️ Columns then follow the same structure, prefixed by table name:
+
+cd_accts_coa_id
+
+cd_accts_coa_type_id
+
+cd_geo_location_id
+
+### 6.3 Column Naming
+
+Columns fall into three categories:
+
+#### 6.3.1 Resident Fields
+
+Fields that belong to the current table.
+
+Always prefixed with the table name.
+
+Examples:
+
+coop_description (from leading coop table).
+
+cd_accts_coa_type_name (from controller table).
+
+#### 6.3.2 Visitor Fields
+
+Foreign keys referencing another table.
+
+Always prefixed with the referenced table’s name (not the current one).
+
+### Examples:
+
+company_id in coop (references company module-leading table).
+
+cd_geo_location_id in coop (references cd_geo_location table).
+
+#### 6.3.3 Special / Reserved Fields
+
+Managed centrally by the doc module.
+
+Always written exactly as doc_id.
+
+No variations (❌ coop_doc_id).
+
+No timestamps (created_at, updated_at are forbidden).
+
+### 6.4 Entity Properties (TypeORM Layer)
+
+Columns map to camelCase entity properties.
+
+coop_description → coopDescription.
+
+cd_accts_coa_type_guid → cdAcctsCoaTypeGuid.
+
+No duplication of suffixes/prefixes.
+
+Normalize to avoid TypeType.
+
+Resident/Visitor/Special rules preserved in property names.
+
+### 6.5 Practical Examples
+Coop (leading table)
+
+```sql
+CREATE TABLE `coop` (
+  `coop_id` int NOT NULL AUTO_INCREMENT,
+  `coop_name` varchar(50) DEFAULT NULL,
+  `coop_description` varchar(100) DEFAULT NULL,
+  `coop_guid` varchar(40) DEFAULT NULL,
+  `coop_type_id` int DEFAULT NULL,
+  `coop_enabled` tinyint DEFAULT NULL,
+  `doc_id` int DEFAULT NULL,
+  `company_id` int DEFAULT NULL,
+  `cd_geo_location_id` int DEFAULT NULL,
+  PRIMARY KEY (`coop_id`)
+);
+```
+Entity file
+```ts
+@Entity({ name: "coop" })
+export class CoopModel {
+  @PrimaryGeneratedColumn({ name: "coop_id" })
+  coopId!: number;
+
+  @Column({ name: "coop_name" })
+  coopName!: string;
+
+  @Column({ name: "coop_description" })
+  coopDescription!: string;
+
+  @Column({ name: "coop_guid" })
+  coopGuid!: string;
+
+  @Column({ name: "coop_type_id" })
+  coopTypeId!: number;
+
+  @Column({ name: "coop_enabled" })
+  coopEnabled!: boolean;
+
+  @Column({ name: "doc_id" })
+  docId!: number;
+
+  @Column({ name: "company_id" })
+  companyId!: number;
+
+  @Column({ name: "cd_geo_location_id" })
+  cdGeoLocationId!: number;
+}
+```
+
+⚖️ Summary Rule:
+
+Leading table → <module>_<field>.
+
+Controller table → <module>_<controller>_<field>.
+
+Counterpart table → <module>_<controller>_<counterpart>_<field>.
+
+Visitor field → Prefix of referenced table.
+
+Special field → Always doc_id.
+
+
+
+---
+
+## 7. Instantiation and Lifecycle Rules
 
 To enable standardization and support automation:
 
@@ -105,6 +279,9 @@ To enable standardization and support automation:
 * All externally consumable methods must return `CdFxReturn<T>` as defined in **RFC-0003 (CdWire Protocol)**. This ensures uniform handling of success, errors, and semantic states across all modules.
 
 Example:
+```pgsql
+<module-name>_<controller-name>_<counterpart-name?>
+```
 
 ```ts
 const ctlCoopMember = new CoopMemberController();
@@ -113,7 +290,7 @@ await ctlCoopMember.init(optionalInput?);
 
 ---
 
-## 7. Base Module and Shared Code
+## 8. Base Module and Shared Code
 
 * `base/` directory under `sys/` contains shared abstractions and base classes.
 * Not considered a full module.
@@ -126,9 +303,9 @@ await ctlCoopMember.init(optionalInput?);
 
 ---
 
-## 8. Descriptors Concept
+## 9. Descriptors Concept
 
-### 8.1 Purpose
+### 9.1 Purpose
 
 Descriptors define the structure, metadata, and identity of every Corpdesk entity—modules, controllers, models, services, and CI/CD processes.
 
@@ -140,7 +317,7 @@ Descriptors enable:
 * Runtime introspection
 * Progressive documentation
 
-### 8.2 Types of Descriptors
+### 9.2 Types of Descriptors
 
 | Descriptor               | Purpose                      |
 | ------------------------ | ---------------------------- |
@@ -163,7 +340,7 @@ Each descriptor has a `.name` property in kebab-case to maintain consistency.
 
 ---
 
-## 9. Design Philosophy
+## 10. Design Philosophy
 
 * Modular and extensible by design.
 * Convention over configuration.
@@ -174,7 +351,7 @@ Each descriptor has a `.name` property in kebab-case to maintain consistency.
 
 ---
 
-## 10. Use Cases
+## 11. Use Cases
 
 * Enterprise backend systems
 * AI-enabled process automation
@@ -184,7 +361,7 @@ Each descriptor has a `.name` property in kebab-case to maintain consistency.
 
 ---
 
-## 11. Future Scope
+## 12. Future Scope
 
 * Protocol versioning
 * AI-assisted module scaffolding
@@ -194,7 +371,7 @@ Each descriptor has a `.name` property in kebab-case to maintain consistency.
 
 ---
 
-## 12. Conclusion
+## 13. Conclusion
 
 The Corpdesk Standard provides a unified approach to modular software architecture. By combining strict naming conventions, a descriptor-driven model, and platform-agnostic design principles, Corpdesk enables teams and tools to collaborate and automate more effectively across the software development lifecycle.
 
@@ -202,7 +379,7 @@ While RFC-0001 defines structural and naming standards, operational consistency 
 
 ---
 
-## 13. References
+## 14. References
 
 * Corpdesk Descriptor Specification (forthcoming)
 * RFC-0002: CdCLI Protocol Specification
@@ -212,6 +389,14 @@ While RFC-0001 defines structural and naming standards, operational consistency 
 ---
 
 ### Document Version: RFC-0001
+
+---
+
+Last Edited: September 24, 2025
+Added section 6 with special emphasis on model/entity naming conventions.
+All other susequent numbers affected.
+
+---
 
 Status: Draft
 Last Edited: August 17, 2025

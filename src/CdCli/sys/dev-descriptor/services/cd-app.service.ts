@@ -103,7 +103,7 @@ export class CdAppService extends GenericService<CdObjModel> {
     } catch (error: any) {
       return {
         state: false,
-        message: `Failed to merge descriptors: ${error.message}`,
+        message: `Failed to merge descriptors1: ${error.message}`,
         data: null,
       };
     }
