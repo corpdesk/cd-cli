@@ -230,6 +230,9 @@ export interface EnvelopFValItem {
   [key: string]: any;
 }
 
+/** Fields managed by backend that must not be supplied by client */
+export const MANAGED_FIELDS = ['Guid', 'docId', 'Enabled'];
+
 export interface ICdResponse {
   app_state: IAppState;
   data: any;

@@ -32,5 +32,5 @@ export * from './services/module.service.js';
 export * from './services/menu.service.js';
 export * from './services/company.service.js';
 export * from './controllers/cd-obj.controller.js';
-export * from './consumer-type.model.js';
+export * from './models/consumer-type.model.js';
 

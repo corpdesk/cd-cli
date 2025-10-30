@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-import { App } from './app.js';
+import { Main } from './main.js';
 import chalk from 'chalk';
 
-const app = new App();
+const app = new Main();
 // Execute the run function
 app.run().catch((error) => {
   console.error(`${chalk.red.bold('error')} ${error.message}`);

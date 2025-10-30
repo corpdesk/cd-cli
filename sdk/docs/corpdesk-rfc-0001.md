@@ -52,7 +52,11 @@ Each application resides in a PascalCase-named root directory (CdApi, CdCli, CdP
 
 ### 4.2 Module Structure
 
-Each module consists of (at minimum):
+---
+
+## 4.2 Module Structure
+
+Each module consists of one or more standard directories. At minimum:
 
 ```text
 <module-name-kebab-case>/
@@ -61,7 +65,54 @@ Each module consists of (at minimum):
   └── services(kebab-case)/
 ```
 
-Additional directories like `extra/`, `interfaces/`, `dist/`, or `sdk/` may be present.
+### Directory Purposes
+
+* **controllers/**
+  Contains request/response logic or runtime orchestration.
+  Controllers expose public methods that can be invoked externally (via CdWire on the backend, or via UI events in a frontend `view/`).
+  All files must end with `.controller.<ext>` and hosted classes must end with `Controller`.
+
+* **services/**
+  Contain core business logic, reusable across controllers.
+  Services are typically stateless and focused on operations, calculations, and process flows.
+  All files must end with `.service.<ext>` and hosted classes must end with `Service`.
+
+* **models/**
+  Contain data models, schema mappings, and entity definitions.
+  Models represent tables (backend), or typed interfaces and DTOs (frontend/backend).
+  All files must end with `.model.<ext>` and hosted classes must end with `Model`.
+
+* **view/** *(optional, GUI clients only)*
+  Dedicated to frontend user interface logic.
+  Contains the runtime entry point (`index.js`), templates, and GUI-specific controllers.
+  While backend controllers handle service orchestration, **view controllers** handle UI events, rendering, and module-level presentation logic.
+  Example:
+
+  ```text
+  view/
+    ├── index.js        # entry point rendered by loader
+    ├── module.json     # module metadata descriptor
+    ├── sign-in.controller.js
+    └── sign-up.controller.js
+  ```
+
+### Additional Directories
+
+* **extra/** — supplementary files not fitting standard categories.
+* **interfaces/** — shared TypeScript interfaces.
+* **dist/** — build outputs.
+* **sdk/** — client libraries or API wrappers.
+
+---
+
+This way, `view/` is clearly positioned as **UI-only, optional, and separate from backend controllers/services**, but still integrated under the same modular discipline.
+
+Would you like me to also **add a dedicated subsection (maybe 4.3)** that explains the **relationship between backend controllers/services and frontend `view/` controllers** — showing how `loadModule()` stitches them together at runtime?
+
+---
+
+Date: 2025-10-3, Time: 01:08
+
 
 ---
 
@@ -391,6 +442,22 @@ While RFC-0001 defines structural and naming standards, operational consistency 
 ### Document Version: RFC-0001
 
 ---
+
+Last Edited: September 3, 2025
+Summary of Updates:
+
+Added view/ directory under Module Structure (Section 4.2).
+
+Clarified that view/ applies only to GUI-enabled clients.
+
+Updated Naming Conventions and Descriptors Concept to acknowledge view/.
+
+Adjusted Conclusion to emphasize frontend modularity alignment.
+
+Status: Draft
+Last Edited: September 26, 2025
+Author: George Oremo
+Use Case: Documentation, Standardization, Patent Support
 
 Last Edited: September 24, 2025
 Added section 6 with special emphasis on model/entity naming conventions.
