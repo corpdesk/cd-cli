@@ -1,3 +1,4 @@
+// src/CdCli/sys/dev-descriptor/models/base-descriptor.model.ts
 import { CdFileDescriptor } from "./version-control.model.js";
 
 // Base Descriptor for General Use

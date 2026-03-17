@@ -34,9 +34,9 @@ Common Corpdesk applications include:
 
 * **cd-api**: Backend RPC-style service layer over HTTP using a structured command envelope (CdWire). Note: Corpdesk does not follow the RESTful protocol. Instead, it uses a streamlined RPC-style interface called CdWire — a structured, JSON-based command envelope.
 * **cd-cli**: Developer Command Line Interface.
-* **cd-pwa**: Progressive Web Application interface.
+* **cd-shell**: Progressive Web Application based front end for corpdesk system.
 
-Each application resides in a PascalCase-named root directory (CdApi, CdCli, CdPwa, etc).
+Inside a given src directory, the system resides in a PascalCase-named root directory (CdApi, CdCli, CdPwa, etc).
 
 ---
 
@@ -85,7 +85,7 @@ Each module consists of one or more standard directories. At minimum:
 * **view/** *(optional, GUI clients only)*
   Dedicated to frontend user interface logic.
   Contains the runtime entry point (`index.js`), templates, and GUI-specific controllers.
-  While backend controllers handle service orchestration, **view controllers** handle UI events, rendering, and module-level presentation logic.
+  While backend controllers handle service orchestration, **view controllers** handle UI events, rendering, and module-level presentation logic.<br>
   Example:
 
   ```text
@@ -442,8 +442,8 @@ While RFC-0001 defines structural and naming standards, operational consistency 
 ### Document Version: RFC-0001
 
 ---
-
-Last Edited: September 3, 2025
+Last Edit: 16th March, 2026 
+Edited: September 3, 2025
 Summary of Updates:
 
 Added view/ directory under Module Structure (Section 4.2).

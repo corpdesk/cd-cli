@@ -27,7 +27,7 @@ import {
 } from '../index.js';
 import { CdModuleDescriptorService } from './cd-module-descriptor.service.js';
 import { actionTargets, DevModeAction } from '../../dev-mode/index.js';
-import { App } from '~/app.js';
+// import { App } from '~/app.js';
 import { MOD_CRAFT_WORKFLOW_APP_DIR } from '../../../app/app-craft/models/default.model.js';
 import { MOD_CRAFT_WORKSHOP_DIR } from '../../../app/app-craft/models/app-craft.model.js';
 

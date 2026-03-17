@@ -77,6 +77,207 @@ Contains metadata about the target module:
 * Controllers, services, models, utilities
 * Version control directories (for locating templates, workshop, sandbox)
 
+
+Following is a Descriptor hierarchy related to application development in corpdesk ecosystem.
+The list is not complete by just a demonstration of how the whole ecosystem can be managed by Descriptor system
+```ts
+// Base Descriptor for General Use
+export interface BaseDescriptor {
+  name?: string; // Unique identifier
+  type?: any; // Type of descriptor,
+  cdObjName?: string; // Name of the object, e.g., application, module, etc.
+  cdObjTypeName?: string; // Type of the object, e.g., cd-api, cd-ui, etc.
+  guid?: string; // Unique identifier for the descriptor, can be used to reference it in other contexts.
+  description?: string;
+  context?: string[]; // array of context assigned to a descriptor to group set associated descriptors and properties.
+  // Could be name of application or profile name
+  version?: string;
+  fileMeta?: CdFileDescriptor;
+  baseId?: string;         // Unique identifier, e.g., "mod-abc:doc"
+}
+
+export interface CdAppDescriptor extends BaseDescriptor {
+  $schema?: string;
+  name: string;
+  projectGuid?: string;
+  parentProjectGuid: string | null;
+  modules: CdModuleDescriptor[];
+  cdCi?: CiCdDescriptor;
+  description?: string;
+  language?: LanguageDescriptor; // getLanguageByName(name: string,languages: LanguageDescriptor[],)
+  environments?: EnvironmentDescriptor[]; // Development environment settings
+  versionControl?: VersionControlDescriptor; // Version control details
+}
+
+export enum AppType {
+  Frontend = 'frontend', // User-facing web or app interfaces
+  Api = 'api', // Backend APIs
+  CdApi = 'cd-api', // Corpdesk backend APIs
+  CdApiModule = 'cd-module',
+  PushServer = 'push-server', // Services for push notifications
+  Cli = 'cli', // Command-line interfaces
+  CdCli = 'cd-cli', // Corpdesk command-line interfaces
+  Pwa = 'pwa', // Progressive Web Apps
+  DesktopPwa = 'desktop-pwa', // PWAs optimized for desktop
+  Mobile = 'mobile', // General mobile apps
+  MobileHybrid = 'mobile-hybrid', // Hybrid apps using shared codebases
+  MobileNative = 'mobile-native', // Fully native mobile apps
+  Desktop = 'desktop', // Desktop applications
+  Iot = 'iot', // Internet of Things services/devices
+  Game = 'game', // Game applications
+  Embedded = 'embedded', // Embedded systems or firmware
+  Robotics = 'robotics', // Robotics and mechatronics
+  Plugin = 'plugin', // Plugins or extensions
+  Microservice = 'microservice', // Small, modular backend services
+  SDN = 'sdn', // Software-Defined Networking applications
+  CbO = 'cbo', // CloudBrix Orchestrator
+}
+
+export interface CdModuleDescriptor extends BaseDescriptor {
+  name: string;
+  parentAppType?: AppType; // If module is part of a larger application, this indicates the parent application type
+  appType?: AppType; // Modules are considered as applications in Corpdesk, In this case it is considered an application of cd-module
+  cdModuleType: CdModuleTypeDescriptor; // Type of module, e.g., frontend, api, etc.
+  description?: string;
+  ctx: CdCtx;
+  projectGuid?: string;
+  parentProjectGuid?: string;
+  language?: LanguageDescriptor; // getLanguageByName(name: string,languages: LanguageDescriptor[],)
+  controllers: CdControllerDescriptor[]; // List of controllers
+  models: CdModelDescriptor[]; // List of models
+  services: CdServiceDescriptor[]; // List of services
+  environments?: EnvironmentDescriptor[]; // Development environment settings
+  cdCi?: CiCdDescriptor; // Continuous Integration/Continuous Delivery
+  versionControl?: VersionControlDescriptor; // Version control details
+}
+
+export interface CdModuleTypeDescriptor {
+  typeName:
+    | 'cd-frontend'
+    | 'cd-api'
+    | 'cd-push-server'
+    | 'cd-cli'
+    | 'pwa'
+    | 'mobile'
+    | 'mechatronic'
+    | 'desktop'
+    | 'microservice'
+    | 'vs-code-extension'
+    | 'web-application'
+    | 'web-component'
+    | 'web-service'
+    | 'web-component-library'
+    | 'unknown';
+}
+
+/**
+ * Coprpdesk module are categorized by their context.
+ * - CdCtx.Sys: System modules that are essential for the core functionality of Corpdesk.
+ * - CdCtx.App: Optional modules that can be added to enhance or extend the capabilities of Corpdesk.
+ * 
+ * This enum helps in identifying the context of a module and applying appropriate configurations or operations based on its type.
+ */
+export enum CdCtx {
+  Sys = 'sys', // System module
+  App = 'app', // Optional module
+}
+
+export interface ComponentDescriptor extends BaseDescriptor {
+  name: string;
+  //   type: 'controller' | 'service' | 'model' | 'utility' | 'component' | 'plugin'; // Extendable
+  type: ComponentType;
+  module?: string;
+  parent?: string;
+  fileName?: string; // File name where the component is defined
+  attributes?: ComponentAttributes[];
+  methods?: FunctionDescriptor[];
+  classSignature?: ClassSignatureDescriptor;
+  dependencies?: DependencyDescriptor[]; // Shared across components
+  traits?: string[]; // Optional semantic tags, e.g., ['singleton', 'stateless']
+  view?: ViewModelDescriptor; // Optional, for controller-UI interaction
+}
+
+// Discriminated Component Types
+export enum ComponentType {
+  Controller = 'controller',
+  ControllerType = 'controller-type',
+  Service = 'service',
+  ServiceType = 'service-type',
+  Model = 'model',
+  ModelType = 'model-type',
+  ModelView = 'model-view',
+  Utility = 'utility',
+  Component = 'component',
+  Plugin = 'plugin',
+}
+
+export interface CdModelDescriptor extends ComponentDescriptor {
+  module?: string; // The module to which this model belongs
+  parentModule?: string; // Parent module (if part of a hierarchical structure)
+  type: ComponentType.Model | ComponentType.ModelType | ComponentType.ModelView;
+  parentController?: string; // Parent model (if part of a hierarchical structure)
+  fileName?: string; // File name where the model is defined
+  tableName?: string; // Database table name
+  relationships?: RelationshipDescriptor[]; // Model relationships
+  fields: FieldDescriptor[]; // Fields of the model
+  primaryKey?: string[];
+  ormMapping?: OrmMappingDescriptor; // ORM mapping details
+}
+
+export interface CdControllerDescriptor extends ComponentDescriptor {
+  type: ComponentType.Controller | ComponentType.ControllerType;
+}
+
+export interface CdServiceDescriptor extends ComponentDescriptor {
+  type: ComponentType.Service | ComponentType.ServiceType;
+  parentController?: string; // Optional, if the service is associated with a specific controller
+}
+
+export interface FieldDescriptor extends BaseDescriptor {
+  name: string; // logical name
+  dbName?: string | FieldType; // actual DB column name
+  type: string; // now uses our FieldType system
+  required?: boolean;
+  defaultValue?: any;
+  nullable?: boolean;
+  unique?: boolean;
+  validation?: ValidationDescriptor;
+  primary?: boolean;
+  autoIncrement?: boolean;
+  default?: boolean;
+  length?: number;
+  unsigned?: boolean;
+}
+
+// Validation Descriptor
+export interface ValidationDescriptor extends BaseDescriptor {
+  pattern?: string; // Regex pattern for validation
+  maxLength?: number; // Maximum length of the field
+  minLength?: number; // Minimum length of the field
+  custom?: string; // Custom validation logic or reference
+}
+
+
+export interface RelationshipDescriptor extends BaseDescriptor {
+  type: 'one-to-one' | 'one-to-many' | 'many-to-one' | 'many-to-many' | 'foreign-key'; // Relationship type
+  relatedModel?: string; // Name of the related model
+  foreignKey?: string; // Key used for the relationship
+  onDelete?: boolean;
+  onUpdate?: boolean;
+  sourceColumns: FieldDescriptor[];
+  targetColumns: FieldDescriptor[];
+  sourceTable?: string;
+  targetTable?: string;
+}
+
+export interface IndexDescriptor extends BaseDescriptor {
+  name: string; // Index name
+  columns: string[]; // Columns in the index
+  unique?: boolean; // Is it a UNIQUE index?
+  type?: 'btree' | 'hash' | 'fulltext' | 'spatial'; // Optional, useful for MySQL/Postgres
+}
+```
+
 ### 4.2 `DependencyDescriptor[]`
 
 Defines all dependencies of a generated file:

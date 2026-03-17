@@ -8,7 +8,7 @@ This bundle contains four linked documents intended to serve as your local-only 
 
 > Purpose: A single-source, human- and machine-readable canonical description of Corpdesk: vision, architecture, runtime principles, core modules, integration points, and the design philosophy.
 
-```
+
 # corpdesk_context.md
 
 ## 1. Identity & Vision
@@ -54,7 +54,7 @@ This bundle contains four linked documents intended to serve as your local-only 
 - Owner: George Oremo (EMP Services Ltd)
 - Project lead: (fill in)
 
-```
+
 
 ---
 
